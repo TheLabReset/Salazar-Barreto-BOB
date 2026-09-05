@@ -31,6 +31,30 @@ export default defineConfig({
       origins: [],
     },
   },
+  /**
+   * El servidor lo levanta Playwright, **construyendo antes**.
+   *
+   * Antes se daba por hecho que había un `next start` corriendo. Uno que llevaba
+   * media hora arriba seguía sirviendo el `.next` que un `next build` posterior
+   * había reemplazado: los catorce chunks de JavaScript devolvían 400, la página
+   * se pintaba en el servidor y no reaccionaba a nada, y el fallo salía como
+   * "no aparece el diálogo" en un test que no tenía nada que ver. Reconstruir
+   * cuesta un minuto y quita esa clase entera de fallo.
+   */
+  webServer: {
+    command: 'npm run build && npx next start -p 3200',
+    port: 3200,
+    reuseExistingServer: false,
+    timeout: 300_000,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    /**
+     * El resembrado se abre **solo aquí**. Es la ruta que borra la base y la
+     * vuelve a escribir desde la semilla: sin esta variable el endpoint no
+     * existe, y por eso no puede vivir en `.env`.
+     */
+    env: { PERMITIR_RESEMBRADO: 'si' },
+  },
   projects: [
     {
       name: 'movil',

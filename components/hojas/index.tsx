@@ -6,6 +6,8 @@ import { HojaCalculo } from './HojaCalculo'
 import { HojaHistorial } from './HojaHistorial'
 import { HojaPagarConDatos } from './HojaPagarConDatos'
 import { HojaWizard } from './HojaWizard'
+import { HojaAdminDatos } from './HojaAdminDatos'
+import { HojaCorregir } from './HojaCorregir'
 import { useContexto } from './Contexto'
 
 /**
@@ -31,6 +33,12 @@ export function Hojas() {
       return mes && dpto ? <HojaPagarConDatos mes={mes} dpto={dpto} /> : null
     case 'wizard':
       return <HojaWizard />
+    case 'export':
+      return <HojaAdminDatos modo="export" />
+    case 'cargos':
+      return <HojaAdminDatos modo="cargos" />
+    case 'corregir':
+      return mes ? <HojaCorregir mes={mes} /> : null
     default:
       return null
   }

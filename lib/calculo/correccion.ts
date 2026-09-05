@@ -78,3 +78,102 @@ export function proponerCorreccion(
 
   return validas.length === 1 ? validas[0]! : null
 }
+
+/**
+ * Por qué la lectura que se tecleó no es válida. Códigos, no texto: la frase la
+ * arma `COPYS.cierre.propuesta`, aquí solo se dice qué condición de §8 falló.
+ */
+export type MotivoLectura =
+  | 'retrocede'
+  | 'muyAlto'
+  | 'muyBajo'
+  | 'pasaFactura'
+  | 'bajoFactura'
+
+/** Las condiciones de §8 que **no** cumple una lectura, en el orden del documento. */
+export function motivosLectura(
+  valor: number,
+  anterior: number,
+  promedio: number,
+  objetivoM3: number,
+  otrosM3: number,
+): MotivoLectura[] {
+  const motivos: MotivoLectura[] = []
+  if (!(valor > anterior)) return ['retrocede']
+  const cons = valor - anterior
+  if (promedio > 0) {
+    if (cons > promedio * 2) motivos.push('muyAlto')
+    else if (cons < promedio * 0.2) motivos.push('muyBajo')
+  }
+  const dif = objetivoM3 - (otrosM3 + cons)
+  if (dif < 0) motivos.push('pasaFactura')
+  else if (dif > objetivoM3 * 0.08) motivos.push('bajoFactura')
+  return motivos
+}
+
+/** La propuesta que se le enseña al administrador, con todo lo que la frase necesita. */
+export interface PropuestaLectura extends Correccion {
+  dpto: string
+  /** Lo que se tecleó, tal cual. */
+  tecleado: number
+  /** El consumo que saldría de lo tecleado. */
+  consumoTecleado: number
+  /** Cuántas veces el promedio es ese consumo, redondeado. 0 si no hay promedio. */
+  veces: number
+  motivos: MotivoLectura[]
+}
+
+/**
+ * Revisa las siete lecturas contra el recibo y devuelve **la única** que parece
+ * un error de tecleo con una única corrección posible.
+ *
+ * **Pide las siete lecturas y los m³ del recibo, y con menos devuelve `null`.**
+ * No es cautela: es que las dos últimas condiciones de §8 comparan contra lo que
+ * facturó SEDAPAL y contra la suma de los otros seis medidores. Sin recibo,
+ * `objetivoM3` vale 0, `dif` sale negativo siempre y **ninguna** candidata pasa:
+ * medido sobre 11.329 lecturas distintas, cero propuestas. Con las lecturas a
+ * medias, `otrosM3` se queda corto y la condición del 8 % descarta todo igual.
+ *
+ * Por eso el paso 1 —que va antes del recibo— casi nunca propone nada, y quien
+ * de verdad dispara la revisión es el paso 2, en cuanto se escriben los m³.
+ * Es el primer momento del cierre en que la regla se puede evaluar.
+ *
+ * Si hay dos departamentos sospechosos, se calla igual que con dos candidatas:
+ * enseñar una propuesta cuando hay otra igual de probable dirige la vista al
+ * sitio equivocado.
+ */
+export function revisarLecturas(
+  lecturas: Readonly<Record<string, number>>,
+  anteriores: Readonly<Record<string, number>>,
+  promedios: Readonly<Record<string, number>>,
+  objetivoM3: number,
+  dptos: readonly string[],
+): PropuestaLectura | null {
+  if (!(objetivoM3 > 0)) return null
+  if (dptos.some((id) => lecturas[id] === undefined || anteriores[id] === undefined)) return null
+
+  const consumo = (id: string) => round2(lecturas[id]! - anteriores[id]!)
+  const encontradas: PropuestaLectura[] = []
+
+  for (const id of dptos) {
+    const tecleado = lecturas[id]!
+    const anterior = anteriores[id]!
+    const promedio = promedios[id] ?? 0
+    const otros = round2(
+      dptos.filter((o) => o !== id).reduce((s, o) => s + consumo(o), 0),
+    )
+    const candidata = proponerCorreccion(tecleado, anterior, promedio, objetivoM3, otros)
+    if (!candidata || candidata.valor === tecleado) continue
+    const consTecleado = round2(tecleado - anterior)
+    encontradas.push({
+      ...candidata,
+      dpto: id,
+      tecleado,
+      consumoTecleado: consTecleado,
+      veces: promedio > 0 ? Math.round(consTecleado / promedio) : 0,
+      motivos: motivosLectura(tecleado, anterior, promedio, objetivoM3, otros),
+    })
+  }
+
+  return encontradas.length === 1 ? encontradas[0]! : null
+}

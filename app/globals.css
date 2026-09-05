@@ -2381,3 +2381,15 @@
 .publicado-nota {
   margin: 22px 0 0;
 }
+
+.cargos-nota {
+  margin: 22px 0 0;
+  text-align: center;
+}
+
+.correccion-motivo {
+  margin-top: 22px;
+}
+.correccion-ayuda {
+  margin: 8px 0 0;
+}

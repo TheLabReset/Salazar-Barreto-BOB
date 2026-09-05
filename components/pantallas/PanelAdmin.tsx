@@ -17,7 +17,7 @@ import { RegistrarPago } from './RegistrarPago'
  * el cierre del mes, y al final el resto de ajustes.
  */
 export function PanelAdmin({ datos }: { datos: DatosAdmin }) {
-  const { abrir } = useHoja()
+  const { abrir, hoja } = useHoja()
 
   const avisados = datos.pagos.filter((p) => p.estado === 'aviso')
   const sinAviso = datos.pagos.filter((p) => p.estado === null)
@@ -26,7 +26,7 @@ export function PanelAdmin({ datos }: { datos: DatosAdmin }) {
   return (
     <div className="pantalla scroll-limpio admin-pantalla">
       {/* El mes que toca cerrar lo decide el servidor; la hoja lo lee de aquí. */}
-      <FijarContexto mes={datos.mesACerrar} dpto={null} />
+      <FijarContexto mes={hoja === 'corregir' ? datos.mesPublicado : datos.mesACerrar} dpto={null} />
       <div className="admin-barra">
         <Link href="/" className="circulo-atras" aria-label="Volver a Inicio">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -108,6 +108,12 @@ export function PanelAdmin({ datos }: { datos: DatosAdmin }) {
               Consumo del {datos.lavado.concepto} · {datos.lavado.dpto}
             </span>
             <span className="tipo-monto-lista">{fmt(datos.lavado.m3)} m³</span>
+          </button>
+        )}
+        {datos.mesPublicado && (
+          <button type="button" onClick={() => abrir('corregir')} className="admin-accion">
+            <span className="tipo-cuerpo-destacado">{COPYS.correccion.corregirMes}</span>
+            <span className="tipo-contexto text-gris">{datos.etiquetaPublicado}</span>
           </button>
         )}
         <button type="button" onClick={() => abrir('export')} className="admin-accion">

@@ -4,13 +4,15 @@ import { useState } from 'react'
 import { COPYS } from '@/lib/copys'
 import { DPTOS } from '@/lib/calculo/constantes'
 import { fmt, fmt3 } from '@/lib/calculo/redondeo'
-import { proponerCorreccion } from '@/lib/calculo/correccion'
+import { revisarLecturas } from '@/lib/calculo/correccion'
+import type { PropuestaLectura } from '@/lib/calculo/correccion'
 import { round2 } from '@/lib/calculo/redondeo'
 import type { DptoId } from '@/lib/calculo/tipos'
 import { useNumpad } from '@/components/Numpad'
 import type { PropsPaso } from './Wizard'
 import { BotonAvanzar } from './BotonAvanzar'
 import { AvisoBob } from './AvisoBob'
+import { PropuestaCorreccion } from './PropuestaCorreccion'
 
 /**
  * Paso 1 · Las lecturas. **El paso más delicado.** `04-cierre-del-mes.md`.
@@ -23,14 +25,12 @@ import { AvisoBob } from './AvisoBob'
  * si existe exactamente una candidata válida. Con dos o más se calla, porque
  * proponer la equivocada es peor que no proponer (`01` §8).
  */
+/** Los siete ids, en el orden del edificio. `revisarLecturas` los pide así. */
+const IDS = DPTOS.map((d) => d.id)
+
 export function Paso1Lecturas({ borrador, guardar, guardando, errorGuardar, avanzar }: PropsPaso) {
   const { abrir } = useNumpad()
-  const [propuesta, setPropuesta] = useState<{
-    dpto: DptoId
-    tecleado: number
-    valor: number
-    consumo: number
-  } | null>(null)
+  const [propuesta, setPropuesta] = useState<PropuestaLectura | null>(null)
 
   const anteriores = borrador.lecturasAnteriores
   /**
@@ -55,22 +55,23 @@ export function Paso1Lecturas({ borrador, guardar, guardando, errorGuardar, avan
       maxDecimales: 3,
       sufijo: null,
       onOk: (valor) => {
-        // Antes de guardar, ¿parece un error de tecleo con una única corrección?
-        const otros = DPTOS.filter((d) => d.id !== dpto).reduce((s, d) => {
-          const escrita = escritas[d.id]
-          const anterior = anteriores[d.id]
-          if (escrita === undefined || anterior === undefined) return s
-          return s + round2(escrita - anterior)
-        }, 0)
-        const candidata = proponerCorreccion(
-          valor,
-          anterior ?? 0,
-          borrador.promedios[dpto] ?? 0,
-          borrador.resultado.rec.aguaM3 || 0,
-          round2(otros),
+        /**
+         * ¿Parece un error de tecleo con una única corrección posible? La regla de
+         * §8 compara contra los m³ de SEDAPAL y contra los otros seis medidores,
+         * así que solo se puede evaluar con el recibo escrito y las siete lecturas
+         * puestas. En el orden del cierre eso pasa **después** de este paso: aquí
+         * la propuesta solo sale al reeditar una lectura al volver. Quien la
+         * dispara en el recorrido normal es el paso 2.
+         */
+        const candidata = revisarLecturas(
+          { ...escritas, [dpto]: valor },
+          anteriores,
+          borrador.promedios,
+          borrador.resultado.rec.aguaM3,
+          IDS,
         )
-        if (candidata && candidata.valor !== valor) {
-          setPropuesta({ dpto, tecleado: valor, valor: candidata.valor, consumo: candidata.consumo })
+        if (candidata && candidata.dpto === dpto) {
+          setPropuesta(candidata)
           return
         }
         void guardar('lecturas', { lecturas: { [dpto]: valor } })
@@ -86,6 +87,8 @@ export function Paso1Lecturas({ borrador, guardar, guardando, errorGuardar, avan
 
   const mantenerTecleado = () => {
     if (!propuesta) return
+    // Se guarda lo tecleado tal cual. La app no corrige sola ni deja el dato en
+    // el aire: el administrador dijo que es así y así queda.
     void guardar('lecturas', { lecturas: { [propuesta.dpto]: propuesta.tecleado } })
     setPropuesta(null)
   }
@@ -104,19 +107,12 @@ export function Paso1Lecturas({ borrador, guardar, guardando, errorGuardar, avan
       </div>
 
       {propuesta && (
-        <div className="cierre-correccion">
-          <AvisoBob>
-            {`¿Será ${fmt3(propuesta.valor)}? Con ${fmt3(propuesta.tecleado)} el consumo no cuadra con el resto de medidores ni con lo que facturó SEDAPAL.`}
-          </AvisoBob>
-          <div className="flex gap-acciones cierre-correccion-botones">
-            <button type="button" onClick={aceptarPropuesta} className="cierre-correccion-si">
-              Sí, es {fmt3(propuesta.valor)}
-            </button>
-            <button type="button" onClick={mantenerTecleado} className="cierre-correccion-no">
-              No, lo dejo así
-            </button>
-          </div>
-        </div>
+        <PropuestaCorreccion
+          propuesta={propuesta}
+          aceptar={aceptarPropuesta}
+          mantener={mantenerTecleado}
+          ocupado={guardando}
+        />
       )}
 
       {DPTOS.map((d) => {

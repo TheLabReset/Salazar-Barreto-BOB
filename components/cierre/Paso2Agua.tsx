@@ -1,12 +1,19 @@
 'use client'
 
+import { useState } from 'react'
 import { COPYS } from '@/lib/copys'
+import { DPTOS } from '@/lib/calculo/constantes'
+import { revisarLecturas } from '@/lib/calculo/correccion'
 import { fmt } from '@/lib/calculo/redondeo'
 import { useNumpad } from '@/components/Numpad'
 import type { PropsPaso } from './Wizard'
 import { BotonAvanzar } from './BotonAvanzar'
 import { AvisoBob } from './AvisoBob'
 import { CampoNumerico } from './CampoNumerico'
+import { PropuestaCorreccion } from './PropuestaCorreccion'
+
+/** Los siete ids, en el orden del edificio. */
+const IDS = DPTOS.map((d) => d.id)
 
 /**
  * Paso 2 · La factura de agua. `04-cierre-del-mes.md`.
@@ -14,12 +21,42 @@ import { CampoNumerico } from './CampoNumerico'
  * Las etiquetas dicen **de qué** es el consumo y **de qué** es la factura —nunca
  * "consumo" a secas—, porque el administrador tiene delante dos recibos y dos
  * cifras que se parecen.
+ *
+ * Aquí sale también la **corrección de tecleo** de `04` § *Corrección de tecleo*,
+ * aunque el documento la dibuje en el paso 1. No es una licencia: la regla de
+ * `01` §8 descarta candidatas comparando contra los m³ que facturó SEDAPAL y
+ * contra la suma de los otros seis medidores, y en el paso 1 todavía no hay
+ * recibo. Preguntada allí, `objetivoM3` vale 0, ninguna candidata sobrevive y la
+ * propuesta no aparece nunca —medido: cero en 11.329 lecturas—. El primer
+ * instante del cierre en que la regla se puede evaluar es este, en cuanto se
+ * escriben los m³. El paso 1 la conserva para cuando se vuelve a editar una
+ * lectura con el recibo ya puesto.
  */
 export function Paso2Agua({ borrador, guardar, guardando, errorGuardar, avanzar }: PropsPaso) {
   const { abrir } = useNumpad()
   const rec = borrador.resultado.rec
   const tieneM3 = rec.aguaM3 > 0
   const tieneMonto = rec.aguaMonto > 0
+
+  /**
+   * Las propuestas que el administrador ya descartó, en esta visita al paso.
+   *
+   * No se guardan en el servidor a propósito: la lectura sospechosa sigue
+   * siéndolo, y si se vuelve a este paso con el mismo recibo delante, la
+   * pregunta vuelve a ser pertinente. Callarla para siempre porque una vez se
+   * dijo "lo dejo así" es esconder un dato que aún no cuadra.
+   */
+  const [descartadas, setDescartadas] = useState<readonly string[]>([])
+
+  const sospecha = revisarLecturas(
+    borrador.lecturas,
+    borrador.lecturasAnteriores,
+    borrador.promedios,
+    rec.aguaM3,
+    IDS,
+  )
+  const propuesta =
+    sospecha && !descartadas.includes(`${sospecha.dpto}:${sospecha.tecleado}`) ? sospecha : null
 
   const bloqueo = tieneM3 && tieneMonto ? null : COPYS.cierre.faltanDos
 
@@ -61,6 +98,19 @@ export function Paso2Agua({ borrador, guardar, guardando, errorGuardar, avanzar 
           })
         }
       />
+
+      {propuesta && (
+        <PropuestaCorreccion
+          propuesta={propuesta}
+          aceptar={() =>
+            void guardar('lecturas', { lecturas: { [propuesta.dpto]: propuesta.valor } })
+          }
+          mantener={() =>
+            setDescartadas((d) => [...d, `${propuesta.dpto}:${propuesta.tecleado}`])
+          }
+          ocupado={guardando}
+        />
+      )}
 
       {tieneM3 && <AvisoBob tono="agua">{compararM3(rec.aguaM3, borrador.mes)}</AvisoBob>}
       {errorGuardar && <p className="tipo-cuerpo-menor text-ambar cierre-error">{errorGuardar}</p>}

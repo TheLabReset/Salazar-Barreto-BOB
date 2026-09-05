@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './basedatos'
 
 /**
  * El cierre del mes, de principio a fin. Fase 5 del verificador.
@@ -11,7 +11,6 @@ import { expect, test, type Page } from '@playwright/test'
  * Requiere sesión de administración: se obtiene con el PIN del entorno.
  */
 
-const PIN = process.env.ADMIN_PIN ?? '2026'
 const JULIO = {
   '101': '186461', '201': '185256', '202': '52513', '301': '441532',
   '401': '438038', '501': '232826', '502': '292678',
@@ -23,20 +22,6 @@ const ESPERADO_JULIO = {
     '101': '381.83', '201': '342.85', '202': '683.54', '301': '371.02',
     '401': '388.96', '501': '535.69', '502': '663.70',
   },
-}
-
-async function entrarComoAdmin(page: Page) {
-  const r = await page.request.post('/api/admin/pin', { data: { pin: PIN } })
-  expect(r.ok(), 'el PIN del entorno tiene que ser válido').toBeTruthy()
-}
-
-/** Rehace la base desde la semilla para que el test no dependa del anterior. */
-async function resembrar(page: Page) {
-  const r = await page.request.post('/api/pruebas/resembrar')
-  // El mensaje lleva el estado y el cuerpo: "solo existe fuera de producción"
-  // era una suposición, y cuando el fallo real era otro (dos tests resembrando
-  // a la vez) mandaba a mirar al sitio equivocado.
-  expect(r.ok(), `resembrar devolvió ${r.status()}: ${(await r.text()).slice(0, 200)}`).toBeTruthy()
 }
 
 /** Teclea un número en el teclado numérico propio. */
@@ -63,11 +48,6 @@ async function abrirCierre(page: Page) {
 test.describe.configure({ mode: 'serial' })
 
 test.describe('el cierre del mes, paso a paso', () => {
-  test.beforeEach(async ({ page }) => {
-    await entrarComoAdmin(page)
-    await resembrar(page)
-  })
-
   test('los siete pasos, y el resultado coincide con el motor al céntimo', async ({ page }) => {
     await abrirCierre(page)
 
@@ -144,6 +124,69 @@ test.describe('el cierre del mes, paso a paso', () => {
     await expect(page.getByRole('heading', { name: 'Las lecturas' })).toBeVisible()
     await expect(page.getByText('1 / 7')).toBeVisible()
     await expect(page.getByText('186.461')).toBeVisible()
+  })
+
+  /**
+   * La corrección de tecleo, en la pantalla y no en el motor.
+   *
+   * El motor de `01` §8 estaba probado desde la Fase 1 y **aun así la propuesta
+   * no salía nunca**: la regla descarta candidatas comparando contra los m³ de
+   * SEDAPAL, el paso 1 va antes del recibo, y preguntada allí `objetivoM3` vale
+   * 0 y ninguna candidata sobrevive. Cero propuestas en 11.329 lecturas. Este
+   * test existe porque el de motor no lo habría visto.
+   */
+  test('una lectura con dos dígitos transpuestos: Bob la propone y se acepta', async ({ page }) => {
+    await abrirCierre(page)
+    await page.getByRole('button', { name: 'Empezar', exact: true }).click()
+
+    // Las siete lecturas de julio, pero el 401 con los dígitos cambiados:
+    // 483.038 en vez de 438.038. Es el caso que enseña `04-cierre-del-mes.md`.
+    for (const [dpto, valor] of Object.entries({ ...JULIO, '401': '483038' })) {
+      await page.getByRole('button', { name: new RegExp(`^${dpto}\\b`) }).first().click()
+      await teclear(page, `${valor.slice(0, -3)}.${valor.slice(-3)}`)
+    }
+    // En el paso 1 todavía no hay recibo, así que nadie propone nada.
+    await expect(page.locator('[data-propuesta]')).toHaveCount(0)
+    await expect(page.getByText('7 / 7')).toBeVisible()
+    await page.getByRole('button', { name: 'Continuar' }).click()
+
+    // Paso 2: en cuanto se escriben los m³, la regla se puede evaluar.
+    await expect(page.getByRole('heading', { name: 'La factura de agua' })).toBeVisible()
+    await page.getByRole('button', { name: /Consumo de agua del edificio/ }).click()
+    await teclear(page, '81')
+
+    const propuesta = page.locator('[data-propuesta="401"]')
+    await expect(propuesta).toBeVisible()
+    // La frase, literal del documento de diseño.
+    await expect(propuesta).toContainText(
+      '¿Será 438.038? Con 483.038 el consumo sería 62.40 m³, cuatro veces tu promedio, ' +
+        'y el edificio pasaría de lo que facturó SEDAPAL.',
+    )
+
+    await propuesta.getByRole('button', { name: 'Sí, es 438.038' }).click()
+    await expect(page.locator('[data-propuesta]')).toHaveCount(0)
+
+    // Y la lectura quedó corregida en el servidor, no solo en la pantalla.
+    const borrador = await (await page.request.get('/api/meses/2026-07/borrador')).json()
+    expect(borrador.lecturas['401']).toBe(438.038)
+  })
+
+  test('con dos lecturas sospechosas a la vez, no propone ninguna', async ({ page }) => {
+    await abrirCierre(page)
+    await page.getByRole('button', { name: 'Empezar', exact: true }).click()
+
+    // El 401 y el 101, los dos con dígitos transpuestos. Señalar uno de los dos
+    // dirige la vista al sitio equivocado, así que se calla (`01` §8).
+    for (const [dpto, valor] of Object.entries({ ...JULIO, '401': '483038', '101': '816461' })) {
+      await page.getByRole('button', { name: new RegExp(`^${dpto}\\b`) }).first().click()
+      await teclear(page, `${valor.slice(0, -3)}.${valor.slice(-3)}`)
+    }
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await page.getByRole('button', { name: /Consumo de agua del edificio/ }).click()
+    await teclear(page, '81')
+
+    await expect(page.getByRole('heading', { name: 'La factura de agua' })).toBeVisible()
+    await expect(page.locator('[data-propuesta]')).toHaveCount(0)
   })
 
   test('con una lectura que no cuadra, el paso 6 bloquea la publicación', async ({ page }) => {

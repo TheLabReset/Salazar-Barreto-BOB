@@ -13,7 +13,25 @@
  */
 
 import { fmt } from './calculo/redondeo'
+import type { MotivoLectura } from './calculo/correccion'
 import type { EstadoCuota } from './estados'
+
+/**
+ * Los múltiplos en palabras, como los escribe `04`: *«cuatro veces tu promedio»*,
+ * no *«4 veces»*. Fuera del rango vuelve a la cifra: *«14 veces»* se lee bien y
+ * ninguna lista de palabras cubre un consumo que se disparó.
+ */
+const VECES: Record<number, string> = {
+  2: 'el doble de tu promedio',
+  3: 'tres veces tu promedio',
+  4: 'cuatro veces tu promedio',
+  5: 'cinco veces tu promedio',
+  6: 'seis veces tu promedio',
+  7: 'siete veces tu promedio',
+  8: 'ocho veces tu promedio',
+  9: 'nueve veces tu promedio',
+  10: 'diez veces tu promedio',
+}
 
 export const COPYS = {
   app: {
@@ -205,6 +223,46 @@ export const COPYS = {
     consumo: (m3: string) => `consumo ${m3} m³`,
     escribirLectura: 'escribir la lectura',
     consumoAlto: (dpto: string) => `Es más del doble de lo habitual del ${dpto}. ¿Es correcto?`,
+    /**
+     * La propuesta de corrección de tecleo. `04-cierre-del-mes.md` § *Corrección de tecleo*.
+     *
+     * El documento la enseña con un caso: *«¿Será 438.038? Con 483.038 el consumo
+     * sería 62.40 m³, cuatro veces tu promedio, y el edificio pasaría de lo que
+     * facturó SEDAPAL.»* Esa frase se reproduce **literal** para ese caso —hay un
+     * test que la compara carácter a carácter—, pero no se escribe fija: las dos
+     * razones que enumera no son ciertas en todos los casos. Una lectura puede
+     * fallar por quedarse **corta** contra la factura, o por retroceder. Un aviso
+     * que afirma lo que no pasó es peor que no avisar, así que se arma con las
+     * razones que de verdad se cumplen (`motivosLectura`).
+     */
+    propuesta: (p: {
+      valor: string
+      tecleado: string
+      consumoTecleado: string
+      veces: number
+      motivos: readonly MotivoLectura[]
+    }) => {
+      const cabeza = `¿Será ${p.valor}? Con ${p.tecleado} el consumo sería ${p.consumoTecleado} m³`
+      const razones = p.motivos.map((m) => {
+        switch (m) {
+          case 'retrocede':
+            return 'el medidor habría retrocedido'
+          case 'muyAlto':
+            return VECES[p.veces] ?? `${p.veces} veces tu promedio`
+          case 'muyBajo':
+            return 'muy por debajo de tu promedio'
+          case 'pasaFactura':
+            return 'el edificio pasaría de lo que facturó SEDAPAL'
+          case 'bajoFactura':
+            return 'el edificio quedaría muy por debajo de lo que facturó SEDAPAL'
+        }
+      })
+      if (razones.length === 0) return `${cabeza}.`
+      if (razones.length === 1) return `${cabeza}, ${razones[0]}.`
+      return `${cabeza}, ${razones.slice(0, -1).join(', ')}, y ${razones[razones.length - 1]}.`
+    },
+    propuestaSi: (valor: string) => `Sí, es ${valor}`,
+    propuestaNo: 'No, lo dejo así',
     faltaUna: 'Falta una lectura',
     faltanVarias: (n: number) => `Faltan ${n} lecturas`,
     // Paso 2
@@ -272,6 +330,21 @@ export const COPYS = {
     publicado: (mes: string) => `${mes} ya está publicado`,
     publicadoTexto: 'Los siete ya pueden ver sus cuotas y la nota del mes.',
     volverAlPanel: 'Volver al panel',
+  },
+
+  // ── Corregir un mes publicado · 04 §"Corregir un mes ya publicado" ─────
+  correccion: {
+    titulo: (mes: string) => `Corregir ${mes}`,
+    intro:
+      'Está permitido, y deja rastro. Al guardar se recalculan las cuotas y les llega un aviso a los siete con qué cambió.',
+    lecturas: 'Las lecturas de este mes',
+    motivo: 'Qué estás corrigiendo',
+    motivoAyuda: 'Lo van a leer los siete en el aviso. Una línea basta.',
+    guardar: 'Guardar la corrección y avisar',
+    sinCambios: 'Cambia algo para poder corregir',
+    sinMotivo: 'Escribe qué estás corrigiendo',
+    hecho: 'Listo, los siete ya lo saben',
+    corregirMes: 'Corregir un mes publicado',
   },
 
   // ── Administración ─────────────────────────────────────────────────────
