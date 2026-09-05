@@ -11,6 +11,12 @@ import { useHoja } from './Hojas'
  *
  * Lleva **trampa de foco**: con la hoja abierta, tabular no puede salirse a la
  * pantalla de atrás. Es lo que `02` §8 marca como pendiente.
+ *
+ * Y el panel es alcanzable con el tabulador (`tabIndex={0}`), no solo por
+ * programa. Con `-1` era focusable para el código y nadie más: las hojas de solo
+ * lectura —el cálculo del mes, el consumo de agua— no tienen ni un botón dentro,
+ * así que quien navega con teclado no podía llegar a ellas **ni desplazarlas**.
+ * Una hoja llena de cifras que no se puede bajar es una hoja vacía.
  */
 
 const ALTURAS = {
@@ -41,9 +47,14 @@ export function Hoja({
     panel.current?.focus()
     const alTabular = (ev: KeyboardEvent) => {
       if (ev.key !== 'Tab' || !panel.current) return
-      const focos = panel.current.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
-      )
+      // El propio panel entra en la lista: es el primer alto del recorrido y,
+      // en una hoja de solo lectura, el único.
+      const focos = [
+        panel.current,
+        ...panel.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ]
       if (focos.length === 0) return
       const primero = focos[0]!
       const ultimo = focos[focos.length - 1]!
@@ -70,7 +81,7 @@ export function Hoja({
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
-        tabIndex={-1}
+        tabIndex={0}
         className={`hoja animar-hoja scroll-limpio ${ALTURAS[altura]}`}
       >
         <div className="asa-contenedor">

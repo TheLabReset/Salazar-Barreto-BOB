@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { fmt } from '@/lib/calculo/redondeo'
 import { nombreMes } from '@/lib/calculo/mes'
 import type { DptoId, MesId } from '@/lib/calculo/tipos'
+import { COPYS } from '@/lib/copys'
+import { useAnuncio } from '@/components/Anuncio'
 import { Hoja } from './Hoja'
 import { useHoja } from './Hojas'
 
@@ -28,6 +30,7 @@ export function HojaPagar({
   cuenta: { banco: string; numero: string; cci: string; titular: string }
 }) {
   const { abrir, cerrar } = useHoja()
+  const anunciar = useAnuncio()
   const router = useRouter()
   const [copiado, setCopiado] = useState(false)
 
@@ -43,6 +46,10 @@ export function HojaPagar({
       return cuerpo
     },
     onSuccess: () => {
+      // El aviso a lector de pantalla va **antes** de abrir la hoja: la hoja
+      // mueve el foco y anuncia su propio título, y si el estado se dijera
+      // después, los dos anuncios se pisarían.
+      anunciar(COPYS.anuncios.pagoAvisado(nombreMes(mes)))
       router.refresh()
       abrir('aviso-ok')
     },

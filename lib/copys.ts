@@ -195,6 +195,25 @@ export const COPYS = {
     lecturasDelMes: (mes: string) => `No se pudieron traer las lecturas de ${mes}.`,
   },
 
+  /**
+   * Lo que oye un lector de pantalla cuando **cambia el estado de un pago**.
+   *
+   * `02` §8 lo pide explícitamente y era lo que faltaba: la píldora cambia de
+   * color y de texto, pero quien no la ve no se entera de que su mes pasó a otro
+   * estado. Se dice qué pasó y qué significa, no solo la etiqueta nueva.
+   */
+  anuncios: {
+    pagoAvisado: (mes: string) =>
+      `Listo. Tu cuota de ${mes} pasó a en verificación: dejas de figurar como pendiente y quien administra lo confirma contra el estado de cuenta.`,
+    pagoConfirmado: (dpto: string, mes: string) =>
+      `El pago del ${dpto} de ${mes} queda confirmado. Al día.`,
+    mesPublicado: (mes: string) => `${mes} ya está publicado. Los siete pueden verlo.`,
+    correccionHecha: (cuantas: number) =>
+      cuantas === 0
+        ? 'Corrección guardada. Ninguna cuota cambió de monto, y los siete tienen el aviso.'
+        : `Corrección guardada. Cambiaron ${cuantas} ${cuantas === 1 ? 'cuota' : 'cuotas'}, y los siete tienen el aviso.`,
+  },
+
   // ── Sin conexión · Fase 6 ──────────────────────────────────────────────
   /**
    * El aviso de que el teléfono no tiene señal.

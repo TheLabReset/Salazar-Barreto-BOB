@@ -12,6 +12,13 @@ import { fmt } from '@/lib/calculo/redondeo'
  * dinero, celeste para agua.
  *
  * Al tocar una barra sale un tooltip noche con el valor exacto.
+ *
+ * **No es `role="img"`.** Lo fue, y era un defecto de accesibilidad de verdad:
+ * `img` dice «esto es una imagen, léela como una sola cosa», y dentro hay siete
+ * botones con el dato exacto de cada mes. Un lector de pantalla se quedaba con
+ * el título del gráfico y perdía las siete cifras. Con `group`, cada barra se
+ * anuncia con su etiqueta y su valor —que es justamente lo que el producto
+ * promete: que cada número se pueda mirar de cerca—.
  */
 
 export interface Barra {
@@ -41,7 +48,7 @@ export function Barras({
   const maximo = Math.max(...barras.map((b) => b.valor), 0) || 1
 
   return (
-    <div className="relative" role="img" aria-label={titulo}>
+    <div className="relative" role="group" aria-label={titulo}>
       <div className={`flex items-end gap-barras ${alto === 'mes' ? 'h-grafico-mes' : 'h-grafico-edificio'}`}>
         {barras.map((b) => {
           const activa = b.id === destacado

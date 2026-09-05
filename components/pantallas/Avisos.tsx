@@ -101,7 +101,17 @@ export function Avisos({ dpto, avisos }: { dpto: DptoId; avisos: readonly AvisoV
                     </div>
                     <p className="tipo-cuerpo-menor text-gris aviso-texto">{a.detalle}</p>
                   </div>
-                  {!a.leido && <span className="punto bg-terra aviso-nuevo" aria-label="Sin leer" />}
+                  {/* El punto de "sin leer" es color, y el color nunca es el
+                      único portador de información (`02` §8). El texto va aparte
+                      y solo lo oye el lector de pantalla: un `aria-label` sobre
+                      un `<span>` sin rol no lo lee nadie —lo dice axe y es
+                      cierto—, así que decoraba y no informaba. */}
+                  {!a.leido && (
+                    <>
+                      <span className="punto bg-terra aviso-nuevo" aria-hidden="true" />
+                      <span className="sr-only">Sin leer.</span>
+                    </>
+                  )}
                 </article>
               )
             })}

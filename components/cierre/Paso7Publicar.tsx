@@ -5,6 +5,7 @@ import { useMutation } from '@tanstack/react-query'
 import { COPYS } from '@/lib/copys'
 import { fmt } from '@/lib/calculo/redondeo'
 import type { PropsPaso } from './Wizard'
+import { useAnuncio } from '@/components/Anuncio'
 import { BotonAvanzar } from './BotonAvanzar'
 
 /**
@@ -22,6 +23,7 @@ export function Paso7Publicar({
   nombreMes,
   onPublicado,
 }: PropsPaso & { onPublicado: (total: number) => void }) {
+  const anunciar = useAnuncio()
   const c = borrador.resultado
   const [notas, setNotas] = useState({
     quePaso: borrador.notaQuePaso ?? redactarQuePaso(borrador, nombreMes),
@@ -45,7 +47,10 @@ export function Paso7Publicar({
       if (!r.ok) throw new Error(cuerpo.error ?? 'No se pudo publicar')
       return cuerpo as { totalMes: number }
     },
-    onSuccess: (d) => onPublicado(d.totalMes),
+    onSuccess: (d) => {
+      anunciar(COPYS.anuncios.mesPublicado(nombreMes))
+      onPublicado(d.totalMes)
+    },
   })
 
   const campos = [

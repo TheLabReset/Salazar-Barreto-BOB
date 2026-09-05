@@ -4,6 +4,9 @@ import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { fmt } from '@/lib/calculo/redondeo'
 import { fechaCorta } from '@/lib/formato'
+import { nombreMes } from '@/lib/calculo/mes'
+import { COPYS } from '@/lib/copys'
+import { useAnuncio } from '@/components/Anuncio'
 import type { FilaPago } from '@/lib/datos/admin'
 import type { MesId } from '@/lib/calculo/tipos'
 
@@ -16,6 +19,7 @@ import type { MesId } from '@/lib/calculo/tipos'
  */
 export function RegistrarPago({ pago, mes }: { pago: FilaPago; mes: MesId }) {
   const router = useRouter()
+  const anunciar = useAnuncio()
   const confirmar = useMutation({
     mutationFn: async () => {
       const r = await fetch('/api/pagos/confirmar', {
@@ -27,7 +31,13 @@ export function RegistrarPago({ pago, mes }: { pago: FilaPago; mes: MesId }) {
       if (!r.ok) throw new Error(cuerpo.error ?? 'No se pudo confirmar')
       return cuerpo
     },
-    onSuccess: () => router.refresh(),
+    onSuccess: () => {
+      // La fila desaparece de "falta confirmar" y reaparece más abajo en
+      // "confirmados". Sin decirlo, quien no ve la pantalla solo nota que el
+      // botón que acaba de tocar ya no está.
+      anunciar(COPYS.anuncios.pagoConfirmado(pago.dpto, nombreMes(mes)))
+      router.refresh()
+    },
   })
 
   return (
@@ -50,6 +60,7 @@ export function RegistrarPago({ pago, mes }: { pago: FilaPago; mes: MesId }) {
         type="button"
         onClick={() => confirmar.mutate()}
         aria-disabled={confirmar.isPending}
+        aria-label={`Confirmar contra el estado de cuenta el pago del ${pago.dpto}, ${pago.nombre}`}
         className="admin-pago-boton"
       >
         {confirmar.isPending ? 'Confirmando…' : 'Confirmar contra el estado de cuenta'}

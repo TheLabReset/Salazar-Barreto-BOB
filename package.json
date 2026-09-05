@@ -19,7 +19,9 @@
     "prueba-negativa": "node scripts/prueba-negativa.mjs",
     "medir-tolerancia": "tsx scripts/medir-tolerancia.mjs",
     "golden": "node scripts/generar-golden.mjs",
-    "test:integracion": "vitest run --config vitest.integracion.config.ts"
+    "test:integracion": "vitest run --config vitest.integracion.config.ts",
+    "iconos": "node scripts/generar-iconos.mjs",
+    "lighthouse": "node scripts/lighthouse.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -42,6 +44,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "fast-check": "^4.9.0",
+    "lighthouse": "^13.4.1",
     "postcss": "^8.5.28",
     "prisma": "^6.19.3",
     "tailwindcss": "^4.3.3",

@@ -9,6 +9,7 @@ import { etiquetaMes, nombreMes } from '@/lib/calculo/mes'
 import { fmt, fmt3 } from '@/lib/calculo/redondeo'
 import type { DptoId, MesId, ResultadoMes } from '@/lib/calculo/tipos'
 import { useNumpad } from '@/components/Numpad'
+import { useAnuncio } from '@/components/Anuncio'
 import { Hoja } from './Hoja'
 import { useHoja } from './Hojas'
 
@@ -32,6 +33,7 @@ export function HojaCorregir({
 }) {
   const { cerrar } = useHoja()
   const { abrir } = useNumpad()
+  const anunciar = useAnuncio()
   const router = useRouter()
   // Se abre por el más reciente, que es el que casi siempre se corrige.
   const [mes, setMes] = useState<MesId>(publicados[0]?.mes ?? ('2026-01' as MesId))
@@ -60,6 +62,7 @@ export function HojaCorregir({
       return cuerpo as { cuotasQueCambiaron: number }
     },
     onSuccess: (d) => {
+      anunciar(COPYS.anuncios.correccionHecha(d.cuotasQueCambiaron))
       setHecho(
         d.cuotasQueCambiaron === 0
           ? 'Ninguna cuota cambió de monto, pero el cambio queda registrado y avisado.'
