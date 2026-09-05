@@ -5,7 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { COPYS } from '@/lib/copys'
 import { DPTOS } from '@/lib/calculo/constantes'
-import { etiquetaMes } from '@/lib/calculo/mes'
+import { etiquetaMes, nombreMes } from '@/lib/calculo/mes'
 import { fmt, fmt3 } from '@/lib/calculo/redondeo'
 import type { DptoId, MesId, ResultadoMes } from '@/lib/calculo/tipos'
 import { useNumpad } from '@/components/Numpad'
@@ -29,9 +29,9 @@ export function HojaCorregir({ mes }: { mes: MesId }) {
   const [motivo, setMotivo] = useState('')
   const [hecho, setHecho] = useState<string | null>(null)
 
-  const { data } = useQuery({
+  const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['mes', mes],
-    queryFn: async (): Promise<{ resultado: ResultadoMes }> => {
+    queryFn: async (): Promise<{ resultado: ResultadoMes; version: number }> => {
       const r = await fetch(`/api/meses/${mes}`)
       if (!r.ok) throw new Error('No se pudo cargar el mes')
       return r.json()
@@ -43,7 +43,7 @@ export function HojaCorregir({ mes }: { mes: MesId }) {
       const r = await fetch(`/api/meses/${mes}/corregir`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ lecturas: cambios, motivo }),
+        body: JSON.stringify({ lecturas: cambios, motivo, version: data?.version ?? 0 }),
       })
       const cuerpo = await r.json()
       if (!r.ok) throw new Error(cuerpo.error ?? 'No se pudo corregir')
@@ -60,6 +60,18 @@ export function HojaCorregir({ mes }: { mes: MesId }) {
   })
 
   const c = data?.resultado
+
+  /**
+   * Si el mes no se pudo traer, se dice **por qué** y no se le echa la culpa a
+   * quien mira.
+   *
+   * Las siete filas de lecturas están detrás de `c?.valido &&`; la etiqueta «Las
+   * lecturas de este mes» y el botón no lo estaban. Con la consulta caída se
+   * veía el título, la promesa de que las lecturas estaban ahí abajo, un hueco,
+   * y un botón mandando «Cambia algo para poder corregir» sobre una lista vacía.
+   */
+  const noSePudo = isError || (!isPending && !c)
+
   const bloqueo =
     Object.keys(cambios).length === 0
       ? COPYS.correccion.sinCambios
@@ -81,6 +93,24 @@ export function HojaCorregir({ mes }: { mes: MesId }) {
     )
   }
 
+  if (noSePudo) {
+    return (
+      <Hoja titulo={COPYS.correccion.titulo(etiquetaMes(mes))} altura="alta">
+        <div className="hoja-cuerpo">
+          <h2 className="tipo-titulo-hoja cierre-titulo">
+            {COPYS.correccion.titulo(etiquetaMes(mes))}
+          </h2>
+          <p className="tipo-cuerpo-menor text-ambar">
+            {(error as Error | null)?.message ?? COPYS.error.lecturasDelMes(nombreMes(mes))}
+          </p>
+          <button type="button" onClick={() => void refetch()} className="cierre-boton">
+            {COPYS.error.reintentar}
+          </button>
+        </div>
+      </Hoja>
+    )
+  }
+
   return (
     <Hoja titulo={COPYS.correccion.titulo(etiquetaMes(mes))} altura="alta">
       <div className="hoja-cuerpo">
@@ -88,6 +118,7 @@ export function HojaCorregir({ mes }: { mes: MesId }) {
         <p className="tipo-cuerpo-chico text-gris cierre-intro">{COPYS.correccion.intro}</p>
 
         <p className="tipo-etiqueta-seccion text-gris revision-etiqueta">{COPYS.correccion.lecturas}</p>
+        {isPending && <p className="tipo-cuerpo-menor text-gris">Cargando…</p>}
         {c?.valido &&
           DPTOS.map((d) => {
             const actual = cambios[d.id] ?? c.cuotas[d.id].lecturaActual

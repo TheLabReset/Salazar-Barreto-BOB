@@ -2393,3 +2393,29 @@
 .correccion-ayuda {
   margin: 8px 0 0;
 }
+
+/* ── Sin conexión · Fase 6 ────────────────────────────────────────────────
+   Una banda ámbar bajo el notch, sobre todo lo demás. Ámbar y no rojo: el
+   sistema de color de `02` §1 reserva el rojo para nada, y desconectarse no es
+   una falta de nadie. Se apoya en `--top` para no meterse bajo el notch. */
+.sin-conexion {
+  position: absolute;
+  inset: var(--top) 0 auto;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-fila-x);
+  padding: var(--spacing-pildora-y) var(--spacing-pantalla);
+  background: var(--color-ambar-suave);
+  color: var(--color-terra-texto);
+  text-align: center;
+}
+
+.sin-conexion-icono {
+  flex: none;
+}
+
+.sin-conexion-texto {
+  min-width: 0;
+}

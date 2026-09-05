@@ -5,6 +5,7 @@ import { Marco } from '@/components/Marco'
 import { ProveedoresCliente } from './layout-cliente'
 import { Hojas } from '@/components/hojas'
 import { NavSiCorresponde } from '@/components/NavSiCorresponde'
+import { SinConexion } from '@/components/SinConexion'
 import { dptoElegido } from '@/lib/sesion'
 import { COLOR_TEMA } from '@/lib/tema'
 import './globals.css'
@@ -62,6 +63,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <ProveedoresCliente>
           <Marco>
+            <SinConexion />
             {children}
             <NavSiCorresponde hayDpto={dpto !== null} />
             <Hojas />

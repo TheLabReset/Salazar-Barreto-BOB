@@ -118,6 +118,8 @@ export interface PropuestaLectura extends Correccion {
   tecleado: number
   /** El consumo que saldría de lo tecleado. */
   consumoTecleado: number
+  /** La lectura del mes pasado, para poder decirla en la frase. */
+  anterior: number
   /** Cuántas veces el promedio es ese consumo, redondeado. 0 si no hay promedio. */
   veces: number
   motivos: MotivoLectura[]
@@ -169,7 +171,20 @@ export function revisarLecturas(
       ...candidata,
       dpto: id,
       tecleado,
+      anterior,
       consumoTecleado: consTecleado,
+      /**
+       * Al más cercano, porque **así lo escribe el diseño**.
+       *
+       * `04` enseña la frase con 62.40 m³ sobre un promedio de 17 —3.67 veces— y
+       * la llama *«cuatro veces tu promedio»*. Redondear hacia abajo daría
+       * «tres» y rompería el copy literal.
+       *
+       * El caso incómodo que eso deja —2.4 veces anunciado como «el doble»— se
+       * resuelve en el texto y no en la aritmética: `VECES[2]` dice «más del
+       * doble», que es cierto por construcción, porque `muyAlto` exige que el
+       * consumo pase estrictamente del doble del promedio.
+       */
       veces: promedio > 0 ? Math.round(consTecleado / promedio) : 0,
       motivos: motivosLectura(tecleado, anterior, promedio, objetivoM3, otros),
     })

@@ -33,6 +33,19 @@ async function teclear(page: Page, digitos: string) {
   await page.getByRole('button', { name: 'Guardar', exact: true }).click()
 }
 
+/**
+ * La versión del cierre de un mes, para el bloqueo optimista.
+ *
+ * Es obligatoria en toda escritura sobre un mes: sin ella la petición se
+ * rechaza con 400. Los tests que llaman a la API directamente tienen que
+ * comportarse como el cliente de verdad, o estarían probando otro contrato.
+ */
+async function versionDe(page: Page, mes: string): Promise<number> {
+  const r = await page.request.get(`/api/meses/${mes}`)
+  expect(r.ok(), `leer la versión de ${mes}`).toBeTruthy()
+  return (await r.json()).version as number
+}
+
 async function abrirCierre(page: Page) {
   await page.goto('/admin')
   await page.getByRole('button', { name: /Empezar|Seguir con/ }).click()
@@ -40,12 +53,16 @@ async function abrirCierre(page: Page) {
 }
 
 /**
- * En serie y con un solo worker: **todos estos tests escriben en la misma base**
- * y cada uno la rehace desde la semilla. En paralelo se pisaban entre ellos y el
- * fallo aparecía en un test distinto del que lo causaba, que es la peor forma de
- * depurar algo.
+ * **No en serie.** Cada test toma el cerrojo de la base y la rehace desde la
+ * semilla, así que no dependen del orden ni se pisan.
+ *
+ * Estuvieron en `mode: 'serial'` y fue peor: en serie, un test que falla marca
+ * los siguientes del fichero como *did not run*. Una corrida real salió
+ * `93 passed / 1 failed / 2 did not run` y los dos que se saltaron incluían la
+ * única cobertura de la reasignación de agua — un resumen que de reojo se lee
+ * como un flake y esconde dos huecos. La regla de la casa es no cortar en el
+ * primer rojo.
  */
-test.describe.configure({ mode: 'serial' })
 
 test.describe('el cierre del mes, paso a paso', () => {
   test('los siete pasos, y el resultado coincide con el motor al céntimo', async ({ page }) => {
@@ -171,13 +188,67 @@ test.describe('el cierre del mes, paso a paso', () => {
     expect(borrador.lecturas['401']).toBe(438.038)
   })
 
+  /**
+   * La rama del paso 1: reeditar una lectura **con el recibo ya escrito**.
+   *
+   * No la ejercía nadie. Lo único que había del paso 1 era la comprobación de
+   * que la propuesta *no* sale antes del recibo, y esa rama tenía además un
+   * comportamiento propio: enseñaba la propuesta y **no guardaba** lo tecleado
+   * hasta que el administrador pulsara uno de los dos botones. Cerrar la hoja
+   * ahí perdía la lectura, en el paso cuya promesa es que se guarda solo.
+   */
+  test('al volver al paso 1 con el recibo puesto, propone y no pierde lo tecleado', async ({ page }) => {
+    await abrirCierre(page)
+    await page.getByRole('button', { name: 'Empezar', exact: true }).click()
+    for (const [dpto, valor] of Object.entries(JULIO)) {
+      await page.getByRole('button', { name: new RegExp(`^${dpto}\\b`) }).first().click()
+      await teclear(page, `${valor.slice(0, -3)}.${valor.slice(-3)}`)
+    }
+    await page.getByRole('button', { name: 'Continuar' }).click()
+
+    // El recibo, que es lo que hace evaluable la regla de §8.
+    await page.getByRole('button', { name: /Consumo de agua del edificio/ }).click()
+    await teclear(page, '81')
+    await page.getByRole('button', { name: /Monto de la factura de agua/ }).click()
+    await teclear(page, '338.60')
+
+    // Y se vuelve al paso 1 a reeditar el 401, esta vez mal.
+    await page.getByRole('button', { name: 'Volver al paso anterior' }).click()
+    await expect(page.getByRole('heading', { name: 'Las lecturas' })).toBeVisible()
+    await page.getByRole('button', { name: /^401\b/ }).first().click()
+    for (let i = 0; i < 12; i++) {
+      await page.getByRole('button', { name: 'Borrar', exact: true }).click()
+    }
+    await teclear(page, '483.038')
+
+    const propuesta = page.locator('[data-propuesta="401"]')
+    await expect(propuesta).toBeVisible()
+
+    // Antes de decidir nada, lo tecleado **ya está en el servidor**.
+    const enEspera = await (await page.request.get('/api/meses/2026-07/borrador')).json()
+    expect(enEspera.lecturas['401']).toBe(483.038)
+
+    // Y decir que no lo deja como está.
+    await propuesta.getByRole('button', { name: 'No, lo dejo así' }).click()
+    await expect(page.locator('[data-propuesta]')).toHaveCount(0)
+    const despues = await (await page.request.get('/api/meses/2026-07/borrador')).json()
+    expect(despues.lecturas['401']).toBe(483.038)
+  })
+
   test('con dos lecturas sospechosas a la vez, no propone ninguna', async ({ page }) => {
     await abrirCierre(page)
     await page.getByRole('button', { name: 'Empezar', exact: true }).click()
 
-    // El 401 y el 101, los dos con dígitos transpuestos. Señalar uno de los dos
-    // dirige la vista al sitio equivocado, así que se calla (`01` §8).
-    for (const [dpto, valor] of Object.entries({ ...JULIO, '401': '483038', '101': '816461' })) {
+    // Dos lecturas mal a la vez: el 101 con dos dígitos cambiados (184.661 por
+    // 186.461) y el 201 con uno mal (175.256 por 185.256).
+    //
+    // La escena que había antes —el 401 y el 101 transpuestos— **no producía
+    // ningún sospechoso**, así que el test pasaba por vacío: quitarle la regla lo
+    // dejaba igual de verde. Con estas dos, la regla encuentra tres candidatos
+    // (201, 301 y 401) y **dos de los tres están bien tecleados**: con más de una
+    // lectura mala, la suma de los otros medidores se descoloca para todos y
+    // señalar a uno manda a mirar al sitio equivocado. Por eso se calla.
+    for (const [dpto, valor] of Object.entries({ ...JULIO, '101': '184661', '201': '175256' })) {
       await page.getByRole('button', { name: new RegExp(`^${dpto}\\b`) }).first().click()
       await teclear(page, `${valor.slice(0, -3)}.${valor.slice(-3)}`)
     }
@@ -216,7 +287,12 @@ test.describe('el cierre del mes, paso a paso', () => {
 
     // Y aunque se llame a la API directamente, tampoco publica.
     const r = await page.request.post('/api/meses/2026-07/publicar', {
-      data: { notaQuePaso: 'x', notaQueCambio: 'x', notaQuePendiente: 'x' },
+      data: {
+        notaQuePaso: 'x',
+        notaQueCambio: 'x',
+        notaQuePendiente: 'x',
+        version: await versionDe(page, '2026-07'),
+      },
     })
     expect(r.status()).toBe(409)
     expect((await r.json()).error).toContain('no cuadra')
@@ -225,7 +301,12 @@ test.describe('el cierre del mes, paso a paso', () => {
   test('publicar dos veces falla limpiamente', async ({ page }) => {
     // Junio ya está publicado en la semilla.
     const r = await page.request.post('/api/meses/2026-06/publicar', {
-      data: { notaQuePaso: 'x', notaQueCambio: 'x', notaQuePendiente: 'x' },
+      data: {
+        notaQuePaso: 'x',
+        notaQueCambio: 'x',
+        notaQuePendiente: 'x',
+        version: await versionDe(page, '2026-06'),
+      },
     })
     expect(r.status()).toBe(409)
     expect((await r.json()).error).toContain('ya estaba publicado')
@@ -238,12 +319,15 @@ test.describe('el cierre del mes, paso a paso', () => {
     // La semilla deja julio vacío: se cargan sus datos como haría el cierre.
     for (const [dpto, valor] of Object.entries(JULIO)) {
       const r = await page.request.put('/api/meses/2026-07/lecturas', {
-        data: { lecturas: { [dpto]: Number(`${valor.slice(0, -3)}.${valor.slice(-3)}`) } },
+        data: {
+          lecturas: { [dpto]: Number(`${valor.slice(0, -3)}.${valor.slice(-3)}`) },
+          version: await versionDe(page, '2026-07'),
+        },
       })
       expect(r.ok(), `guardar la lectura del ${dpto}`).toBeTruthy()
     }
     const rec = await page.request.put('/api/meses/2026-07/recibo', {
-      data: { aguaM3: 81, aguaMonto: 338.6, luz: 361.2 },
+      data: { aguaM3: 81, aguaMonto: 338.6, luz: 361.2, version: await versionDe(page, '2026-07') },
     })
     expect(rec.ok()).toBeTruthy()
 
@@ -251,7 +335,9 @@ test.describe('el cierre del mes, paso a paso', () => {
     expect(conLavado.resultado.lavado).toBe(1.5)
     const aguaConLavado = conLavado.resultado.cuotas['401'].agua
 
-    const r = await page.request.put('/api/meses/2026-07/reasignaciones', { data: { activa: false } })
+    const r = await page.request.put('/api/meses/2026-07/reasignaciones', {
+      data: { activa: false, version: await versionDe(page, '2026-07') },
+    })
     expect(r.ok()).toBeTruthy()
 
     const julio = await (await page.request.get('/api/meses/2026-07')).json()

@@ -25,3 +25,16 @@ export function fechaCorta(iso: string | null | undefined): string {
 export function capitalizar(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
+
+/**
+ * Une una lista en castellano: comas, y una sola «y» al final.
+ *
+ * `join(' y ')` encadenaba: *«la lectura del 202 y la lectura del 301 y la
+ * lectura del 401»*. Con dos elementos se lee bien y por eso pasó desapercibido;
+ * con tres o más, no. Este texto lo leen los siete en el aviso.
+ */
+export function enumerar(partes: readonly string[]): string {
+  if (partes.length === 0) return ''
+  if (partes.length === 1) return partes[0]!
+  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`
+}

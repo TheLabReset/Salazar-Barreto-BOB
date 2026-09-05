@@ -16,6 +16,7 @@ import {
   zGuardarRecibo, zMes, zPublicar, zValidarPin,
 } from '@/lib/esquemas'
 import { guardarGastos, guardarLecturas, guardarRecibo, publicarMes } from '@/lib/servicios/cierre'
+import { guardarGastosFijos } from '@/lib/servicios/gastosFijos'
 import { avisarPago, confirmarPago } from '@/lib/servicios/pagos'
 import { validarPin } from '@/lib/servicios/admin'
 import { ErrorDeApi } from '@/lib/servicios/errores'
@@ -33,6 +34,25 @@ beforeAll(async () => {
 afterAll(async () => {
   await prisma.$disconnect()
 })
+
+/**
+ * Exige que la base rechace algo **por la restricción que se dice probar**.
+ *
+ * `rejects.toThrow()` a secas pasa con cualquier error: un «record not found»
+ * porque la fila no existía, un `TypeError` por un campo mal escrito, o la
+ * propia base caída. Cuatro tests de este fichero decían probar un CHECK y solo
+ * probaban que algo saltó — si el CHECK desapareciera, seguirían en verde.
+ */
+async function laBaseLoRechazaPor(accion: () => Promise<unknown>, restriccion: string): Promise<void> {
+  try {
+    await accion()
+  } catch (e) {
+    const texto = e instanceof Error ? e.message : String(e)
+    if (texto.includes(restriccion)) return
+    throw new Error(`Se esperaba que fallara por "${restriccion}" y falló por otra cosa:\n${texto}`)
+  }
+  throw new Error(`Se esperaba que la base rechazara por "${restriccion}" y no rechazó nada`)
+}
 
 /** Ejecuta y devuelve el `ErrorDeApi`, o falla si no hubo error. */
 async function falla(accion: () => Promise<unknown>): Promise<ErrorDeApi> {
@@ -101,9 +121,10 @@ describe('un monto negativo', () => {
   })
 
   it('la base lo rechaza aunque el servicio se olvidara', async () => {
-    await expect(
-      prisma.recibo.update({ where: { mes: EN_CURSO }, data: { aguaMonto: -1 } }),
-    ).rejects.toThrow()
+    await laBaseLoRechazaPor(
+      () => prisma.recibo.update({ where: { mes: EN_CURSO }, data: { aguaMonto: -1 } }),
+      'agua_monto_no_negativo',
+    )
   })
 })
 
@@ -115,9 +136,10 @@ describe('un descuento mayor que el monto de la factura', () => {
   })
 
   it('la base también, por si acaso', async () => {
-    await expect(
-      prisma.recibo.update({ where: { mes: EN_CURSO }, data: { descuento: 99999 } }),
-    ).rejects.toThrow()
+    await laBaseLoRechazaPor(
+      () => prisma.recibo.update({ where: { mes: EN_CURSO }, data: { descuento: 99999 } }),
+      'descuento_no_supera_el_monto',
+    )
   })
 })
 
@@ -131,9 +153,10 @@ describe('un departamento que no existe', () => {
   })
 
   it('la base rechaza una lectura de un departamento inexistente', async () => {
-    await expect(
-      prisma.lectura.create({ data: { mes: EN_CURSO, dptoId: '999', valor: '100' } }),
-    ).rejects.toThrow()
+    await laBaseLoRechazaPor(
+      () => prisma.lectura.create({ data: { mes: EN_CURSO, dptoId: '999', valor: '100' } }),
+      'lectura_dptoId_fkey',
+    )
   })
 })
 
@@ -145,19 +168,61 @@ describe('un crédito sin departamento', () => {
   })
 
   it('la base lo rechaza con su CHECK', async () => {
-    await expect(
-      prisma.gastoExtra.create({
-        data: { mes: EN_CURSO, tipo: 'credito', concepto: 'x', monto: '50', dptoId: null },
-      }),
-    ).rejects.toThrow()
+    await laBaseLoRechazaPor(
+      () =>
+        prisma.gastoExtra.create({
+          data: { mes: EN_CURSO, tipo: 'credito', concepto: 'x', monto: '50', dptoId: null },
+        }),
+      'credito_exige_dpto',
+    )
   })
 
   it('un gasto CON departamento también se rechaza: lo pagan los siete', async () => {
-    await expect(
-      prisma.gastoExtra.create({
-        data: { mes: EN_CURSO, tipo: 'gasto', concepto: 'x', monto: '50', dptoId: '401' },
+    await laBaseLoRechazaPor(
+      () =>
+        prisma.gastoExtra.create({
+          data: { mes: EN_CURSO, tipo: 'gasto', concepto: 'x', monto: '50', dptoId: '401' },
+        }),
+      'gasto_no_lleva_dpto',
+    )
+  })
+})
+
+/**
+ * Un gasto fijo no se puede escribir sobre un mes **ya publicado**.
+ *
+ * El servicio comprobaba que un cambio no reescribiera los meses *anteriores* a
+ * `vigenteDesde`, y no comprobaba el propio `vigenteDesde`. Medido contra la
+ * API: con junio publicado, un PUT sobre junio subió la cuota del 101 de
+ * S/ 373.82 a S/ 1,355.25, el vecino veía la nueva, y el aviso que salía decía
+ * «los meses ya cerrados no cambian».
+ *
+ * El caso real son dos aparatos: el cierre abierto en el paso 4 del móvil,
+ * publicado desde la laptop, y un toque más en el móvil sobre la pestaña vieja.
+ */
+describe('editar un gasto fijo de un mes ya publicado', () => {
+  it('se rechaza con 409, y la cuota del mes no se mueve', async () => {
+    const antes = await resultadoDeMes(PUBLICADO)
+    const cuotaAntes = antes.valido ? antes.cuotas['101'].total : null
+
+    const error = await falla(() =>
+      guardarGastosFijos({
+        cambios: [{ concepto: 'Guardianía · Jorge', monto: 9999 }],
+        vigenteDesde: PUBLICADO,
       }),
-    ).rejects.toThrow()
+    )
+    expect(error.estado).toBe(409)
+
+    const despues = await resultadoDeMes(PUBLICADO)
+    expect(despues.valido && despues.cuotas['101'].total).toBe(cuotaAntes)
+  })
+
+  it('y sobre el mes en curso sí se puede: es lo que hace el paso 4', async () => {
+    const r = await guardarGastosFijos(
+      { cambios: [{ concepto: 'Insumos limpieza', monto: 45 }], vigenteDesde: EN_CURSO },
+      true,
+    )
+    expect(r.cambiados).toHaveLength(1)
   })
 })
 
@@ -290,13 +355,26 @@ describe('inyección y cuerpos absurdos', () => {
   })
 
   it('un monto con tres decimales se rechaza: el dinero va en céntimos', () => {
-    expect(zGuardarRecibo.safeParse({ aguaMonto: 325.123 }).success).toBe(false)
-    expect(zGuardarRecibo.safeParse({ aguaMonto: 325.12 }).success).toBe(true)
+    expect(zGuardarRecibo.safeParse({ aguaMonto: 325.123, version: 0 }).success).toBe(false)
+    expect(zGuardarRecibo.safeParse({ aguaMonto: 325.12, version: 0 }).success).toBe(true)
   })
 
   it('los m³ del recibo tienen que venir en entero, como en el papel', () => {
-    expect(zGuardarRecibo.safeParse({ aguaM3: 78.5 }).success).toBe(false)
-    expect(zGuardarRecibo.safeParse({ aguaM3: 78 }).success).toBe(true)
+    expect(zGuardarRecibo.safeParse({ aguaM3: 78.5, version: 0 }).success).toBe(false)
+    expect(zGuardarRecibo.safeParse({ aguaM3: 78, version: 0 }).success).toBe(true)
+  })
+
+  /**
+   * La versión del bloqueo optimista es **obligatoria** en la petición.
+   *
+   * Era opcional, y `tomarVersion` no comprueba nada cuando le llega
+   * `undefined`: cualquier cliente que omitiera el campo se saltaba el bloqueo
+   * entero y pisaba lo que estuviera escribiendo la otra pestaña, sin ruido.
+   */
+  it('una escritura del cierre sin versión se rechaza en la puerta', () => {
+    expect(zGuardarRecibo.safeParse({ aguaM3: 78 }).success).toBe(false)
+    expect(zGuardarLecturas.safeParse({ lecturas: { '101': 186.461 } }).success).toBe(false)
+    expect(zGuardarLecturas.safeParse({ lecturas: { '101': 186.461 }, version: 0 }).success).toBe(true)
   })
 
   it('confirmar un pago con una fecha inventada se rechaza', () => {

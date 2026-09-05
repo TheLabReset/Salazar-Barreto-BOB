@@ -33,6 +33,7 @@ export function PropuestaCorreccion({
         {COPYS.cierre.propuesta({
           valor: fmt3(propuesta.valor),
           tecleado: fmt3(propuesta.tecleado),
+          anterior: fmt3(propuesta.anterior),
           consumoTecleado: fmt(propuesta.consumoTecleado),
           veces: propuesta.veces,
           motivos: propuesta.motivos,

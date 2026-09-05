@@ -13,13 +13,13 @@
 import { prisma } from '@/lib/datos/prisma'
 import { aDecimal2, aDecimal3, aNumero, aNumeroObligatorio } from '@/lib/datos/decimal'
 import { entradasDeMes, resultadoDeMes } from '@/lib/datos/mes'
-import { calcularMes } from '@/lib/calculo/calcularMes'
 import { nombreMes } from '@/lib/calculo/mes'
+import { enumerar } from '@/lib/formato'
 import { fmt } from '@/lib/calculo/redondeo'
 import { DPTO_IDS } from '@/lib/calculo/constantes'
-import type { DptoId, MesId, ResultadoMes } from '@/lib/calculo/tipos'
+import type { MesId } from '@/lib/calculo/tipos'
 import type { GuardarGastos, GuardarLecturas, GuardarRecibo, Publicar } from '@/lib/esquemas'
-import { auditar, avisarSiPublicado, type Tx } from './auditoria'
+import { auditar } from './auditoria'
 import { cierreDe, exigirNoPublicado, tomarVersion } from './bloqueo'
 import { conflicto, peticionMala } from './errores'
 
@@ -184,25 +184,44 @@ export async function guardarReasignacion(mes: MesId, activa: boolean, version?:
       valorNuevo: String(activa),
       mes,
     })
-    await avisarSiPublicado(tx, mes, {
-      tipo: 'reasignacion',
-      titulo: activa
-        ? `El lavado del ${reasignacion.dptoId} vuelve a aplicarse en ${nombreMes(mes)}`
-        : `El lavado del ${reasignacion.dptoId} queda desactivado en ${nombreMes(mes)}`,
-      detalle: activa
-        ? `${fmt(aNumeroObligatorio(reasignacion.m3))} m³ se descuentan del área común y se le suman al ${reasignacion.dptoId}.`
-        : `El área común vuelve a repartirse entre los siete. El total del mes no cambia.`,
-      mes,
-    })
+    /**
+     * Aquí **no** se avisa, y no por olvido: `exigirNoPublicado` de arriba ya ha
+     * lanzado un 409 si el mes estaba publicado, así que un `avisarSiPublicado`
+     * en este punto no puede dispararse nunca. Estaba escrito, con sus dos
+     * textos, y daba la falsa impresión de que este camino avisaba a alguien.
+     *
+     * Es correcto que no avise: la casilla es una tecla del paso 5, y de los
+     * pasos 1 a 6 los vecinos no se enteran de nada. El aviso sale al publicar.
+     */
     return { version: nuevaVersion }
   })
 }
 
-/** Guardar el paso en el que se quedó el administrador. */
+/**
+ * Guardar el paso en el que se quedó el administrador.
+ *
+ * No sube la versión —moverse de paso no cambia ningún dato, y hacerlo
+ * invalidaría la pestaña de al lado por navegar—, pero **sí deja rastro**: la
+ * regla de `06` §3 es que toda escritura se audita, sin excepciones, y ésta no
+ * lo hacía. Y sí exige que el mes no esté publicado: un mes cerrado no vuelve
+ * al paso 3.
+ */
 export async function guardarPaso(mes: MesId, paso: number) {
   return prisma.$transaction(async (tx) => {
-    await cierreDe(tx, mes)
+    await exigirNoPublicado(tx, mes)
+    const cierre = await cierreDe(tx, mes)
+    if (cierre.paso === paso) return { paso }
     await tx.cierre.update({ where: { mes }, data: { paso } })
+    await auditar(tx, {
+      usuario: ADMIN,
+      accion: 'editar',
+      entidad: 'cierre',
+      entidadId: mes,
+      campo: 'paso',
+      valorAnterior: cierre.paso,
+      valorNuevo: paso,
+      mes,
+    })
     return { paso }
   })
 }
@@ -230,15 +249,22 @@ export async function publicarMes(mes: MesId, datos: Publicar) {
 
   return prisma.$transaction(async (tx) => {
     const cierre = await cierreDe(tx, mes)
-    if (cierre.publicado) {
-      throw conflicto('Este mes ya estaba publicado.')
-    }
-    if (datos.version !== undefined && datos.version !== cierre.version) {
-      throw conflicto('Alguien más guardó cambios en este mes. Recarga para ver lo último.')
-    }
 
-    await tx.cierre.update({
-      where: { mes },
+    /**
+     * Publicar es **una sola sentencia condicional**, no leer-comparar-escribir.
+     *
+     * Con `findUnique` y luego `update`, dos publicaciones a la vez —un doble
+     * toque en el botón del paso 7 desde un móvil lento— pasaban las dos: dos
+     * apuntes de auditoría, la versión subiendo de 2 a 4, y los siete recibiendo
+     * «Ya está el cierre de julio» por duplicado. `publicado: false` en el
+     * `WHERE` hace que la segunda afecte a cero filas.
+     */
+    const tomado = await tx.cierre.updateMany({
+      where: {
+        mes,
+        publicado: false,
+        ...(datos.version === undefined ? {} : { version: datos.version }),
+      },
       data: {
         publicado: true,
         publicadoPor: ADMIN,
@@ -252,6 +278,44 @@ export async function publicarMes(mes: MesId, datos: Publicar) {
         instantanea: JSON.parse(JSON.stringify(resultado)),
       },
     })
+    if (tomado.count === 0) {
+      const actual = await tx.cierre.findUnique({
+        where: { mes },
+        select: { publicado: true, version: true },
+      })
+      throw conflicto(
+        actual?.publicado
+          ? 'Este mes ya estaba publicado.'
+          : 'Alguien más guardó cambios en este mes. Recarga para ver lo último.',
+        { versionEsperada: actual?.version ?? cierre.version, versionRecibida: datos.version },
+      )
+    }
+    /**
+     * Se congelan los m³ del lavado con los que se publicó este mes.
+     *
+     * Sin esto, el valor vivía solo en `ReasignacionAgua.m3` —uno global— y
+     * cambiarlo desde el panel movía las cuotas de los meses **ya publicados**:
+     * de 1.50 a 3.00 son S/ 6.25 en la cuota de junio del 401, con el aviso a
+     * los siete jurando que los meses cerrados no se tocan. Un mes publicado es
+     * un hecho: lo que cambie después aplica a los siguientes.
+     */
+    const reasignacion = await tx.reasignacionAgua.findFirst({ where: { desde: { lte: mes } } })
+    if (reasignacion) {
+      // `resultado.lavado` son los m³ del lavado con los que se acaba de calcular
+      // el mes, ya sea porque la reasignación está activa o 0 si se desmarcó.
+      const activa = resultado.lavado > 0
+      await tx.reasignacionActivaEnMes.upsert({
+        where: { reasignacionId_mes: { reasignacionId: reasignacion.id, mes } },
+        create: {
+          reasignacionId: reasignacion.id,
+          mes,
+          activa,
+          m3: activa ? reasignacion.m3 : null,
+        },
+        update: { activa, m3: activa ? reasignacion.m3 : null },
+      })
+    }
+
     await auditar(tx, {
       usuario: ADMIN,
       accion: 'publicar',
@@ -283,17 +347,29 @@ export async function publicarMes(mes: MesId, datos: Publicar) {
  */
 export async function corregirMes(
   mes: MesId,
-  datos: { lecturas?: Record<string, number>; recibo?: Record<string, number | null>; motivo: string },
+  datos: {
+    lecturas?: Record<string, number>
+    recibo?: Record<string, number | null>
+    motivo: string
+    version?: number
+  },
 ) {
-  const antes = await resultadoDeMes(mes)
-
   return prisma.$transaction(async (tx) => {
     const cierre = await tx.cierre.findUnique({ where: { mes } })
     if (!cierre?.publicado) {
       throw conflicto('Este mes no está publicado: se edita desde el cierre, sin avisar a nadie.')
     }
 
-    const cambios: { que: string; de: string; a: string }[] = []
+    /**
+     * El "antes" se lee **dentro** de la transacción.
+     *
+     * Fuera, dos correcciones simultáneas del mismo mes leían las dos el mismo
+     * estado inicial, las dos salían bien, y los dos avisos a los siete citaban
+     * el mismo «pasó de S/ …» — cierto solo para la primera.
+     */
+    const antes = await resultadoDeMes(mes, {}, tx)
+
+    const cambios: { que: string; de: string; a: string; dpto?: string }[] = []
 
     for (const [dpto, valor] of Object.entries(datos.lecturas ?? {})) {
       const anterior = await tx.lectura.findUnique({ where: { mes_dptoId: { mes, dptoId: dpto } } })
@@ -308,7 +384,12 @@ export async function corregirMes(
         usuario: ADMIN, accion: 'corregir', entidad: 'lectura', entidadId: `${mes}/${dpto}`,
         campo: 'valor', valorAnterior: de, valorNuevo: valor, mes,
       })
-      cambios.push({ que: `la lectura del ${dpto}`, de: de === null ? '—' : de.toFixed(3), a: valor.toFixed(3) })
+      cambios.push({
+        que: `la lectura del ${dpto}`,
+        de: de === null ? '—' : de.toFixed(3),
+        a: valor.toFixed(3),
+        dpto,
+      })
     }
 
     if (datos.recibo) {
@@ -356,14 +437,22 @@ export async function corregirMes(
     if (cambios.length === 0) throw peticionMala('No hay nada que corregir: los valores son los mismos.')
 
     // Recalcular con lo ya escrito, dentro de la misma transacción.
-    const despues = await recalcularEnTransaccion(tx, mes)
+    // Se recalcula con **la misma** función que usa el resto de la app, leyendo
+    // dentro de la transacción para ver lo que se acaba de escribir. Aquí vivía
+    // una segunda copia de `entradasDeMes`, y las dos se separaron: la de aquí
+    // no heredaba la marca del lavado del mes anterior, así que el aviso a los
+    // siete citaba un monto que la app no cobraba.
+    const despues = await resultadoDeMes(mes, {}, tx)
     if (!despues.valido || !despues.cuadra) {
       throw conflicto('Con esa corrección el mes deja de cuadrar, así que no se guarda.', {
         motivo: despues.motivoInvalido, motivos: despues.motivosSanidad,
       })
     }
 
-    await tx.cierre.update({ where: { mes }, data: { version: { increment: 1 } } })
+    // El bloqueo optimista, también aquí: dos correcciones a la vez sobre el
+    // mismo mes salían las dos bien y cada aviso citaba un "pasó de S/ …" que
+    // solo era cierto para la primera.
+    await tomarVersion(tx, mes, datos.version)
 
     // El aviso a los siete, con el monto anterior y el nuevo de quien cambió.
     const cambiaron = DPTO_IDS.filter(
@@ -375,7 +464,7 @@ export async function corregirMes(
     await tx.aviso.create({
       data: {
         tipo: 'correccion',
-        titulo: `Se corrigió ${cambios.map((c) => c.que).join(' y ')} en ${nombreMes(mes)}`,
+        titulo: tituloDeCorreccion(cambios, mes),
         detalle: `${datos.motivo}${detalleCuotas ? ` ${detalleCuotas}` : ' Ninguna cuota cambió de monto.'}`,
         mes,
       },
@@ -385,65 +474,28 @@ export async function corregirMes(
   })
 }
 
-/** Recalcula un mes leyendo dentro de la transacción, no del cliente global. */
-async function recalcularEnTransaccion(tx: Tx, mes: MesId): Promise<ResultadoMes> {
-  const [lecturas, anteriores, recibo, fijos, extras, reasignacion] = await Promise.all([
-    tx.lectura.findMany({ where: { mes } }),
-    tx.lectura.findMany({ where: { mes: mesAnteriorDe(mes) } }),
-    tx.recibo.findUnique({ where: { mes } }),
-    tx.gastoFijo.findMany({ where: { vigenteDesde: { lte: mes } }, orderBy: [{ orden: 'asc' }, { vigenteDesde: 'asc' }] }),
-    tx.gastoExtra.findMany({ where: { mes } }),
-    tx.reasignacionAgua.findFirst({ where: { desde: { lte: mes } }, include: { activaEn: true } }),
-  ])
+/**
+ * El título del aviso de corrección, que leen los siete.
+ *
+ * Agrupa las lecturas en vez de repetir «la lectura del» una vez por
+ * departamento: con `join(' y ')` salía *«la lectura del 202 y la lectura del
+ * 301 y la lectura del 401»*. Con dos se leía bien —por eso pasó desapercibido—
+ * y con tres, no.
+ */
+function tituloDeCorreccion(
+  cambios: readonly { que: string; dpto?: string }[],
+  mes: MesId,
+): string {
+  const dptos = cambios.filter((c) => c.dpto).map((c) => c.dpto!)
+  const otros = cambios.filter((c) => !c.dpto).map((c) => c.que)
 
-  const mapa = (filas: { dptoId: string; valor: unknown }[]) => {
-    const salida: Record<string, number> = {}
-    for (const f of filas) salida[f.dptoId] = Number(String(f.valor))
-    return salida
-  }
-  const porConcepto = new Map<string, (typeof fijos)[number]>()
-  for (const f of fijos) porConcepto.set(f.concepto, f)
+  const partes: string[] = []
+  if (dptos.length === 1) partes.push(`la lectura del ${dptos[0]}`)
+  else if (dptos.length > 1) partes.push(`las lecturas del ${enumerar(dptos)}`)
+  partes.push(...otros)
 
-  const marca = reasignacion?.activaEn.find((a) => a.mes === mes)
-  const lavadoM3 = !reasignacion
-    ? 0
-    : marca
-      ? marca.activa
-        ? Number(String(reasignacion.m3))
-        : 0
-      : Number(String(reasignacion.m3))
-
-  return calcularMes({
-    mesId: mes,
-    recibo: recibo
-      ? {
-          aguaM3: recibo.aguaM3,
-          aguaMonto: Number(String(recibo.aguaMonto)),
-          luz: Number(String(recibo.luz)),
-          descuento: recibo.descuento === null ? null : Number(String(recibo.descuento)),
-        }
-      : null,
-    lecturas: mapa(lecturas) as Record<DptoId, number>,
-    lecturasAnteriores: mapa(anteriores) as Record<DptoId, number>,
-    fijos: [...porConcepto.values()]
-      .sort((a, b) => a.orden - b.orden)
-      .map((f) => ({
-        concepto: f.concepto,
-        monto: f.monto === null ? null : Number(String(f.monto)),
-        ...(f.anual ? { anual: true } : {}),
-      })),
-    extras: extras.map((e) =>
-      e.tipo === 'credito'
-        ? { tipo: 'credito' as const, concepto: e.concepto, monto: Number(String(e.monto)), dpto: e.dptoId as DptoId }
-        : { tipo: 'gasto' as const, concepto: e.concepto, monto: Number(String(e.monto)) },
-    ),
-    lavadoM3,
-  })
-}
-
-function mesAnteriorDe(mes: MesId): MesId {
-  const [a, m] = mes.split('-').map(Number) as [number, number]
-  return m === 1 ? (`${a - 1}-12` as MesId) : (`${a}-${String(m - 1).padStart(2, '0')}` as MesId)
+  const verbo = cambios.length === 1 ? 'Se corrigió' : 'Se corrigieron'
+  return `${verbo} ${enumerar(partes)} en ${nombreMes(mes)}`
 }
 
 export { entradasDeMes }

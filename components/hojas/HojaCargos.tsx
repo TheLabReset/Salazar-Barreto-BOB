@@ -3,8 +3,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { fmt } from '@/lib/calculo/redondeo'
-import { etiquetaMes } from '@/lib/calculo/mes'
-import type { MesId } from '@/lib/calculo/tipos'
+import { esMesId, nombreMes } from '@/lib/calculo/mes'
 import { useNumpad } from '@/components/Numpad'
 import { Hoja } from './Hoja'
 
@@ -16,6 +15,10 @@ import { Hoja } from './Hoja'
  *
  * Los gastos puntuales de un solo mes **no** están aquí: se añaden en el paso 5
  * del cierre, y son otra cosa.
+ *
+ * Cambiar el consumo **no reescribe el pasado**: al publicar un mes se congelan
+ * sus m³. La hoja lo dice antes de que se toque el número, porque el efecto de
+ * este botón llega a la cuota de siete personas.
  */
 export function HojaCargos({
   lavado,
@@ -24,6 +27,20 @@ export function HojaCargos({
 }) {
   const { abrir } = useNumpad()
   const router = useRouter()
+
+  /**
+   * El mes desde el que aplica, en minúscula y dentro de la frase.
+   *
+   * `etiquetaMes` devuelve `'Mayo 2026'` con mayúscula —vale para un título, no
+   * para el medio de una oración— y encima revienta la hoja entera si el valor
+   * no tiene forma de mes. Aquí `desde` viene de la base como texto: se
+   * comprueba antes de convertirlo, y si no lo es, la frase se calla en vez de
+   * llevarse la pantalla por delante.
+   */
+  const desde =
+    lavado && esMesId(lavado.desde)
+      ? `${nombreMes(lavado.desde)} de ${lavado.desde.slice(0, 4)}`
+      : null
 
   const cambiar = useMutation({
     mutationFn: async (m3: number) => {
@@ -56,8 +73,12 @@ export function HojaCargos({
               <span className="tipo-monto-lista shrink-0">{fmt(lavado.m3)} m³</span>
             </div>
             <p className="tipo-cuerpo-menor text-gris midpto-lavado-texto">
-              Sale del caño común, así que se resta del área común y se le suma al {lavado.dpto}. Activo desde{' '}
-              {etiquetaMes(lavado.desde as MesId)}.
+              Sale del caño común, así que se resta del área común y se le suma al {lavado.dpto}.{' '}
+              {desde === null ? 'Activo.' : `Activo desde ${desde}.`}
+            </p>
+            <p className="tipo-contexto text-gris midpto-lavado-texto">
+              Un cambio aplica desde el mes que se está cerrando. Los meses ya publicados no se
+              tocan.
             </p>
             {cambiar.isError && (
               <p className="tipo-cuerpo-menor text-ambar pagar-error">{(cambiar.error as Error).message}</p>
@@ -84,8 +105,8 @@ export function HojaCargos({
         )}
 
         <p className="tipo-cuerpo-menor text-gris cargos-nota">
-          No hay otros cargos ni créditos activos. Los gastos puntuales de un solo mes se añaden en el paso 5
-          al cerrar el mes.
+          {lavado ? 'No hay otros cargos ni créditos activos.' : 'No hay cargos ni créditos activos.'}{' '}
+          Los gastos puntuales de un solo mes se añaden en el paso 5 al cerrar el mes.
         </p>
       </div>
     </Hoja>

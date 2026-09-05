@@ -1,30 +1,60 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { COPYS } from '@/lib/copys'
 import type { DatosAdmin } from '@/lib/datos/admin'
 import { Hoja } from './Hoja'
 import { HojaCargos } from './HojaCargos'
 import { HojaExport } from './HojaExport'
 
-/** Carga lo que necesitan las dos hojas del panel que dependen de la base. */
+/**
+ * Carga lo que necesitan las dos hojas del panel que dependen de la base.
+ *
+ * **Tres estados, no dos.** *Cargando*, *error* y *listo* se dicen distinto.
+ * Con `isLoading || !data` en una sola rama, un fallo dejaba la hoja diciendo
+ * «Cargando…» para siempre: en TanStack Query v5, al agotarse el reintento
+ * `isLoading` pasa a `false` y `data` sigue `undefined`, así que la guarda caía
+ * igual en la rama de carga. Un PIN caducado o un 500 se veían como un giro sin
+ * fin y sin una palabra.
+ */
 export function HojaAdminDatos({ modo }: { modo: 'export' | 'cargos' }) {
-  const { data, isLoading } = useQuery({
+  const titulo = modo === 'export' ? 'Exportar el año' : 'Cargos y créditos'
+  const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['admin'],
     queryFn: async (): Promise<DatosAdmin> => {
       const r = await fetch('/api/admin/panel')
-      if (!r.ok) throw new Error('No se pudo cargar')
+      // El 401 se distingue: no es que la app falle, es que hay que volver a
+      // entrar con el PIN, y decirlo ahorra una llamada al vecino que administra.
+      if (r.status === 401) throw new Error(COPYS.error.sesionCaducada)
+      if (!r.ok) throw new Error(COPYS.error.noSePudo)
       return r.json()
     },
   })
 
-  if (isLoading || !data) {
+  if (isPending) {
     return (
-      <Hoja titulo={modo === 'export' ? 'Exportar el año' : 'Cargos y créditos'}>
+      <Hoja titulo={titulo}>
         <div className="hoja-cuerpo">
           <p className="tipo-cuerpo-menor text-gris">Cargando…</p>
         </div>
       </Hoja>
     )
   }
+
+  if (isError || !data) {
+    return (
+      <Hoja titulo={titulo}>
+        <div className="hoja-cuerpo">
+          <p className="tipo-cuerpo-menor text-ambar">
+            {(error as Error | null)?.message ?? COPYS.error.noSePudo}
+          </p>
+          <button type="button" onClick={() => void refetch()} className="cierre-boton">
+            {COPYS.error.reintentar}
+          </button>
+        </div>
+      </Hoja>
+    )
+  }
+
   return modo === 'export' ? <HojaExport anios={data.anios} /> : <HojaCargos lavado={data.lavado} />
 }

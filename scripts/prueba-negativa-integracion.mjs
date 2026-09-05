@@ -23,8 +23,20 @@ const DEFECTOS = [
     "      await Promise.resolve({\n        usuario: ADMIN,\n        accion: anterior ? 'editar' : 'crear',\n        entidad: 'lectura',"],
   ['servicios/cierre.ts', 'dejar publicar un mes que no cuadra',
     '  if (!resultado.cuadra) {', '  if (false) {'],
+  // Publicar volvió a ser leer-comparar-escribir: se quita `publicado: false`
+  // del WHERE y la segunda publicación simultánea vuelve a colarse.
   ['servicios/cierre.ts', 'dejar publicar dos veces',
-    '    if (cierre.publicado) {\n      throw conflicto(\'Este mes ya estaba publicado.\')\n    }', '    if (false) {\n      throw conflicto(\'Este mes ya estaba publicado.\')\n    }'],
+    '        publicado: false,\n        ...(datos.version === undefined ? {} : { version: datos.version }),',
+    '        ...(datos.version === undefined ? {} : { version: datos.version }),'],
+  // Los m³ del lavado vuelven a leerse del valor global: cambiar el consumo
+  // reescribe las cuotas de los meses ya publicados.
+  ['datos/mes.ts', 'que el lavado vuelva a reescribir el pasado',
+    '  if (marcaDelMes) return marcaDelMes.activa ? vigente(marcaDelMes.m3) : 0',
+    '  if (marcaDelMes) return marcaDelMes.activa ? aNumeroObligatorio(reasignacion.m3) : 0'],
+  // Los gastos fijos vuelven a poder escribirse sobre un mes ya publicado.
+  ['servicios/gastosFijos.ts', 'editar un gasto fijo de un mes publicado',
+    '    await exigirNoPublicado(tx, datos.vigenteDesde)',
+    '    if (false) await exigirNoPublicado(tx, datos.vigenteDesde)'],
   ['servicios/cierre.ts', 'permitir escribir en un mes publicado',
     '    await exigirNoPublicado(tx, mes)\n    const version = await tomarVersion(tx, mes, datos.version)\n\n    for (const [dpto, valor] of Object.entries(datos.lecturas))',
     '    const version = await tomarVersion(tx, mes, datos.version)\n\n    for (const [dpto, valor] of Object.entries(datos.lecturas))'],
@@ -58,6 +70,37 @@ if (!base.verde) {
 console.log('Punto de partida: suite de integración en verde.\n')
 
 let sinDetectar = 0
+/**
+ * Igual que en `prueba-negativa.mjs`: este script escribe defectos en el árbol
+ * de trabajo real, y si lo matan a mitad se quedan puestos.
+ */
+const pendientes = new Map()
+
+function restaurarTodo() {
+  for (const [ruta, contenido] of pendientes) {
+    try {
+      fs.writeFileSync(ruta, contenido)
+    } catch {
+      // Nada más que hacer.
+    }
+  }
+  pendientes.clear()
+}
+
+process.on('exit', restaurarTodo)
+for (const senal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(senal, () => {
+    restaurarTodo()
+    console.error(`\nInterrumpido (${senal}). El árbol quedó como estaba.`)
+    process.exit(130)
+  })
+}
+process.on('uncaughtException', (e) => {
+  restaurarTodo()
+  console.error('\nSe rompió el script. El árbol quedó como estaba.\n', e)
+  process.exit(2)
+})
+
 for (const [archivo, descripcion, buscar, reemplazar] of DEFECTOS) {
   const ruta = path.join(RAIZ, 'lib', archivo)
   const original = fs.readFileSync(ruta, 'utf8')
@@ -66,9 +109,11 @@ for (const [archivo, descripcion, buscar, reemplazar] of DEFECTOS) {
     sinDetectar++
     continue
   }
+  pendientes.set(ruta, original)
   fs.writeFileSync(ruta, original.replace(buscar, reemplazar))
   const { verde, salida } = correr()
   fs.writeFileSync(ruta, original)
+  pendientes.delete(ruta)
   if (verde) {
     console.log(`  ✗ NO SE DETECTA  ${descripcion}`)
     sinDetectar++

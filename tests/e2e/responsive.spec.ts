@@ -12,13 +12,35 @@ import { expect, test, type Page } from '@playwright/test'
 const ANCHOS = [320, 360, 390, 430, 768, 1024, 1440]
 const ALTURAS = [844, 560]
 
+/**
+ * Cada pantalla, con **un texto que solo aparece si de verdad se cargó**.
+ *
+ * El centinela existe por un fallo concreto: `/admin` estaba en esta lista y los
+ * 14 tests de "Administración" medían la **pantalla del PIN**, no el panel. La
+ * sesión de administración no viaja en el `storageState` de la configuración,
+ * así que el servidor devolvía `<PedirPin/>` y el chequeo daba verde midiendo un
+ * teclado de cuatro dígitos. El panel y sus cuatro hojas —las pantallas más
+ * densas de la app— no tenían ni una medida de desborde a ningún ancho.
+ *
+ * Ahora, si la pantalla que se mide no es la que se dice medir, el test falla.
+ */
 const PANTALLAS = [
-  { ruta: '/', nombre: 'Inicio' },
-  { ruta: '/mes', nombre: 'El mes' },
-  { ruta: '/mi-departamento', nombre: 'Mi departamento' },
-  { ruta: '/historial', nombre: 'Historial' },
-  { ruta: '/avisos', nombre: 'Avisos' },
-  { ruta: '/admin', nombre: 'Administración' },
+  { ruta: '/', nombre: 'Inicio', centinela: /Tu cuota de/, admin: false },
+  { ruta: '/mes', nombre: 'El mes', centinela: /Costó mantener el edificio/, admin: false },
+  {
+    ruta: '/mi-departamento',
+    nombre: 'Mi departamento',
+    centinela: /Tu historia en el edificio/,
+    admin: false,
+  },
+  { ruta: '/historial', nombre: 'Historial', centinela: /Mes a mes/, admin: false },
+  { ruta: '/avisos', nombre: 'Avisos', centinela: /Todo lo que se movió/, admin: false },
+  {
+    ruta: '/admin',
+    nombre: 'Administración',
+    centinela: /Cerrar el mes siguiente/,
+    admin: true,
+  },
 ]
 
 /**
@@ -80,11 +102,23 @@ async function culpablesDeDesborde(pagina: Page): Promise<string[]> {
 test.describe('sin desbordes horizontales', () => {
   for (const alto of ALTURAS) {
     for (const ancho of ANCHOS) {
-      for (const { ruta, nombre } of PANTALLAS) {
+      for (const { ruta, nombre, centinela, admin } of PANTALLAS) {
         test(`${nombre} a ${ancho}×${alto}`, async ({ page }) => {
           await page.setViewportSize({ width: ancho, height: alto })
+          if (admin) {
+            const r = await page.request.post('/api/admin/pin', {
+              data: { pin: process.env.ADMIN_PIN ?? '2026' },
+            })
+            expect(r.ok(), 'sin PIN se mediría la pantalla del PIN, no el panel').toBeTruthy()
+          }
           await page.goto(ruta)
           await page.waitForLoadState('domcontentloaded')
+
+          // La pantalla que se mide es la que se dice medir, no otra.
+          await expect(
+            page.getByText(centinela).first(),
+            `${nombre} no se cargó: se estaría midiendo otra pantalla`,
+          ).toBeVisible()
 
           const marco = page.locator('.marco-app')
           await expect(marco).toBeVisible()
@@ -145,4 +179,53 @@ test.describe('el marco solo existe en escritorio', () => {
     const ancho = await page.locator('.marco-app').evaluate((el) => el.clientWidth)
     expect(ancho).toBeLessThan(500)
   })
+})
+
+/**
+ * Las hojas del panel de administración, que no medía nadie.
+ *
+ * Son las pantallas más densas de la app —tablas de siete filas con nombre,
+ * cuota y lectura de tres decimales en 320 px— y hasta aquí no tenían ni una
+ * medida de desborde, porque los 14 tests de "Administración" estaban midiendo
+ * la pantalla del PIN.
+ *
+ * Se miden en el ancho más estrecho y en el más ancho: si algo se desborda, es
+ * en 320.
+ */
+test.describe('las hojas de administración tampoco se desbordan', () => {
+  const HOJAS = [
+    { boton: /Cerrar el mes siguiente|Empezar |Seguir con /, titulo: /Vamos a cerrar/ },
+    { boton: /lavado de vehículo/, titulo: /Cargos y créditos activos/ },
+    { boton: /Corregir/, titulo: /Corregir /, },
+    { boton: /Exportar el año en Excel/, titulo: /Exportar el año/ },
+  ]
+
+  for (const ancho of [320, 430]) {
+    for (const { boton, titulo } of HOJAS) {
+      test(`hoja ${String(titulo)} a ${ancho}px`, async ({ page }) => {
+        await page.setViewportSize({ width: ancho, height: 844 })
+        const r = await page.request.post('/api/admin/pin', {
+          data: { pin: process.env.ADMIN_PIN ?? '2026' },
+        })
+        expect(r.ok()).toBeTruthy()
+        await page.goto('/admin')
+        await page.getByRole('button', { name: boton }).first().click()
+
+        const hoja = page.getByRole('dialog')
+        await expect(hoja).toBeVisible()
+        await expect(hoja.getByText(titulo).first()).toBeVisible()
+
+        const medidas = await hoja.evaluate((el) => ({
+          scroll: el.scrollWidth,
+          cliente: el.clientWidth,
+        }))
+        expect(medidas.scroll, `la hoja se desborda a ${ancho}px`).toBeLessThanOrEqual(
+          medidas.cliente,
+        )
+
+        const culpables = await culpablesDeDesborde(page)
+        expect(culpables, `elementos fuera del marco con la hoja abierta a ${ancho}px`).toEqual([])
+      })
+    }
+  }
 })

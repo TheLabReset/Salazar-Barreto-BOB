@@ -7,7 +7,7 @@
  */
 
 import { serieSaldo, type MesConPagos } from '@/lib/calculo/saldo'
-import { etiquetaMes, mesCorto } from '@/lib/calculo/mes'
+import { etiquetaMes, mesCorto, nombreMes } from '@/lib/calculo/mes'
 import { DPTO_IDS } from '@/lib/calculo/constantes'
 import type { FilaSaldo, MesId, ResultadoMes } from '@/lib/calculo/tipos'
 import { aNumeroObligatorio } from './decimal'
@@ -111,6 +111,13 @@ export interface Borrador {
   lecturasAnteriores: Record<string, number>
   /** Promedio histórico de consumo por departamento, para avisar de lo raro. */
   promedios: Record<string, number>
+  /**
+   * Los m³ que facturó SEDAPAL en los meses anteriores, del más reciente al más
+   * antiguo. Los usa Bob en el paso 2 para **comparar**, que es lo que pide
+   * `04`: sin ellos, la única frase posible era repetirle al administrador el
+   * número que acababa de teclear.
+   */
+  m3Anteriores: { mes: string; m3: number }[]
   /** Los m³ del lavado configurados y si está activo este mes. */
   lavado: { m3: number; activo: boolean; dpto: string; concepto: string } | null
 }
@@ -139,6 +146,7 @@ export async function borradorDeMes(mes: MesId): Promise<Borrador> {
     lecturas: entradas.lecturas as Record<string, number>,
     lecturasAnteriores: entradas.lecturasAnteriores as Record<string, number>,
     promedios: await promediosDeConsumo(mes),
+    m3Anteriores: await m3DeLosMesesAnteriores(mes),
     lavado: reasignacion
       ? {
           m3: aNumeroObligatorio(reasignacion.m3),
@@ -148,6 +156,25 @@ export async function borradorDeMes(mes: MesId): Promise<Borrador> {
         }
       : null,
   }
+}
+
+/**
+ * Los m³ de SEDAPAL de los dos meses anteriores, para que Bob compare.
+ *
+ * Dos y no más: `04` los enseña así —*«junio fueron 78 y mayo 78»*— y una lista
+ * larga deja de leerse. Si no hay ninguno, se devuelve vacío y Bob lo dice en
+ * vez de inventar una comparación.
+ */
+export async function m3DeLosMesesAnteriores(
+  hasta: MesId,
+): Promise<{ mes: string; m3: number }[]> {
+  const filas = await prisma.recibo.findMany({
+    where: { mes: { lt: hasta } },
+    orderBy: { mes: 'desc' },
+    take: 2,
+    select: { mes: true, aguaM3: true },
+  })
+  return filas.map((f) => ({ mes: nombreMes(f.mes as MesId), m3: f.aguaM3 }))
 }
 
 /**

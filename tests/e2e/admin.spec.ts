@@ -10,7 +10,8 @@ import { expect, test } from './basedatos'
  * era una propuesta en memoria que se perdía al recargar.
  */
 
-test.describe.configure({ mode: 'serial' })
+// Sin `mode: 'serial'`: cada test toma el cerrojo y resiembra, y en serie un
+// fallo marca los siguientes como "did not run", que esconde huecos.
 
 test.describe('el panel de administración', () => {
   test('corregir un mes publicado avisa a los siete con el antes y el después', async ({ page }) => {

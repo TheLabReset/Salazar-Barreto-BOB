@@ -6,6 +6,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
+import { soltarCerrojo, tomarCerrojo } from '../cerrojo'
 import { prisma } from '@/lib/datos/prisma'
 
 export function exigirBaseDeDatos(): void {
@@ -19,6 +20,26 @@ export function exigirBaseDeDatos(): void {
 /** Deja la base en el estado exacto de la semilla. */
 export async function resembrar(): Promise<void> {
   exigirBaseDeDatos()
+  /**
+   * El mismo cerrojo que usa la suite de pantalla.
+   *
+   * La base es una sola y la comparten las dos suites, las pruebas negativas y
+   * cualquier `next dev` abierto. Sin esto, un `resembrar()` de aquí y otro de
+   * allá se solapaban: se vio reventar el borrado de departamentos porque otro
+   * proceso insertó un pago en medio, y el rojo salía en el fichero inocente.
+   *
+   * Se toma aquí y se suelta al final: es la ventana peligrosa —borrar todo y
+   * volver a escribirlo—, y `beforeEach` la abre en cada test.
+   */
+  await tomarCerrojo(30_000)
+  try {
+    await borrarYSembrar()
+  } finally {
+    soltarCerrojo()
+  }
+}
+
+async function borrarYSembrar(): Promise<void> {
   // El orden importa por las claves foráneas.
   await prisma.avisoLeido.deleteMany()
   await prisma.aviso.deleteMany()

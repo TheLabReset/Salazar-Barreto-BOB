@@ -56,6 +56,19 @@ export function Paso1Lecturas({ borrador, guardar, guardando, errorGuardar, avan
       sufijo: null,
       onOk: (valor) => {
         /**
+         * **Primero se guarda lo tecleado, y después se pregunta.**
+         *
+         * El orden importa. Al revés —proponer y esperar a que el administrador
+         * elija— la lectura recién escrita se quedaba solo en la memoria del
+         * navegador: cerrar la hoja o recargar en ese momento la perdía, en un
+         * paso cuya promesa es «se guarda solo en cada uno». Guardar lo que el
+         * administrador escribió no es corregir por él: es hacerle caso. La
+         * propuesta es una oferta encima, y decir que no ya no tiene que
+         * escribir nada.
+         */
+        void guardar('lecturas', { lecturas: { [dpto]: valor } })
+
+        /**
          * ¿Parece un error de tecleo con una única corrección posible? La regla de
          * §8 compara contra los m³ de SEDAPAL y contra los otros seis medidores,
          * así que solo se puede evaluar con el recibo escrito y las siete lecturas
@@ -70,11 +83,7 @@ export function Paso1Lecturas({ borrador, guardar, guardando, errorGuardar, avan
           borrador.resultado.rec.aguaM3,
           IDS,
         )
-        if (candidata && candidata.dpto === dpto) {
-          setPropuesta(candidata)
-          return
-        }
-        void guardar('lecturas', { lecturas: { [dpto]: valor } })
+        if (candidata && candidata.dpto === dpto) setPropuesta(candidata)
       },
     })
   }
@@ -86,10 +95,8 @@ export function Paso1Lecturas({ borrador, guardar, guardando, errorGuardar, avan
   }
 
   const mantenerTecleado = () => {
-    if (!propuesta) return
-    // Se guarda lo tecleado tal cual. La app no corrige sola ni deja el dato en
-    // el aire: el administrador dijo que es así y así queda.
-    void guardar('lecturas', { lecturas: { [propuesta.dpto]: propuesta.tecleado } })
+    // Lo tecleado ya está guardado desde antes de preguntar: decir que no es
+    // cerrar la pregunta, no escribir nada.
     setPropuesta(null)
   }
 

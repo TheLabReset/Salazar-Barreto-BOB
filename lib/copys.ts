@@ -22,7 +22,8 @@ import type { EstadoCuota } from './estados'
  * ninguna lista de palabras cubre un consumo que se disparó.
  */
 const VECES: Record<number, string> = {
-  2: 'el doble de tu promedio',
+  // `muyAlto` exige pasar **estrictamente** del doble, así que "más" es exacto.
+  2: 'más del doble de tu promedio',
   3: 'tres veces tu promedio',
   4: 'cuatro veces tu promedio',
   5: 'cinco veces tu promedio',
@@ -177,6 +178,39 @@ export const COPYS = {
     vacio: 'Todavía no hay avisos.',
   },
 
+  /**
+   * Cuando algo no se pudo traer.
+   *
+   * *Cargando*, *error* y *vacío* son **tres cosas distintas** y se dicen
+   * distinto. Dos hojas del panel las confundían: al agotarse el reintento,
+   * `isLoading` vuelve a `false` y `data` sigue sin llegar, así que la guarda
+   * `isLoading || !data` caía siempre en la rama de carga y la hoja se quedaba
+   * diciendo «Cargando…» para siempre. Con el PIN caducado o un 500, girando y
+   * sin una palabra.
+   */
+  error: {
+    noSePudo: 'No se pudo abrir esto ahora.',
+    reintentar: 'Volver a intentarlo',
+    sesionCaducada: 'La sesión de administración caducó. Vuelve a entrar con el PIN.',
+    lecturasDelMes: (mes: string) => `No se pudieron traer las lecturas de ${mes}.`,
+  },
+
+  // ── Sin conexión · Fase 6 ──────────────────────────────────────────────
+  /**
+   * El aviso de que el teléfono no tiene señal.
+   *
+   * Dice **dos cosas** porque las dos importan: que estás desconectado, y que lo
+   * que ves es lo último que se guardó —no datos de ahora—. Un aviso que solo
+   * dijera "sin conexión" dejaría al vecino leyendo una cuota vieja creyendo que
+   * es la de hoy, que es justo lo que el producto existe para evitar.
+   */
+  desconectado: {
+    aviso: 'Sin conexión · estás viendo lo último que se guardó en este teléfono',
+    // Los pasos del cierre escriben en el servidor. Sin señal no se guarda nada,
+    // y hay que decirlo antes de que el administrador teclee siete lecturas.
+    avisoAdmin: 'Sin conexión · no se puede guardar nada hasta que vuelva la señal',
+  },
+
   // ── Hojas ──────────────────────────────────────────────────────────────
   hojas: {
     avisoOk: {
@@ -238,14 +272,27 @@ export const COPYS = {
     propuesta: (p: {
       valor: string
       tecleado: string
+      anterior: string
       consumoTecleado: string
       veces: number
       motivos: readonly MotivoLectura[]
     }) => {
+      /**
+       * Si el medidor retrocede **no se da el consumo**.
+       *
+       * Salía «el consumo sería -82.60 m³», que no es un dato: es el síntoma de
+       * que la resta se hizo al revés, y la segunda mitad de la frase ya lo
+       * explicaba mejor. Se dice lo que pasa y con qué compararlo.
+       */
+      if (p.motivos.includes('retrocede')) {
+        return `¿Será ${p.valor}? Con ${p.tecleado} el medidor habría retrocedido: marcaría menos que el mes pasado, que fue ${p.anterior}.`
+      }
+
       const cabeza = `¿Será ${p.valor}? Con ${p.tecleado} el consumo sería ${p.consumoTecleado} m³`
       const razones = p.motivos.map((m) => {
         switch (m) {
           case 'retrocede':
+            // Tratado arriba, antes de llegar aquí.
             return 'el medidor habría retrocedido'
           case 'muyAlto':
             return VECES[p.veces] ?? `${p.veces} veces tu promedio`
@@ -254,7 +301,10 @@ export const COPYS = {
           case 'pasaFactura':
             return 'el edificio pasaría de lo que facturó SEDAPAL'
           case 'bajoFactura':
-            return 'el edificio quedaría muy por debajo de lo que facturó SEDAPAL'
+            // No se repite "muy por debajo": con `muyBajo` en la misma frase, las
+            // dos razones se contaban con las mismas cuatro palabras y no se
+            // distinguía si eran dos problemas o uno dicho dos veces.
+            return 'al edificio le faltaría agua para llegar a lo que facturó SEDAPAL'
         }
       })
       if (razones.length === 0) return `${cabeza}.`

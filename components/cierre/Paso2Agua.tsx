@@ -32,7 +32,7 @@ const IDS = DPTOS.map((d) => d.id)
  * escriben los m³. El paso 1 la conserva para cuando se vuelve a editar una
  * lectura con el recibo ya puesto.
  */
-export function Paso2Agua({ borrador, guardar, guardando, errorGuardar, avanzar }: PropsPaso) {
+export function Paso2Agua({ borrador, guardar, guardando, errorGuardar, avanzar, nombreMes }: PropsPaso) {
   const { abrir } = useNumpad()
   const rec = borrador.resultado.rec
   const tieneM3 = rec.aguaM3 > 0
@@ -112,7 +112,9 @@ export function Paso2Agua({ borrador, guardar, guardando, errorGuardar, avanzar 
         />
       )}
 
-      {tieneM3 && <AvisoBob tono="agua">{compararM3(rec.aguaM3, borrador.mes)}</AvisoBob>}
+      {tieneM3 && (
+        <AvisoBob tono="agua">{compararM3(rec.aguaM3, nombreMes, borrador.m3Anteriores)}</AvisoBob>
+      )}
       {errorGuardar && <p className="tipo-cuerpo-menor text-ambar cierre-error">{errorGuardar}</p>}
 
       <BotonAvanzar onClick={avanzar} bloqueadoPor={bloqueo} cargando={guardando}>
@@ -123,10 +125,27 @@ export function Paso2Agua({ borrador, guardar, guardando, errorGuardar, avanzar 
 }
 
 /**
- * Lo que Bob dice del consumo del edificio.
+ * Lo que Bob dice del consumo del edificio. `04-cierre-del-mes.md` §Paso 2.
  *
- * Siempre con el dato y con dónde verificarlo. Nunca "tu consumo subió" a secas.
+ * El documento pide que **compare**: *«81 m³ está en línea con los últimos
+ * meses: junio fueron 78 y mayo 78.»* / *«96 m³ es bastante más que los últimos
+ * meses (junio 78, mayo 78). ¿Lo confirmas?»*
+ *
+ * Lo que había antes le repetía al administrador el número que acababa de
+ * teclear y le pedía que lo revisara —que no dice nada que la cifra de al lado
+ * no diga ya— y además metía el identificador crudo del mes en la frase: «el
+ * recibo de 2026-07». Bob acompaña con contexto; sin meses anteriores que
+ * comparar, se calla.
  */
-function compararM3(m3: number, mes: string): string {
-  return `${m3} m³ es lo que llegó en el recibo de ${mes}. Si no coincide con el papel, cámbialo aquí antes de seguir.`
+function compararM3(m3: number, mes: string, anteriores: { mes: string; m3: number }[]): string {
+  if (anteriores.length === 0) {
+    return `${m3} m³ es lo que llegó en el recibo de ${mes}. Es el primer mes, así que todavía no hay con qué compararlo.`
+  }
+  const lista = anteriores.map((a) => `${a.mes} ${a.m3}`).join(' y ')
+  const media = anteriores.reduce((s, a) => s + a.m3, 0) / anteriores.length
+  // "Bastante más" a partir de un 15 %: por debajo de eso la variación mensual
+  // del edificio es normal y avisar de todo es no avisar de nada.
+  return m3 > media * 1.15
+    ? `${m3} m³ es bastante más que los últimos meses (${lista}). ¿Lo confirmas?`
+    : `${m3} m³ está en línea con los últimos meses: ${lista}.`
 }

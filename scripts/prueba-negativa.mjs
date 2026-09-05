@@ -70,6 +70,43 @@ if (!base.verde) {
 }
 console.log('Punto de partida: suite en verde.\n')
 
+/**
+ * Lo que hay que devolver a su sitio pase lo que pase.
+ *
+ * Este script escribe defectos en el árbol de trabajo **real**. Si lo matan a
+ * mitad —Ctrl-C, un `timeout`, un OOM— el defecto se queda puesto: comprobado
+ * con `timeout -s INT 12`, el cuarto defecto seguía en `calcularMes.ts` al
+ * volver. La suite queda en rojo, así que grita; pero limpiarlo a ciegas con un
+ * `git checkout lib/` se lleva por delante el trabajo sin commitear que haya
+ * encima.
+ */
+const pendientes = new Map()
+
+function restaurarTodo() {
+  for (const [ruta, contenido] of pendientes) {
+    try {
+      fs.writeFileSync(ruta, contenido)
+    } catch {
+      // Si ni siquiera se puede escribir, no hay nada más que hacer aquí.
+    }
+  }
+  pendientes.clear()
+}
+
+process.on('exit', restaurarTodo)
+for (const senal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(senal, () => {
+    restaurarTodo()
+    console.error(`\nInterrumpido (${senal}). El árbol quedó como estaba.`)
+    process.exit(130)
+  })
+}
+process.on('uncaughtException', (e) => {
+  restaurarTodo()
+  console.error('\nSe rompió el script. El árbol quedó como estaba.\n', e)
+  process.exit(2)
+})
+
 let sinDetectar = 0
 for (const [archivo, descripcion, buscar, reemplazar] of DEFECTOS) {
   const ruta = path.join(RAIZ, 'lib/calculo', archivo)
@@ -80,9 +117,11 @@ for (const [archivo, descripcion, buscar, reemplazar] of DEFECTOS) {
     sinDetectar++
     continue
   }
+  pendientes.set(ruta, original)
   fs.writeFileSync(ruta, original.replace(buscar, reemplazar))
   const { verde, salida } = correrSuite()
   fs.writeFileSync(ruta, original)
+  pendientes.delete(ruta)
   if (verde) {
     console.log(`  ✗ NO SE DETECTA  ${descripcion}`)
     sinDetectar++

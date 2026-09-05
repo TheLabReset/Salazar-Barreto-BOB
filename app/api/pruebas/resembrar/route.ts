@@ -1,20 +1,32 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { prisma } from '@/lib/datos/prisma'
+import { exigirAdmin } from '@/lib/servicios/ruta'
 
 const ejecutar = promisify(execFile)
 
 /**
  * `POST /api/pruebas/resembrar` · deja la base como la semilla.
  *
- * **Solo existe fuera de producción.** En producción devuelve 404, igual que
- * cualquier ruta que no existe: una ruta que borra la base entera no puede estar
- * accesible en el servidor donde viven los datos de siete familias.
+ * **Dos cerrojos, y hacen falta los dos.**
+ *
+ * 1. Solo existe fuera de producción: allí devuelve 404, igual que cualquier
+ *    ruta que no existe.
+ * 2. Y pide PIN de administración.
+ *
+ * El segundo faltaba, y el primero solo no bastaba: cualquier despliegue de
+ * previsualización, cualquier `next dev` en la wifi de casa y cualquier entorno
+ * con `PERMITIR_RESEMBRADO=si` era un borrado completo de la base con un `curl`
+ * de una línea, sin credencial ninguna. Medido: `curl -X POST` sin cookie
+ * devolvía `200 {"ok":true}` con la base vacía detrás.
  */
 export async function POST() {
   if (process.env.NODE_ENV === 'production' && process.env.PERMITIR_RESEMBRADO !== 'si') {
     return new Response('Not Found', { status: 404 })
   }
+  // Lanza 401 si no hay sesión de administración. Es la misma puerta que el
+  // resto de escrituras: una ruta que borra la base no puede pedir menos.
+  await exigirAdmin()
 
   await prisma.avisoLeido.deleteMany()
   await prisma.aviso.deleteMany()

@@ -83,11 +83,18 @@ async function main() {
     update: { m3: dec(REASIGNACION_LAVADO.m3), desde: REASIGNACION_LAVADO.desde },
   })
   // Activa en todos los meses desde el que aplica.
+  //
+  // Los meses que la semilla deja **publicados** llevan además sus m³ congelados,
+  // igual que si se hubieran publicado desde la app: un mes cerrado no se mueve
+  // porque alguien cambie después el consumo del lavado. El mes en curso los
+  // deja en `null`, que significa "sigue el valor actual".
+  const ultimoSemilla = MESES_SEMILLA[MESES_SEMILLA.length - 1]
   for (const mes of MESES_SEMILLA.filter((m) => m >= REASIGNACION_LAVADO.desde)) {
+    const congelado = mes === ultimoSemilla ? null : dec(REASIGNACION_LAVADO.m3)
     await prisma.reasignacionActivaEnMes.upsert({
       where: { reasignacionId_mes: { reasignacionId: reasignacion.id, mes } },
-      create: { reasignacionId: reasignacion.id, mes, activa: true },
-      update: { activa: true },
+      create: { reasignacionId: reasignacion.id, mes, activa: true, m3: congelado },
+      update: { activa: true, m3: congelado },
     })
   }
 

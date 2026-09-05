@@ -146,12 +146,23 @@ model ReasignacionAgua {
   @@map("reasignacion_agua")
 }
 
-/// En qué meses está activa una reasignación. Se marca en el paso 5.
+/// En qué meses está activa una reasignación, y **con cuántos m³**. Se marca en
+/// el paso 5, y al publicar el mes se congela el valor.
 model ReasignacionActivaEnMes {
   id              String  @id @default(cuid())
   reasignacionId  String
   mes             String  @db.VarChar(7)
   activa          Boolean @default(true)
+  /// Los m³ con los que se cerró este mes.
+  ///
+  /// **Sin esto, cambiar el consumo del lavado reescribía el pasado.** El valor
+  /// vivía solo en `ReasignacionAgua.m3`, uno global, así que subirlo de 1.50 a
+  /// 3.00 movía la cuota del 401 en todos los meses ya publicados —S/ 6.25 en
+  /// junio de 2026— mientras el aviso a los siete juraba que los meses cerrados
+  /// no se tocaban. Al publicar se graba aquí el valor en vigor y ese mes queda
+  /// congelado. `null` significa "sigue el valor actual", que es lo correcto
+  /// para un mes que todavía no se ha publicado.
+  m3              Decimal? @db.Decimal(6, 2)
 
   reasignacion ReasignacionAgua @relation(fields: [reasignacionId], references: [id], onDelete: Cascade)
 

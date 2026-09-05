@@ -33,9 +33,17 @@ afterAll(() => {
   fs.rmSync(raiz, { recursive: true, force: true })
 })
 
-function correr(): { codigo: number; salida: string } {
+/**
+ * @param espera Cuántos archivos tiene que revisar el script en el fixture.
+ *
+ * Declararlo es obligatorio: sin ello, `--raiz` era la puerta de atrás por la
+ * que el chequeo salía en verde habiendo mirado un solo fichero.
+ */
+function correr(espera: number): { codigo: number; salida: string } {
   try {
-    const salida = execFileSync('node', [SCRIPT, '--raiz', raiz], { encoding: 'utf8' })
+    const salida = execFileSync('node', [SCRIPT, '--raiz', raiz, '--espera', String(espera)], {
+      encoding: 'utf8',
+    })
     return { codigo: 0, salida }
   } catch (e) {
     const err = e as { status?: number; stdout?: string; stderr?: string }
@@ -48,7 +56,8 @@ function conDefecto(contenido: string, nombre = 'components/defecto.tsx'): { cod
   fs.mkdirSync(path.dirname(archivo), { recursive: true })
   fs.writeFileSync(archivo, contenido)
   try {
-    return correr()
+    // El fixture tiene `app/globals.css` y el archivo con el defecto: dos.
+    return correr(2)
   } finally {
     fs.rmSync(archivo, { force: true })
   }
@@ -82,9 +91,64 @@ describe('verificar-tokens · prueba negativa de cada regla', () => {
   }
 })
 
+/**
+ * La lista blanca perdona **la regla que justifica la excepción**, no la línea.
+ *
+ * Este bloque es la prueba negativa de eso, y existe porque faltaba: los
+ * defectos de arriba se plantan en una línea que no contiene nada más, así que
+ * nunca tocaban la lista blanca. Mientras tanto, la lista eximía la línea
+ * entera de las siete reglas, y el patrón más común del repo
+ * —`<svg viewBox="0 0 24 24" strokeWidth="1.8" className="…">`— dejaba pasar
+ * cualquier color o fuente que compartiera línea con el SVG.
+ */
+describe('verificar-tokens · la lista blanca no es un salvoconducto', () => {
+  const CON_PERDON: [regla: string, codigo: string][] = [
+    [
+      'paleta-tailwind',
+      `export const c = <svg viewBox="0 0 24 24" className="text-` + 'red' + `-500" />`,
+    ],
+    [
+      'hex',
+      `export const c = <svg strokeWidth="1.8" fill="` + '#' + `FF0000" />`,
+    ],
+    [
+      'fuente-ajena',
+      `export const c = <svg viewBox="0 0 24 24" fontFamily="Ro` + 'boto'.slice(0) + `" />`,
+    ],
+  ]
+
+  for (const [regla, codigo] of CON_PERDON) {
+    it(`atrapa "${regla}" aunque la línea lleve un patrón de la lista blanca`, () => {
+      const { codigo: salida, salida: texto } = conDefecto(codigo)
+      expect(salida, `debería fallar ante: ${codigo}`).not.toBe(0)
+      expect(texto).toContain(`[${regla}]`)
+    })
+  }
+
+  it('y sigue perdonando lo que tiene que perdonar: el px de un viewBox', () => {
+    const { codigo } = conDefecto(
+      `export const c = <div style={{ width: '24` + 'px' + `' }} data-x="--top" />`,
+    )
+    expect(codigo).toBe(0)
+  })
+})
+
+describe('verificar-tokens · las reglas alcanzan a los .mjs', () => {
+  it('un color suelto en un script se atrapa', () => {
+    // `scripts/` se recorría y se contaba en el resumen, y ninguna regla se le
+    // aplicaba: los ocho ficheros son `.mjs`.
+    const { codigo, salida } = conDefecto(
+      `export const c = '` + '#' + `FF0000'`,
+      'lib/trampa.mjs',
+    )
+    expect(codigo).not.toBe(0)
+    expect(salida).toContain('[hex]')
+  })
+})
+
 describe('verificar-tokens · un árbol limpio pasa', () => {
   it('sale en verde y dice cuántos archivos revisó', () => {
-    const { codigo, salida } = correr()
+    const { codigo, salida } = correr(1)
     expect(codigo).toBe(0)
     expect(salida).toContain('cero valores huérfanos')
     expect(salida).toMatch(/\d+ archivos/)
@@ -95,13 +159,46 @@ describe('verificar-tokens · un árbol limpio pasa', () => {
     try {
       let codigo = 0
       try {
-        execFileSync('node', [SCRIPT, '--raiz', vacio], { encoding: 'utf8' })
+        execFileSync('node', [SCRIPT, '--raiz', vacio, '--espera', '0'], { encoding: 'utf8' })
       } catch (e) {
         codigo = (e as { status?: number }).status ?? 1
       }
       expect(codigo).toBe(2)
     } finally {
       fs.rmSync(vacio, { recursive: true, force: true })
+    }
+  })
+
+  /**
+   * Y no se conforma con haber mirado **un** archivo.
+   *
+   * Un árbol con solo `app/globals.css` dentro daba `✓ cero valores huérfanos ·
+   * 1 archivos` y salida 0. Un `--raiz` equivocado pasaba por verde. Ahora el
+   * fixture declara cuántos espera, y el árbol de verdad tiene un piso por
+   * carpeta.
+   */
+  it('un fixture que no declara su alcance se rechaza', () => {
+    const suelto = fs.mkdtempSync(path.join(os.tmpdir(), 'vt-suelto-'))
+    try {
+      fs.mkdirSync(path.join(suelto, 'app'), { recursive: true })
+      fs.copyFileSync(CSS_ORIGINAL, path.join(suelto, 'app/globals.css'))
+      let codigo = 0
+      try {
+        execFileSync('node', [SCRIPT, '--raiz', suelto], { encoding: 'utf8' })
+      } catch (e) {
+        codigo = (e as { status?: number }).status ?? 1
+      }
+      expect(codigo, 'sin --espera tiene que rechazar').toBe(2)
+
+      let codigoMal = 0
+      try {
+        execFileSync('node', [SCRIPT, '--raiz', suelto, '--espera', '40'], { encoding: 'utf8' })
+      } catch (e) {
+        codigoMal = (e as { status?: number }).status ?? 1
+      }
+      expect(codigoMal, 'con un --espera que no cuadra, también').toBe(2)
+    } finally {
+      fs.rmSync(suelto, { recursive: true, force: true })
     }
   })
 })
