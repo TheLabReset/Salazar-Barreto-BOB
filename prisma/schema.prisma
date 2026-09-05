@@ -1,0 +1,318 @@
+// Esquema de la base · traducción de `mockup/06-modelo-de-datos.md` §1.
+//
+// Dos reglas que gobiernan todo lo de abajo:
+//
+//  1. **Nunca se guarda una cuota calculada** (`06` §2). Se guardan las entradas
+//     —lecturas, recibos, gastos— y se calcula al vuelo con el motor de
+//     `lib/calculo/`. Si mañana se corrige una lectura de mayo, todo lo derivado
+//     se recalcula solo. Una cuota guardada se queda obsoleta y nadie se entera.
+//     La única excepción es `Cierre.instantanea`, y está explicada ahí.
+//
+//  2. **Nunca `Float`.** Los montos son dinero de siete familias. Todo es
+//     `Decimal` con su precisión explícita: lecturas (10,3) porque el medidor da
+//     tres decimales, montos (10,2), flats (5,2).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Los siete departamentos. Sus flats vienen de la escritura del edificio.
+model Departamento {
+  id     String @id @db.VarChar(8)
+  nombre String
+  /// Porcentaje de participación. Los siete suman 100.00.
+  flat   Decimal @db.Decimal(5, 2)
+  piso   Int
+
+  lecturas        Lectura[]
+  pagos           Pago[]
+  gastosExtra     GastoExtra[]
+  reasignaciones  ReasignacionAgua[]
+  avisosLeidos    AvisoLeido[]
+
+  @@map("departamento")
+}
+
+/// La lectura del medidor de un departamento en un mes.
+model Lectura {
+  id            String   @id @default(cuid())
+  /// `'2026-07'`
+  mes           String   @db.VarChar(7)
+  dptoId        String   @db.VarChar(8)
+  /// El medidor da tres decimales.
+  valor         Decimal  @db.Decimal(10, 3)
+  registradoPor String?
+  registradoEn  DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  dpto Departamento @relation(fields: [dptoId], references: [id], onDelete: Restrict)
+
+  @@unique([mes, dptoId])
+  @@index([mes])
+  @@map("lectura")
+}
+
+/// El recibo del mes, tal como viene en el papel.
+model Recibo {
+  id            String   @id @default(cuid())
+  mes           String   @unique @db.VarChar(7)
+  /// m³ que facturó SEDAPAL del medidor matriz.
+  aguaM3        Int
+  aguaMonto     Decimal  @db.Decimal(10, 2)
+  /// `null` cuando no hubo descuento. No es lo mismo que 0.
+  descuento     Decimal? @db.Decimal(10, 2)
+  luz           Decimal  @db.Decimal(10, 2)
+  registradoPor String?
+  registradoEn  DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@map("recibo")
+}
+
+/// Un concepto de gasto fijo, con su vigencia.
+///
+/// Un cambio de monto **no reescribe el pasado**: se guarda una fila nueva con
+/// su `vigenteDesde`, y cada mes usa la vigente en ese momento.
+model GastoFijo {
+  id           String  @id @default(cuid())
+  concepto     String
+  /// `null` significa **por confirmar**, no "cuesta cero". El pozo a tierra es
+  /// un gasto real sin cifra confirmada: aparece en la lista con su etiqueta y
+  /// suma 0. La interfaz muestra las dos cosas distinto.
+  monto        Decimal? @db.Decimal(10, 2)
+  anual        Boolean @default(false)
+  /// Mes desde el que aplica este monto, `'2026-07'`.
+  vigenteDesde String  @db.VarChar(7)
+  /// Posición en la lista de gastos del mes.
+  orden        Int     @default(0)
+  creadoEn     DateTime @default(now())
+
+  @@unique([concepto, vigenteDesde])
+  @@index([vigenteDesde])
+  @@map("gasto_fijo")
+}
+
+enum TipoExtra {
+  gasto
+  credito
+
+  @@map("tipo_extra")
+}
+
+/// Lo puntual de un mes, del paso 5 del cierre.
+///
+/// - `gasto` se suma al total y lo pagan los siete por flat.
+/// - `credito` se resta de la cuota de un departamento y **sale del saldo de la
+///   cuenta**, no del bolsillo de los demás.
+model GastoExtra {
+  id       String    @id @default(cuid())
+  mes      String    @db.VarChar(7)
+  tipo     TipoExtra
+  concepto String
+  monto    Decimal   @db.Decimal(10, 2)
+  /// Obligatorio si `tipo = credito`. Lo impone un CHECK en la migración.
+  dptoId   String?   @db.VarChar(8)
+  creadoEn DateTime  @default(now())
+
+  dpto Departamento? @relation(fields: [dptoId], references: [id], onDelete: Restrict)
+
+  @@index([mes])
+  @@map("gasto_extra")
+}
+
+/// La reasignación de agua del 401. Hoy solo hay una.
+///
+/// Los m³ se **reasignan**: se restan del área común y se le suman al
+/// departamento. El total del edificio no cambia.
+model ReasignacionAgua {
+  id       String  @id @default(cuid())
+  dptoId   String  @db.VarChar(8)
+  concepto String
+  m3       Decimal @db.Decimal(6, 2)
+  /// Mes desde el que aplica.
+  desde    String  @db.VarChar(7)
+  creadoEn DateTime @default(now())
+
+  dpto      Departamento              @relation(fields: [dptoId], references: [id], onDelete: Restrict)
+  activaEn  ReasignacionActivaEnMes[]
+
+  @@unique([dptoId, concepto])
+  @@map("reasignacion_agua")
+}
+
+/// En qué meses está activa una reasignación. Se marca en el paso 5.
+model ReasignacionActivaEnMes {
+  id              String  @id @default(cuid())
+  reasignacionId  String
+  mes             String  @db.VarChar(7)
+  activa          Boolean @default(true)
+
+  reasignacion ReasignacionAgua @relation(fields: [reasignacionId], references: [id], onDelete: Cascade)
+
+  @@unique([reasignacionId, mes])
+  @@index([mes])
+  @@map("reasignacion_activa_mes")
+}
+
+enum EstadoPago {
+  /// Verificado contra el estado de cuenta. **Suma al saldo.**
+  confirmado
+  /// El vecino dijo que pagó, falta verificar. **No suma al saldo.**
+  aviso
+
+  @@map("estado_pago")
+}
+
+/// El pago de un departamento en un mes.
+///
+/// "Sin registrar" no es un estado: es la ausencia de fila. Así no hay que
+/// crear filas vacías para los siete cada mes.
+model Pago {
+  id            String     @id @default(cuid())
+  mes           String     @db.VarChar(7)
+  dptoId        String     @db.VarChar(8)
+  estado        EstadoPago
+  fecha         DateTime   @db.Date
+  operacion     String?
+  /// Lo que escribió el vecino al avisar.
+  texto         String?
+  confirmadoPor String?
+  creadoEn      DateTime   @default(now())
+  actualizadoEn DateTime   @updatedAt
+
+  dpto Departamento @relation(fields: [dptoId], references: [id], onDelete: Restrict)
+
+  @@unique([mes, dptoId])
+  @@index([mes])
+  @@map("pago")
+}
+
+/// El cierre de un mes. Existe la fila desde que se empieza a cerrar.
+model Cierre {
+  id               String    @id @default(cuid())
+  mes              String    @unique @db.VarChar(7)
+  publicado        Boolean   @default(false)
+  publicadoPor     String?
+  publicadoEn      DateTime?
+  /// El paso en el que se quedó el administrador, 0..7. Se guarda solo en cada
+  /// paso: se puede salir y volver sin perder nada, y desde otro teléfono.
+  paso             Int       @default(0)
+  notaQuePaso      String?
+  notaQueCambio    String?
+  notaQuePendiente String?
+  /// Bloqueo optimista: dos pestañas escribiendo el mismo mes no se pisan.
+  version          Int       @default(0)
+  /// **La única excepción a "nunca guardes una cuota calculada"** (`06` §2).
+  ///
+  /// Al publicar se graba una instantánea del `ResultadoMes`: las siete cuotas,
+  /// el total y el cuadre. Es lo que hace verificable el aviso "tu cuota pasó de
+  /// X a Y" cuando después hay una corrección. No se lee para calcular nada.
+  instantanea      Json?
+  creadoEn         DateTime  @default(now())
+  actualizadoEn    DateTime  @updatedAt
+
+  @@map("cierre")
+}
+
+/// Toda escritura deja rastro. `06` §3, decisión del usuario, no negociable.
+model Auditoria {
+  id            String   @id @default(cuid())
+  momento       DateTime @default(now())
+  /// Quién. Hoy es `'admin'` o el departamento que avisó su pago.
+  usuario       String
+  /// `crear` | `editar` | `borrar` | `publicar` | `corregir` | `confirmar`
+  accion        String
+  entidad       String
+  entidadId     String?
+  campo         String?
+  valorAnterior String?
+  valorNuevo    String?
+  mes           String?  @db.VarChar(7)
+
+  @@index([mes])
+  @@index([entidad, entidadId])
+  @@index([momento])
+  @@map("auditoria")
+}
+
+enum TipoAviso {
+  mes_publicado
+  pago_confirmado
+  correccion
+  gasto_fijo
+  reasignacion
+  recordatorio
+
+  @@map("tipo_aviso")
+}
+
+/// Un aviso que le llega a los siete.
+///
+/// **Solo sobre meses publicados** (`06` §3). Escribir en un mes en curso no
+/// notifica a nadie: si no, cerrar el mes serían doscientas notificaciones.
+model Aviso {
+  id       String    @id @default(cuid())
+  tipo     TipoAviso
+  titulo   String
+  detalle  String
+  mes      String?   @db.VarChar(7)
+  creadoEn DateTime  @default(now())
+
+  leidoPor AvisoLeido[]
+
+  @@index([creadoEn])
+  @@map("aviso")
+}
+
+/// Qué departamento leyó qué aviso.
+model AvisoLeido {
+  id      String   @id @default(cuid())
+  avisoId String
+  dptoId  String   @db.VarChar(8)
+  leidoEn DateTime @default(now())
+
+  aviso Aviso        @relation(fields: [avisoId], references: [id], onDelete: Cascade)
+  dpto  Departamento @relation(fields: [dptoId], references: [id], onDelete: Cascade)
+
+  @@unique([avisoId, dptoId])
+  @@map("aviso_leido")
+}
+
+/// Ajustes del edificio que no son de un mes concreto.
+model ConfiguracionEdificio {
+  id            Int      @id @default(1)
+  /// **El saldo real de la cuenta antes del primer mes cargado.**
+  ///
+  /// `serieSaldo()` acumula hacia adelante desde aquí. El prototipo lo derivaba
+  /// hacia atrás desde un saldo final; eso era una muleta por no tener backend.
+  saldoInicial  Decimal  @db.Decimal(12, 2)
+  /// El mes del que parte la serie del saldo.
+  mesInicial    String   @db.VarChar(7)
+  /// Datos de la cuenta que se muestran en la hoja "Cómo pagar".
+  bancoNombre   String
+  bancoCuenta   String
+  bancoCci      String
+  bancoTitular  String
+  /// Día del mes en que vence la cuota.
+  diaVencimiento Int     @default(10)
+  actualizadoEn DateTime @updatedAt
+
+  @@map("configuracion_edificio")
+}
+
+/// Intentos de PIN, para el límite por IP. `06` §5.
+model IntentoPin {
+  id       String   @id @default(cuid())
+  ip       String
+  momento  DateTime @default(now())
+  acertado Boolean
+
+  @@index([ip, momento])
+  @@map("intento_pin")
+}

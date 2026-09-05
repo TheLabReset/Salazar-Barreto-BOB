@@ -18,7 +18,8 @@
     "db:reset": "prisma migrate reset --force",
     "prueba-negativa": "node scripts/prueba-negativa.mjs",
     "medir-tolerancia": "tsx scripts/medir-tolerancia.mjs",
-    "golden": "node scripts/generar-golden.mjs"
+    "golden": "node scripts/generar-golden.mjs",
+    "test:integracion": "vitest run --config vitest.integracion.config.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

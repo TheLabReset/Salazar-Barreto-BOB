@@ -1,0 +1,97 @@
+/**
+ * El PIN de administración. `06-modelo-de-datos.md` §5.
+ *
+ * Tres cosas que no se negocian:
+ *
+ *  1. **Se valida en el servidor.** `ADMIN_PIN` es una variable de entorno del
+ *     servidor y nunca entra en el bundle del cliente. La Fase 7 lo comprueba
+ *     grepeando el bundle.
+ *  2. **Con límite de intentos por IP.** Cuatro dígitos son diez mil
+ *     combinaciones: sin límite se prueban todas en un rato.
+ *  3. **La comparación es de tiempo constante**, para no filtrar el PIN por lo
+ *     que tarda en responder.
+ *
+ * El modelo mental del usuario no cambia: el PIN incorrecto sacude el campo y lo
+ * limpia. No hay mensaje de "no tienes permiso" (`README` §7).
+ */
+
+import { createHmac, timingSafeEqual } from 'node:crypto'
+import { prisma } from '@/lib/datos/prisma'
+import { demasiadosIntentos, sinPermiso } from './errores'
+
+/** Nombre de la cookie de sesión de administración. */
+export const COOKIE_ADMIN = 'sb_admin'
+
+/** Cuánto dura una sesión de administración. */
+export const DURACION_SESION_MS = 60 * 60 * 1000 // una hora
+
+const VENTANA_MS = 15 * 60 * 1000 // quince minutos
+const MAX_INTENTOS = 8
+
+function secreto(): string {
+  const pin = process.env.ADMIN_PIN
+  if (!pin) throw new Error('Falta ADMIN_PIN en el entorno del servidor.')
+  return pin
+}
+
+/** Compara sin filtrar información por el tiempo que tarda. */
+function igualSeguro(a: string, b: string): boolean {
+  const ba = Buffer.from(a, 'utf8')
+  const bb = Buffer.from(b, 'utf8')
+  if (ba.length !== bb.length) {
+    // Aun así se compara, para que el tiempo no dependa de la longitud.
+    timingSafeEqual(ba, ba)
+    return false
+  }
+  return timingSafeEqual(ba, bb)
+}
+
+/**
+ * Valida el PIN y devuelve el valor de la cookie de sesión.
+ *
+ * @throws 429 si esa IP ya gastó sus intentos; 401 si el PIN no es.
+ */
+export async function validarPin(pin: string, ip: string): Promise<{ cookie: string; expira: Date }> {
+  const desde = new Date(Date.now() - VENTANA_MS)
+  const fallidos = await prisma.intentoPin.count({
+    where: { ip, acertado: false, momento: { gte: desde } },
+  })
+  if (fallidos >= MAX_INTENTOS) {
+    // Se registra también el intento bloqueado: si alguien está probando, tiene
+    // que verse en la auditoría.
+    await prisma.intentoPin.create({ data: { ip, acertado: false } })
+    throw demasiadosIntentos('Demasiados intentos. Espera un rato y vuelve a probar.')
+  }
+
+  const acertado = igualSeguro(pin, secreto())
+  await prisma.intentoPin.create({ data: { ip, acertado } })
+  if (!acertado) throw sinPermiso('PIN incorrecto.')
+
+  const expira = new Date(Date.now() + DURACION_SESION_MS)
+  return { cookie: firmarSesion(expira), expira }
+}
+
+/** La cookie es `expira.firma`, firmada con el PIN. No lleva el PIN dentro. */
+function firmarSesion(expira: Date): string {
+  const carga = String(expira.getTime())
+  const firma = createHmac('sha256', secreto()).update(carga).digest('base64url')
+  return `${carga}.${firma}`
+}
+
+/** `true` si la cookie es válida y no ha caducado. */
+export function sesionValida(cookie: string | undefined): boolean {
+  if (!cookie) return false
+  const corte = cookie.lastIndexOf('.')
+  if (corte <= 0) return false
+  const carga = cookie.slice(0, corte)
+  const firma = cookie.slice(corte + 1)
+  const esperada = createHmac('sha256', secreto()).update(carga).digest('base64url')
+  if (!igualSeguro(firma, esperada)) return false
+  const expira = Number(carga)
+  return Number.isFinite(expira) && expira > Date.now()
+}
+
+/** Limpia los intentos viejos. Se llama de vez en cuando, no en cada petición. */
+export async function limpiarIntentos(): Promise<void> {
+  await prisma.intentoPin.deleteMany({ where: { momento: { lt: new Date(Date.now() - VENTANA_MS * 4) } } })
+}

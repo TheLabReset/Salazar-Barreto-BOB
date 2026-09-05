@@ -1,6 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import { DM_Sans, JetBrains_Mono, Syne } from 'next/font/google'
 import { COPYS } from '@/lib/copys'
+import { Marco } from '@/components/Marco'
+import { ProveedoresCliente } from './layout-cliente'
+import { Hojas } from '@/components/hojas'
+import { NavSiCorresponde } from '@/components/NavSiCorresponde'
+import { dptoElegido } from '@/lib/sesion'
 import { COLOR_TEMA } from '@/lib/tema'
 import './globals.css'
 
@@ -50,10 +55,19 @@ export const viewport: Viewport = {
   themeColor: COLOR_TEMA,
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const dpto = await dptoElegido()
   return (
     <html lang="es-PE" className={`${syne.variable} ${dmSans.variable} ${jetbrains.variable}`}>
-      <body>{children}</body>
+      <body>
+        <ProveedoresCliente>
+          <Marco>
+            {children}
+            <NavSiCorresponde hayDpto={dpto !== null} />
+            <Hojas />
+          </Marco>
+        </ProveedoresCliente>
+      </body>
     </html>
   )
 }
