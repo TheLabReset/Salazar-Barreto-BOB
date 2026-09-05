@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="datos-edificio.js"></script>
+<style>
+body{margin:0;background:#E9E5DD;-webkit-font-smoothing:antialiased}
+a{color:#C9773A;text-decoration:none}
+a:hover{color:#A85F2A}
+*{box-sizing:border-box}
+.sc{scrollbar-width:none;-ms-overflow-style:none}
+.sc::-webkit-scrollbar{width:0;height:0;display:none}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.fu{animation:fadeUp .34s cubic-bezier(.2,.8,.3,1) both}
+@keyframes sheet{from{transform:translateY(100%)}to{transform:none}}
+.sh{animation:sheet .32s cubic-bezier(.2,.85,.3,1) both}
+@media (prefers-reduced-motion:reduce){.fu,.sh{animation:none}}
+.desk{--top:38px;--bot:20px;--rad:38px;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:28px 20px;font-family:'DM Sans',sans-serif;color:#0E0E0E}
+.app{width:390px;height:844px;max-width:100%;max-height:calc(100dvh - 56px);background:#F7F4EE;border-radius:var(--rad);border:1px solid rgba(14,14,14,.09);overflow:hidden;position:relative;box-shadow:0 24px 60px rgba(14,14,14,.13)}
+/* teléfono vertical — la app ocupa la pantalla, sin marco */
+@media (max-width:540px){
+  body{background:#F7F4EE}
+  .desk{padding:0;--rad:0;--top:calc(30px + env(safe-area-inset-top));--bot:calc(18px + env(safe-area-inset-bottom))}
+  .app{width:100vw;height:100vh;height:100dvh;max-height:none;border:0;box-shadow:none}
+}
+/* pantalla baja (teléfono horizontal, ventana chica) — columna a altura completa */
+@media (max-height:560px){
+  .desk{padding:0;--rad:0;--top:calc(22px + env(safe-area-inset-top));--bot:calc(14px + env(safe-area-inset-bottom))}
+  .app{width:min(430px,100vw);height:100vh;height:100dvh;max-height:none;border-left:1px solid rgba(14,14,14,.09);border-right:1px solid rgba(14,14,14,.09);border-top:0;border-bottom:0;box-shadow:none}
+}
+/* tablet y escritorio con poca altura — el marco no se recorta nunca */
+@media (min-width:541px) and (min-height:561px) and (max-height:920px){.desk{padding:16px 20px}}
+</style>
+</helmet>
+
+<div class="desk">
+<div class="app">
+
+<div style="height:var(--top);flex:0 0 auto;position:relative;z-index:5"></div>
+
+<!-- ══ ONBOARDING ══ -->
+<sc-if value="{{ esOnboarding }}">
+<div class="sc" style="position:absolute;inset:var(--top) 0 0;overflow-y:auto;display:flex;flex-direction:column">
+  <div style="padding:54px 32px 0">
+    <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#C9773A;margin-bottom:16px">Jr. Enrique Salazar Barreto</div>
+    <h2 style="font:800 26px/1.15 Syne,sans-serif;margin:0 0 10px;letter-spacing:-.02em">¿Cuál es tu departamento?</h2>
+    <p style="font:300 15px/1.5 'DM Sans',sans-serif;color:#7A7570;margin:0">Así Inicio te muestra lo tuyo primero.</p>
+  </div>
+  <div style="padding:34px 32px 0;display:flex;justify-content:center">
+    <div style="width:250px;display:flex;flex-direction:column;gap:6px">
+      <div style="height:20px;background:#17172B;border-radius:8px 8px 2px 2px;opacity:.88"></div>
+      <sc-for list="{{ filasEdificio }}" as="fila" hint-placeholder-count="5">
+        <div style="display:grid;gap:6px;grid-template-columns:{{ fila.cols }}">
+          <sc-for list="{{ fila.dptos }}" as="d" hint-placeholder-count="2">
+            <div onClick="{{ d.elegir }}" style="border-radius:4px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;cursor:pointer;transition:transform .12s;{{ d.estilo }}" style-hover="transform:scale(1.03)">
+              <span style="font:600 16px/1 'JetBrains Mono',monospace">{{ d.id }}</span>
+              <span style="font:300 10px/1.3 'DM Sans',sans-serif;opacity:.62">{{ d.nombre }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+      <div style="height:13px;background:rgba(14,14,14,.12);border-radius:2px 2px 8px 8px"></div>
+    </div>
+  </div>
+  <div style="margin-top:auto;padding:24px 32px 42px">
+    <div onClick="{{ entrar }}" style="height:54px;border-radius:999px;background:#C9773A;display:flex;align-items:center;justify-content:center;font:500 15px/1.3 'DM Sans',sans-serif;color:#fff;cursor:pointer">Entrar como {{ dptoSel }}</div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ══ INICIO ══ -->
+<sc-if value="{{ esInicio }}">
+<div class="sc" style="position:absolute;inset:0;overflow-y:auto;padding-bottom:calc(88px + var(--bot))">
+  <div style="background:linear-gradient(#EEDFCF,#F7F4EE 78%);padding:var(--top) 0 8px">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;padding:26px 24px 22px">
+      <div>
+        <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#A85F2A;margin-bottom:8px">{{ mesLabel }}</div>
+        <div style="font:800 27px/1 Syne,sans-serif;letter-spacing:-.02em;white-space:nowrap">Hola, {{ dptoSel }}</div>
+      </div>
+      <div onClick="{{ irAvisos }}" style="width:40px;height:40px;border-radius:999px;background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0E0E0E" stroke-width="1.6" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+        <sc-if value="{{ hayAvisos }}"><span style="position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:999px;background:#C9773A;border:1.5px solid #F3E6D8"></span></sc-if>
+      </div>
+    </div>
+  </div>
+
+  <div class="fu" style="padding:0 20px">
+    <div style="background:#17172B;border-radius:24px;padding:24px 24px 20px;color:#F7F4EE">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <span style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:rgba(247,244,238,.5);white-space:nowrap">Tu cuota de {{ mesCorto }}</span>
+        <span style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;padding:6px 11px;border-radius:999px;white-space:nowrap;flex:0 0 auto;{{ miEstado.pill }}">{{ miEstado.texto }}</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px">
+        <span style="font:400 22px/1 'JetBrains Mono',monospace;color:rgba(247,244,238,.45)">S/</span>
+        <span style="font:500 46px/1 'JetBrains Mono',monospace;letter-spacing:-.03em">{{ miCuotaAnim }}</span>
+      </div>
+      <div style="font:300 13px/1.4 'DM Sans',sans-serif;color:rgba(247,244,238,.55);margin-bottom:20px">{{ miEstado.detalle }}</div>
+      <div style="border-top:1px solid rgba(247,244,238,.12);padding-top:4px">
+        <div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(247,244,238,.08)"><span style="font:300 14px/1.3 'DM Sans',sans-serif;color:rgba(247,244,238,.75)">Mantenimiento</span><span style="font:400 14px/1 'JetBrains Mono',monospace">{{ miMant }}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:11px 0"><span style="font:300 14px/1.3 'DM Sans',sans-serif;color:#8ECBE4;white-space:nowrap">Consumo de agua · {{ miM3 }} m³</span><span style="font:400 14px/1 'JetBrains Mono',monospace">{{ miAgua }}</span></div>
+        <sc-if value="{{ tengoLavado }}"><div style="font:300 12px/1.4 'DM Sans',sans-serif;color:rgba(247,244,238,.45);padding:0 0 10px">Incluye {{ miLavado }} m³ del lavado de vehículo, que salen del caño común.</div></sc-if>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <div onClick="{{ verCalculo }}" style="flex:1;height:44px;border-radius:999px;background:rgba(247,244,238,.1);display:flex;align-items:center;justify-content:center;font:400 13px/1.3 'DM Sans',sans-serif;color:#F7F4EE;cursor:pointer">¿Cómo se calculó?</div>
+        <div onClick="{{ irMiDpto }}" style="width:44px;height:44px;border-radius:999px;background:#C9773A;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fu" style="padding:12px 20px 0">
+    <div onClick="{{ abrirBob }}" style="background:#fff;border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;border:1px solid rgba(14,14,14,.06);cursor:pointer">
+      <div style="width:36px;height:36px;border-radius:12px;background:rgba(192,122,26,.12);display:flex;align-items:center;justify-content:center;flex:0 0 auto">{{ blobChico }}</div>
+      <div style="flex:1;font:400 13.5px/1.35 'DM Sans',sans-serif">{{ bobLinea }}</div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A7570" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto"><path d="M6 9l6 6 6-6"></path></svg>
+    </div>
+  </div>
+
+  <div class="fu" style="padding:28px 24px 0">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
+      <span style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#7A7570">Los 7 este mes</span>
+      <span style="font:500 12px/1 'JetBrains Mono',monospace">{{ resumenPagos }}</span>
+    </div>
+    <div style="display:flex;gap:4px;margin-bottom:20px">
+      <sc-for list="{{ barras }}" as="b" hint-placeholder-count="7"><div style="flex:1;height:5px;border-radius:999px;{{ b.css }}"></div></sc-for>
+    </div>
+    <sc-for list="{{ grupos }}" as="g" hint-placeholder-count="2">
+      <div style="font:400 11px/1.3 'DM Sans',sans-serif;color:#7A7570;margin:0 0 2px">{{ g.titulo }}</div>
+      <div style="margin-bottom:16px">
+        <sc-for list="{{ g.filas }}" as="f" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid rgba(14,14,14,.08);{{ f.wrap }}">
+            <span style="font:500 14px/1 'JetBrains Mono',monospace;width:34px;{{ f.idCss }}">{{ f.id }}</span>
+            <span style="flex:1;font:300 13.5px/1.3 'DM Sans',sans-serif;color:#7A7570;{{ f.nomCss }}">{{ f.nombre }}</span>
+            <span style="font:400 13.5px/1 'JetBrains Mono',monospace">{{ f.monto }}</span>
+            <span style="width:7px;height:7px;border-radius:999px;{{ f.dot }}"></span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+    <div style="display:flex;gap:16px;padding-top:4px">
+      <div style="display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:999px;background:#2D7A4F"></span><span style="font:300 11.5px/1.3 'DM Sans',sans-serif;color:#7A7570">Al día</span></div>
+      <div style="display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:999px;background:#3E93B8"></span><span style="font:300 11.5px/1.3 'DM Sans',sans-serif;color:#7A7570">Por confirmar</span></div>
+      <div style="display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:999px;background:#C07A1A"></span><span style="font:300 11.5px/1.3 'DM Sans',sans-serif;color:#7A7570">Sin aviso</span></div>
+    </div>
+  </div>
+
+  <div class="fu" style="padding:30px 24px 0">
+    <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#7A7570;margin-bottom:16px">En qué se gastó</div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <sc-for list="{{ topGastos }}" as="g" hint-placeholder-count="4">
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font:300 13.5px/1.3 'DM Sans',sans-serif">{{ g.concepto }}</span><span style="font:400 13.5px/1 'JetBrains Mono',monospace">{{ g.monto }}</span></div>
+          <div style="height:4px;border-radius:999px;background:rgba(14,14,14,.07)"><div style="height:4px;border-radius:999px;{{ g.barra }}"></div></div>
+        </div>
+      </sc-for>
+    </div>
+    <div onClick="{{ irMes }}" style="display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:14px;border-top:1px solid rgba(14,14,14,.1);cursor:pointer">
+      <span style="font:400 13px/1.3 'DM Sans',sans-serif;color:#7A7570">{{ restoGastos }}</span>
+      <span style="font:500 15px/1 'JetBrains Mono',monospace">{{ totalMes }}</span>
+    </div>
+  </div>
+
+  <div class="fu" style="padding:30px 20px 0">
+    <div style="background:#fff;border-radius:22px;border:1px solid rgba(14,14,14,.06);padding:20px 22px">
+      <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#7A7570;margin-bottom:12px">La cuenta</div>
+      <div style="display:flex;align-items:baseline;gap:5px"><span style="font:400 16px/1 'JetBrains Mono',monospace;color:#7A7570">S/</span><span style="font:500 32px/1 'JetBrains Mono',monospace;letter-spacing:-.02em">{{ saldo }}</span></div>
+      <div style="font:300 12.5px/1.4 'DM Sans',sans-serif;color:#7A7570;margin-top:5px">{{ notaSaldo }}</div>
+      {{ sparkline }}
+      <div style="display:flex;margin-top:16px;border-top:1px solid rgba(14,14,14,.08);padding-top:14px">
+        <div style="flex:1;border-right:1px solid rgba(14,14,14,.08)"><div style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#7A7570;margin-bottom:7px">Recibido</div><div style="font:500 17px/1 'JetBrains Mono',monospace">{{ recibido }}</div></div>
+        <div style="flex:1;padding-left:18px"><div style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#7A7570;margin-bottom:7px">Gastado</div><div style="font:500 17px/1 'JetBrains Mono',monospace">{{ gastado }}</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ══ EL MES ══ -->
+<sc-if value="{{ esMes }}">
+<div class="sc" style="position:absolute;inset:var(--top) 0 0;overflow-y:auto;padding-bottom:calc(88px + var(--bot))">
+  <div style="padding:24px 24px 0"><h2 style="font:800 27px/1 Syne,sans-serif;margin:0;letter-spacing:-.02em">El mes</h2></div>
+  <div class="sc" ref="{{ refMeses }}" style="display:flex;gap:8px;padding:20px 24px 0;overflow-x:auto">
+    <sc-for list="{{ selectorMeses }}" as="m" hint-placeholder-count="6">
+      <span onClick="{{ m.ir }}" data-activo="{{ m.act }}" style="font:500 13px/1 'JetBrains Mono',monospace;padding:11px 16px;border-radius:999px;cursor:pointer;flex:0 0 auto;{{ m.css }}">{{ m.corto }}</span>
+    </sc-for>
+  </div>
+
+  <div class="fu" style="padding:20px 20px 0">
+    <div style="background:#17172B;border-radius:24px;padding:24px;color:#F7F4EE">
+      <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:rgba(247,244,238,.5);margin-bottom:14px">Costó mantener el edificio</div>
+      <div style="display:flex;align-items:baseline;gap:6px"><span style="font:400 20px/1 'JetBrains Mono',monospace;color:rgba(247,244,238,.45)">S/</span><span style="font:500 42px/1 'JetBrains Mono',monospace;letter-spacing:-.03em">{{ totalMes }}</span></div>
+      <div style="font:300 13px/1.45 'DM Sans',sans-serif;color:rgba(247,244,238,.55);margin-top:8px">{{ mesLabel }} · {{ compMes }}</div>
+    </div>
+  </div>
+
+  <div class="fu" style="padding:20px 20px 0;display:flex;gap:12px;align-items:stretch">
+    <div style="flex:1.45 1 0;min-width:0;background:#fff;border-radius:20px;border:1px solid rgba(14,14,14,.06);padding:18px 16px">
+      <div style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#3E93B8;margin-bottom:18px">Consumo de agua por dpto · m³</div>
+      {{ graficoAgua }}
+    </div>
+    <div style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:12px">
+      <div style="flex:1;min-width:0;background:#fff;border-radius:20px;border:1px solid rgba(14,14,14,.06);padding:16px">
+        <div style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#7A7570;margin-bottom:12px">Agua SEDAPAL</div>
+        <div style="font:500 27px/1 'JetBrains Mono',monospace">{{ aguaM3 }}</div>
+        <div style="font:300 11.5px/1.3 'DM Sans',sans-serif;color:#7A7570;margin-top:5px">m³ del edificio</div>
+      </div>
+      <div style="flex:1;min-width:0;background:#fff;border-radius:20px;border:1px solid rgba(14,14,14,.06);padding:16px">
+        <div style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#7A7570;margin-bottom:12px">Factura de agua</div>
+        <div style="font:500 27px/1 'JetBrains Mono',monospace">{{ aguaMonto }}</div>
+        <div style="font:300 11.5px/1.3 'DM Sans',sans-serif;color:#7A7570;margin-top:5px">{{ notaComun }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fu" style="padding:14px 20px 0">
+    <div onClick="{{ verCalculo }}" style="background:rgba(201,119,58,.09);border-radius:16px;padding:14px 16px;display:flex;gap:11px;align-items:flex-start;cursor:pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A85F2A" stroke-width="1.8" stroke-linecap="round" style="flex:0 0 auto;margin-top:1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 16v-5M12 8h.01"></path></svg>
+      <div>
+        <div style="font:400 13px/1.45 'DM Sans',sans-serif;color:#7A4A1E">{{ explicaAgua }}</div>
+        <div style="font:500 13px/1.3 'DM Sans',sans-serif;color:#C9773A;margin-top:9px">Ver el cálculo completo →</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fu" style="padding:30px 24px 0">
+    <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#7A7570;margin-bottom:6px">Gastos de {{ mesCorto }}</div>
+    <sc-for list="{{ gastos }}" as="g" hint-placeholder-count="8">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid rgba(14,14,14,.08)">
+        <span style="font:300 14px/1.3 'DM Sans',sans-serif;display:flex;align-items:center;gap:8px;{{ g.txtCss }}">{{ g.concepto }}<sc-if value="{{ g.anual }}"><span style="font:500 8px/1 'JetBrains Mono',monospace;letter-spacing:.1em;color:#7A7570;background:rgba(14,14,14,.06);padding:4px 6px;border-radius:5px">ANUAL ÷ 12</span></sc-if></span>
+        <span style="font:400 14px/1 'JetBrains Mono',monospace;{{ g.montoCss }}">{{ g.monto }}</span>
+      </div>
+    </sc-for>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0 0"><span style="font:500 14px/1.3 'DM Sans',sans-serif">Total</span><span style="font:500 18px/1 'JetBrains Mono',monospace">{{ totalMes }}</span></div>
+  </div>
+
+  <div class="fu" style="padding:30px 24px 0">
+    <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#7A7570;margin-bottom:6px">Las 7 cuotas</div>
+    <sc-for list="{{ cuotasMes }}" as="c" hint-placeholder-count="7">
+      <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid rgba(14,14,14,.08)">
+        <span style="font:500 14px/1 'JetBrains Mono',monospace;width:34px">{{ c.id }}</span>
+        <span style="flex:1;font:300 12px/1.3 'DM Sans',sans-serif;color:#7A7570">{{ c.desglose }}</span>
+        <span style="font:400 14px/1 'JetBrains Mono',monospace">{{ c.total }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div class="fu" style="padding:30px 24px 0">
+    <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#7A7570;margin-bottom:6px">Pagos recibidos</div>
+    <sc-for list="{{ pagosMes }}" as="p" hint-placeholder-count="5">
+      <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid rgba(14,14,14,.08)">
+        <span style="font:500 14px/1 'JetBrains Mono',monospace;width:34px">{{ p.id }}</span>
+        <span style="flex:1;font:300 12.5px/1.3 'DM Sans',sans-serif;color:#7A7570">{{ p.detalle }}</span>
+        <span style="font:400 14px/1 'JetBrains Mono',monospace">{{ p.monto }}</span>
+      </div>
+    </sc-for>
+    <sc-if value="{{ sinPagos }}"><div style="font:300 13px/1.5 'DM Sans',sans-serif;color:#7A7570;padding:12px 0">Todavía no hay pagos confirmados de este mes.</div></sc-if>
+  </div>
+</div>
+</sc-if>
+
+<!-- ══ MI DEPARTAMENTO ══ -->
+<sc-if value="{{ esMiDpto }}">
+<div class="sc" style="position:absolute;inset:var(--top) 0 0;overflow-y:auto;padding-bottom:calc(88px + var(--bot))">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;padding:24px 24px 0">
+    <div>
+      <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#7A7570;margin-bottom:8px">{{ miNombre }} · Flat {{ miFlat }}%</div>
+      <h2 style="font:800 30px/1 Syne,sans-serif;margin:0;letter-spacing:-.02em;white-space:nowrap">Depa {{ dptoSel }}</h2>
+    </div>
+    <span onClick="{{ cambiarDpto }}" style="font:400 12px/1.3 'DM Sans',sans-serif;color:#C9773A;cursor:pointer">Cambiar</span>
+  </div>
+
+  <div class="fu" style="padding:22px 20px 0">
+    <div style="background:#17172B;border-radius:24px;padding:24px;color:#F7F4EE">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <span style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:rgba(247,244,238,.5)">{{ mesLabel }}</span>
+        <span style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;padding:6px 11px;border-radius:999px;white-space:nowrap;flex:0 0 auto;{{ miEstado.pill }}">{{ miEstado.texto }}</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:6px"><span style="font:400 20px/1 'JetBrains Mono',monospace;color:rgba(247,244,238,.45)">S/</span><span style="font:500 42px/1 'JetBrains Mono',monospace;letter-spacing:-.03em">{{ miCuota }}</span></div>
+      <div style="font:300 13px/1.45 'DM Sans',sans-serif;color:rgba(247,244,238,.55);margin-top:8px">{{ miEstado.detalle }}</div>
+      <sc-if value="{{ miEstado.acciones }}">
+        <div style="display:flex;gap:8px;margin-top:18px">
+          <div onClick="{{ comoPagar }}" style="flex:1;height:46px;border-radius:999px;background:#C9773A;display:flex;align-items:center;justify-content:center;font:500 14px/1.3 'DM Sans',sans-serif;color:#fff;cursor:pointer">Cómo pagar</div>
+          <div onClick="{{ yaPague }}" style="height:46px;padding:0 20px;border-radius:999px;background:rgba(247,244,238,.1);display:flex;align-items:center;justify-content:center;font:400 14px/1.3 'DM Sans',sans-serif;color:#F7F4EE;cursor:pointer">Ya pagué</div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{ tengoLavado }}">
+  <div class="fu" style="padding:14px 20px 0">
+    <div style="background:#fff;border-radius:20px;border:1px solid rgba(14,14,14,.06);padding:18px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid rgba(14,14,14,.07)">
+        <span style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#3E93B8">Lavado de vehículo</span>
+        <span style="font:400 14px/1 'JetBrains Mono',monospace">{{ miLavado }} m³</span>
+      </div>
+      <div style="font:300 13px/1.45 'DM Sans',sans-serif;color:#7A7570;padding-top:11px">El agua sale del caño común, así que esos {{ miLavado }} m³ se restan del área común y se suman a los tuyos. No es un cobro aparte: el total sigue siendo lo que factura SEDAPAL.</div>
+    </div>
+  </div>
+  </sc-if>
+
+  <div class="fu" style="padding:26px 20px 0">
+    <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#7A7570;margin-bottom:14px;padding:0 4px">Tu historia en el edificio</div>
+
+    <div onClick="{{ abrirPagos }}" style="background:#fff;border-radius:22px;border:1px solid rgba(14,14,14,.06);padding:20px;margin-bottom:12px;cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#7A7570;margin-bottom:10px">Historial de pagos</div>
+          <div style="display:flex;align-items:baseline;gap:5px"><span style="font:400 15px/1 'JetBrains Mono',monospace;color:#7A7570">S/</span><span style="font:500 28px/1 'JetBrains Mono',monospace">{{ totalPagado }}</span></div>
+          <div style="font:300 12.5px/1.3 'DM Sans',sans-serif;color:#7A7570;margin-top:6px">{{ resumenAnual }}</div>
+        </div>
+        <div style="width:32px;height:32px;border-radius:999px;background:rgba(14,14,14,.05);display:flex;align-items:center;justify-content:center;flex:0 0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0E0E0E" stroke-width="2" stroke-linecap="round"><path d="M9 4h11v11M20 4 4 20"></path></svg></div>
+      </div>
+      <div style="display:flex;gap:5px">
+        <sc-for list="{{ tiraPagos }}" as="t" hint-placeholder-count="12"><div style="flex:1;height:26px;border-radius:5px;{{ t.css }}"></div></sc-for>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px"><span style="font:400 9px/1 'JetBrains Mono',monospace;color:#7A7570">ENE</span><span style="font:400 9px/1 'JetBrains Mono',monospace;color:#7A7570">DIC</span></div>
+    </div>
+
+    <div onClick="{{ abrirAgua }}" style="background:#fff;border-radius:22px;border:1px solid rgba(14,14,14,.06);padding:20px;cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font:500 9px/1 'JetBrains Mono',monospace;letter-spacing:.14em;text-transform:uppercase;color:#3E93B8;margin-bottom:10px">Tu consumo de agua</div>
+          <div style="display:flex;align-items:baseline;gap:5px"><span style="font:500 28px/1 'JetBrains Mono',monospace">{{ miM3 }}</span><span style="font:400 15px/1 'JetBrains Mono',monospace;color:#7A7570">m³</span></div>
+          <div style="font:300 12.5px/1.3 'DM Sans',sans-serif;color:#7A7570;margin-top:6px">{{ notaConsumo }}</div>
+        </div>
+        <div style="width:32px;height:32px;border-radius:999px;background:rgba(14,14,14,.05);display:flex;align-items:center;justify-content:center;flex:0 0 auto"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0E0E0E" stroke-width="2" stroke-linecap="round"><path d="M9 4h11v11M20 4 4 20"></path></svg></div>
+      </div>
+      <div style="height:56px;display:flex;align-items:flex-end;gap:5px">
+        <sc-for list="{{ tiraAgua }}" as="t" hint-placeholder-count="12"><div style="flex:1;border-radius:4px;{{ t.css }}"></div></sc-for>
+      </div>
+      <div style="display:flex;gap:9px;align-items:flex-start;margin-top:16px;padding-top:14px;border-top:1px solid rgba(14,14,14,.07)">
+        {{ blobMini }}
+        <div style="font:300 13px/1.45 'DM Sans',sans-serif;color:#7A7570">{{ bobConsumo }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fu" style="padding:26px 24px 0">
+    <div onClick="{{ irAdmin }}" style="display:flex;justify-content:space-between;align-items:center;padding:17px 0;border-top:1px solid rgba(14,14,14,.08);cursor:pointer">
+      <span style="display:flex;align-items:center;gap:11px;font:400 14px/1.3 'DM Sans',sans-serif;color:#7A7570"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7A7570" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2.5"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>Administrar el edificio</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C4BFB8" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ══ HISTORIAL ══ -->
+<sc-if value="{{ esHistorial }}">
+<div class="sc" style="position:absolute;inset:var(--top) 0 0;overflow-y:auto;padding-bottom:calc(88px + var(--bot))">
+  <div style="padding:24px 24px 0"><h2 style="font:800 27px/1 Syne,sans-serif;margin:0;letter-spacing:-.02em">Historial</h2><p style="font:300 14px/1.45 'DM Sans',sans-serif;color:#7A7570;margin:8px 0 0">Desde que los propietarios tomaron la administración.</p></div>
+
+  <div class="fu" style="padding:22px 20px 0">
+    <div style="background:#17172B;border-radius:24px;padding:24px;color:#F7F4EE">
+      <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:rgba(247,244,238,.5);margin-bottom:14px">La cuenta</div>
+      <div style="display:flex;align-items:baseline;gap:6px"><span style="font:400 20px/1 'JetBrains Mono',monospace;color:rgba(247,244,238,.45)">S/</span><span style="font:500 40px/1 'JetBrains Mono',monospace;letter-spacing:-.03em">{{ saldo }}</span></div>
+      <div style="font:300 13px/1.4 'DM Sans',sans-serif;color:rgba(247,244,238,.55);margin-top:7px">{{ notaSaldo }}</div>
+      {{ sparklineGrande }}
+    </div>
+  </div>
+
+  <div class="fu" style="padding:26px 24px 0">
+    <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#3E93B8;margin-bottom:16px">Consumo de agua del edificio · m³</div>
+    {{ graficoEdificio }}
+  </div>
+
+  <div class="fu" style="padding:30px 24px 0">
+    <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#7A7570;margin-bottom:6px">Mes a mes</div>
+    <sc-for list="{{ listaMeses }}" as="m" hint-placeholder-count="6">
+      <div onClick="{{ m.ir }}" style="display:flex;align-items:center;gap:14px;padding:15px 0;border-bottom:1px solid rgba(14,14,14,.08);cursor:pointer">
+        <div style="flex:1"><div style="font:400 14.5px/1.3 'DM Sans',sans-serif;margin-bottom:6px">{{ m.label }}</div><div style="font:300 12px/1.3 'DM Sans',sans-serif;color:#7A7570">{{ m.estado }}</div></div>
+        <span style="font:400 14px/1 'JetBrains Mono',monospace">{{ m.total }}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C4BFB8" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- ══ AVISOS ══ -->
+<sc-if value="{{ esAvisos }}">
+<div class="sc" style="position:absolute;inset:var(--top) 0 0;overflow-y:auto;padding-bottom:40px">
+  <div style="padding:22px 24px 0;display:flex;justify-content:space-between;align-items:center">
+    <div onClick="{{ volver }}" style="width:32px;height:32px;border-radius:999px;background:rgba(14,14,14,.06);display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0E0E0E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"></path></svg></div>
+    <span onClick="{{ leerTodo }}" style="font:400 12.5px/1.3 'DM Sans',sans-serif;color:#C9773A;cursor:pointer">Marcar todo leído</span>
+  </div>
+  <div style="padding:20px 24px 0"><h2 style="font:800 27px/1 Syne,sans-serif;margin:0;letter-spacing:-.02em">Avisos</h2><p style="font:300 13.5px/1.45 'DM Sans',sans-serif;color:#7A7570;margin:8px 0 0">Todo lo que se movió en el edificio. Los siete ven lo mismo.</p></div>
+  <div style="padding:12px 20px 0">
+    <sc-for list="{{ gruposAvisos }}" as="g" hint-placeholder-count="3">
+    <div style="font:500 10px/1 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:#7A7570;margin:14px 4px 10px">{{ g.titulo }}</div>
+    <sc-for list="{{ g.items }}" as="a" hint-placeholder-count="2">
+      <div class="fu" style="background:#fff;border-radius:18px;border:1px solid rgba(14,14,14,.06);padding:16px 18px;display:flex;gap:13px;margin-bottom:10px">
+        <div style="width:34px;height:34px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;{{ a.iconBg }}">{{ a.icono }}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px"><span style="font:500 14px/1.25 'DM Sans',sans-serif">{{ a.titulo }}</span><span style="font:400 10px/1 'JetBrains Mono',monospace;color:#A8A29C;flex:0 0 auto">{{ a.cuando }}</span></div>
+          <div style="font:300 13px/1.45 'DM Sans',sans-serif;color:#7A7570">{{ a.texto }}</div>
+        </div>
+        <sc-if value="{{ a.nuevo }}"><div style="width:7px;height:7px;border-radius:999px;background:#C9773A;flex:0 0 auto;margin-top:5px"></div></sc-if>
+      </div>
+    </sc-for>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- ══ ADMIN ══ -->
+<sc-if value="{{ esAdmin }}">
+<div class="sc" style="position:absolute;inset:var(--top) 0 0;overflow-y:auto;padding-bottom:40px">{{ vistaAdmin }}</div>
+</sc-if>
+
+<!-- ══ HOJAS ══ -->
+<sc-if value="{{ hayHoja }}">
+<div onClick="{{ cerrarHoja }}" style="position:absolute;inset:0;background:rgba(14,14,14,.34);backdrop-filter:blur(2px);z-index:20"></div>
+<div class="sh sc" style="position:absolute;left:0;right:0;bottom:0;background:#F7F4EE;border-radius:32px 32px var(--rad) var(--rad);box-shadow:0 -8px 40px rgba(14,14,14,.2);z-index:21;overflow-y:auto;{{ hojaAltura }}">
+  <div style="padding:14px 0 0"><div style="width:40px;height:4px;border-radius:999px;background:rgba(14,14,14,.14);margin:0 auto"></div></div>
+  {{ contenidoHoja }}
+</div>
+</sc-if>
+
+<sc-if value="{{ hayNumpad }}">{{ elNumpad }}</sc-if>
+
+<!-- ══ NAV ══ -->
+<sc-if value="{{ hayNav }}">
+<div style="position:absolute;left:20px;right:20px;bottom:var(--bot);display:flex;gap:10px;align-items:center;z-index:10">
+  <div style="flex:1;height:62px;border-radius:999px;background:#17172B;display:flex;align-items:center;justify-content:space-around;padding:0 8px">
+    <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="4">
+      <div onClick="{{ n.ir }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:999px;{{ n.css }}">{{ n.icono }}</div>
+    </sc-for>
+  </div>
+  <div onClick="{{ abrirBob }}" style="width:62px;height:62px;border-radius:999px;background:#C07A1A;display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:0 4px 14px rgba(192,122,26,.32);cursor:pointer;transition:transform .15s" style-hover="transform:scale(1.05)">{{ blobNav }}</div>
+</div>
+</sc-if>
+
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = {
+    dpto: null, pantalla: 'inicio', mes: '2026-06', hoja: null,
+    admin: false, pin: '', paso: 0, pagoDpto: null, avisosLeidos: false,
+    pagos: null, cuotaAnim: 0, correccion: null, lecturaMala: false,
+  };
+
+  componentDidMount() {
+    if (!window.__EDIF__) {
+      let n = 0;
+      const t = setInterval(() => { if (window.__EDIF__ || ++n > 60) { clearInterval(t); this.forceUpdate(); } }, 50);
+    }
+    const g = localStorage.getItem('sb2-dpto');
+    if (g) this.setState({ dpto: g });
+    setTimeout(() => this.animarCuota(), 80);
+  }
+
+  get D() { return window.__EDIF__; }
+
+  componentDidUpdate() { this.centrarMes(); }
+
+  centrarMes() {
+    const sc = this._meses;
+    if (!sc || !sc.querySelector) return;
+    const act = sc.querySelector('[data-activo="1"]');
+    if (!act) return;
+    const fin = act.offsetLeft + act.offsetWidth + 24;
+    if (fin > sc.scrollLeft + sc.clientWidth) sc.scrollLeft = fin - sc.clientWidth;
+    else if (act.offsetLeft < sc.scrollLeft) sc.scrollLeft = Math.max(0, act.offsetLeft - 24);
+  }
+
+  animarCuota() {
+    const d = this.D; if (!d || !this.state.dpto) return;
+    const c = d.calcularMes(this.state.mes);
+    if (!c) return;
+    const fin = c.cuotas[this.state.dpto].total;
+    let t0 = null;
+    const step = (ts) => {
+      if (!t0) t0 = ts;
+      const p = Math.min((ts - t0) / 700, 1);
+      const e = 1 - Math.pow(1 - p, 3);
+      this.setState({ cuotaAnim: fin * e });
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  pagosDe(mes) {
+    const d = this.D;
+    if (this.state.pagos && this.state.pagos[mes]) return this.state.pagos[mes];
+    return (d.PAGOS[mes]) || {};
+  }
+
+  registrarPago(id) {
+    const d = this.D;
+    const base = JSON.parse(JSON.stringify(this.state.pagos || d.PAGOS));
+    base[this.state.mes] = base[this.state.mes] || {};
+    const hoy = new Date();
+    base[this.state.mes][id] = { estado: 'confirmado', fecha: hoy.getDate() + ' ' + ['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'][hoy.getMonth()], op: '00' + (44000 + Math.floor(Math.random() * 999)) };
+    this.setState({ pagos: base, pagoDpto: null, paso: 0 });
+  }
+
+  avisarPago() {
+    const d = this.D;
+    const base = JSON.parse(JSON.stringify(this.state.pagos || d.PAGOS));
+    base[this.state.mes] = base[this.state.mes] || {};
+    base[this.state.mes][this.state.dpto] = { estado: 'aviso', fecha: 'hoy', op: '—', texto: 'Ya transferí, en cuanto tenga el número lo mando.' };
+    this.setState({ pagos: base, hoja: 'aviso-ok' });
+  }
+
+  blob(px, fill, bg, sonrie) {
+    const R = React.createElement;
+    const kids = [
+      R('path', { key: 'b', d: 'M20 4c9.4 0 16.6 5.4 16.6 15.4S30 36 20 36 3.4 29.4 3.4 19.4 10.6 4 20 4z', fill }),
+      R('ellipse', { key: 'l', cx: 14.6, cy: sonrie ? 18.2 : 19.6, rx: 2.6, ry: 3, fill: bg }),
+      R('ellipse', { key: 'r', cx: 25.4, cy: sonrie ? 18.2 : 19.6, rx: 2.6, ry: 3, fill: bg }),
+    ];
+    if (sonrie) kids.push(R('path', { key: 's', d: 'M16 26c2.4 1.6 5.6 1.6 8 0', stroke: bg, strokeWidth: 2, strokeLinecap: 'round', fill: 'none' }));
+    return R('svg', { width: px, height: px, viewBox: '0 0 40 40' }, kids);
+  }
+
+  ico(paths, color, sz) {
+    const R = React.createElement;
+    return R('svg', { width: sz || 19, height: sz || 19, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' },
+      paths.map((p, i) => R('path', { key: i, d: p })));
+  }
+
+  spark(pts, w, h, color, grande) {
+    const R = React.createElement;
+    const max = Math.max(...pts), min = Math.min(...pts), rng = (max - min) || 1;
+    const d = pts.map((v, i) => `${(i / (pts.length - 1)) * 300},${h - 6 - ((v - min) / rng) * (h - 14)}`).join(' ');
+    const kids = [R('polyline', { key: 'p', points: d, fill: 'none', stroke: color, strokeWidth: grande ? 2.2 : 2, strokeLinecap: 'round', strokeLinejoin: 'round' })];
+    if (grande) {
+      const last = d.split(' ').pop().split(',');
+      kids.push(R('circle', { key: 'c', cx: last[0], cy: last[1], r: 3.5, fill: color }));
+    }
+    return R('svg', { viewBox: `0 0 300 ${h}`, preserveAspectRatio: 'none', style: { width: '100%', height: h + 'px', marginTop: '14px', display: 'block' } }, kids);
+  }
+
+  barras(items, alto, destacado, sufijo) {
+    const R = React.createElement;
+    const max = Math.max(...items.map(i => i.v)) || 1;
+    return R('div', {},
+      R('div', { style: { position: 'relative', height: alto + 'px', display: 'flex', alignItems: 'flex-end', gap: '7px' } },
+        items.map((it, i) => R('div', {
+          key: i,
+          onClick: () => this.setState({ tip: i }),
+          style: { flex: 1, height: Math.max(4, (it.v / max) * alto) + 'px', borderRadius: '4px', background: it.id === destacado ? '#3E93B8' : 'rgba(14,14,14,.12)', transition: 'height .4s cubic-bezier(.2,.8,.3,1)' },
+        }))),
+      R('div', { style: { display: 'flex', gap: '7px', marginTop: '9px' } },
+        items.map((it, i) => R('span', { key: i, style: { flex: 1, textAlign: 'center', font: `${it.id === destacado ? 500 : 400} 9px/1 'JetBrains Mono',monospace`, color: it.id === destacado ? '#3E93B8' : '#7A7570' } }, it.label))));
+  }
+
+  renderVals() {
+    const d = this.D;
+    if (!d) return { esOnboarding: false, esInicio: false };
+    const S = this.state;
+    const R = React.createElement;
+    const c = d.calcularMes(S.mes);
+    const mesInfo = d.MESES.find(m => m.id === S.mes);
+    const idx = d.MESES.findIndex(m => m.id === S.mes);
+    const pagos = this.pagosDe(S.mes);
+
+    const V = {
+      esOnboarding: !S.dpto,
+      esInicio: !!S.dpto && S.pantalla === 'inicio',
+      esMes: !!S.dpto && S.pantalla === 'mes',
+      esMiDpto: !!S.dpto && S.pantalla === 'midpto',
+      esHistorial: !!S.dpto && S.pantalla === 'historial',
+      esAvisos: !!S.dpto && S.pantalla === 'avisos',
+      esAdmin: !!S.dpto && S.pantalla === 'admin',
+      dptoSel: S.dpto || '401',
+      mesLabel: mesInfo ? mesInfo.label : '',
+      mesCorto: mesInfo ? mesInfo.label.split(' ')[0].toLowerCase() : '',
+      hayNav: !!S.dpto && ['inicio', 'mes', 'midpto', 'historial'].includes(S.pantalla),
+      hayHoja: !!S.hoja,
+      blobChico: this.blob(24, '#C07A1A', '#F7F4EE'),
+      blobMini: this.blob(20, '#C07A1A', '#F7F4EE'),
+      blobNav: this.blob(38, '#F7F4EE', '#C07A1A'),
+      cerrarHoja: () => this.setState({ hoja: null }),
+      abrirBob: () => this.setState({ hoja: 'bob' }),
+      verCalculo: () => this.setState({ hoja: 'calculo' }),
+      abrirPagos: () => this.setState({ hoja: 'pagos' }),
+      abrirAgua: () => this.setState({ hoja: 'agua' }),
+      comoPagar: () => this.setState({ hoja: 'pagar' }),
+      yaPague: () => this.avisarPago(),
+      irMes: () => this.setState({ pantalla: 'mes' }),
+      irMiDpto: () => this.setState({ pantalla: 'midpto' }),
+      irAvisos: () => this.setState({ pantalla: 'avisos', avisosLeidos: true }),
+      irAdmin: () => this.setState({ pantalla: 'admin', pin: '' }),
+      leerTodo: () => this.setState({ avisosLeidos: true }),
+      volver: () => this.setState({ pantalla: 'inicio' }),
+      cambiarDpto: () => { localStorage.removeItem('sb2-dpto'); this.setState({ dpto: null }); },
+      entrar: () => { const id = S.dpto || '401'; localStorage.setItem('sb2-dpto', id); this.setState({ dpto: id }); setTimeout(() => this.animarCuota(), 60); },
+      hayAvisos: !S.avisosLeidos,
+      hayNumpad: !!S.numpad,
+      elNumpad: this.numpad(),
+      refMeses: (el) => { if (el) { this._meses = el; setTimeout(() => this.centrarMes(), 30); } },
+      hojaAltura: S.hoja === 'bob' ? 'top:var(--top)' : ['calculo', 'agua', 'pagos', 'wizard'].includes(S.hoja) ? 'top:calc(var(--top) + 6px)' : 'max-height:76%',
+    };
+
+    // ── Onboarding
+    const filas = [[ '501', '502' ], [ '401' ], [ '301' ], [ '201', '202' ], [ '101' ]];
+    V.filasEdificio = filas.map(f => ({
+      cols: f.length === 2 ? '1fr 1fr' : '1fr',
+      dptos: f.map(id => {
+        const dp = d.DPTOS.find(x => x.id === id);
+        const sel = (S.dpto || '401') === id;
+        return {
+          id, nombre: dp.nombre.split(' y ')[0],
+          estilo: sel ? 'height:56px;background:#17172B;color:#F7F4EE' : 'height:56px;background:#fff;border:1px solid rgba(14,14,14,.08);color:#0E0E0E',
+          elegir: () => this.setState({ dpto: id }),
+        };
+      }),
+    }));
+
+    // ── Navegación y selector: nunca dependen de que el mes se pueda calcular
+    const dest = [
+      { k: 'inicio', p: ['M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'] },
+      { k: 'mes', p: ['M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z', 'M3 10h18M8 3v4M16 3v4'] },
+      { k: 'midpto', p: ['M5 21V6l7-3 7 3v15', 'M9 21v-5h6v5'] },
+      { k: 'historial', p: ['M4 19V9M10 19V5M16 19v-6M22 19h-20'] },
+    ];
+    V.navItems = dest.map(n => ({
+      ir: () => this.setState({ pantalla: n.k }),
+      css: S.pantalla === n.k ? 'background:rgba(247,244,238,.12)' : '',
+      icono: this.ico(n.p, S.pantalla === n.k ? '#F7F4EE' : 'rgba(247,244,238,.45)'),
+    }));
+    V.selectorMeses = d.MESES.map(m => ({
+      corto: m.corto, ir: () => this.setState({ mes: m.id }), act: m.id === S.mes ? '1' : '0',
+      css: m.id === S.mes ? 'background:#17172B;color:#F7F4EE' : 'background:#fff;border:1px solid rgba(14,14,14,.07);color:#7A7570',
+    }));
+
+    if (!S.dpto || !c) return V;
+
+    // ── Mi cuota
+    const mia = c.cuotas[S.dpto];
+    const miPago = pagos[S.dpto];
+    const est = !miPago ? { pill: 'color:#E8A94A;background:rgba(232,169,74,.15)', texto: 'Sin registrar', detalle: 'Aún no hay un pago asociado a este mes.', acciones: true }
+      : miPago.estado === 'aviso' ? { pill: 'color:#8ECBE4;background:rgba(142,203,228,.15)', texto: 'En verificación', detalle: `Avisaste el ${miPago.fecha}. Falta que lo confirmen contra el estado de cuenta.`, acciones: false }
+      : { pill: 'color:#7BD3A0;background:rgba(123,211,160,.14)', texto: 'Al día', detalle: `Pagado el ${miPago.fecha} · op. ${miPago.op}`, acciones: false };
+
+    Object.assign(V, {
+      miEstado: est,
+      miCuota: d.fmt(mia.total),
+      miCuotaAnim: d.fmt(S.cuotaAnim || mia.total),
+      miMant: d.fmt(mia.mantenimiento),
+      miAgua: d.fmt(mia.agua),
+      miM3: d.fmt(mia.m3),
+      tengoLavado: mia.lavado > 0,
+      miLavado: d.fmt(mia.lavado),
+      miNombre: d.DPTOS.find(x => x.id === S.dpto).nombre,
+      miFlat: d.DPTOS.find(x => x.id === S.dpto).flat,
+      totalMes: d.fmt(c.totalMes),
+      aguaM3: c.rec.aguaM3,
+      aguaMonto: d.fmt(c.facturaAgua),
+      notaComun: c.ajustado ? 'los medidores midieron de más' : `${d.fmt(c.comunReal)} m³ del área común`,
+    });
+
+    // ── Los 7
+    const conf = d.DPTOS.filter(x => pagos[x.id] && pagos[x.id].estado === 'confirmado');
+    const avis = d.DPTOS.filter(x => pagos[x.id] && pagos[x.id].estado === 'aviso');
+    const sin = d.DPTOS.filter(x => !pagos[x.id]);
+    V.resumenPagos = avis.length ? `${conf.length} confirmados · ${avis.length} por confirmar` : `${conf.length} / 7`;
+    V.barras = [
+      ...conf.map(() => ({ css: 'background:#2D7A4F' })),
+      ...avis.map(() => ({ css: 'background:#3E93B8' })),
+      ...sin.map(() => ({ css: 'background:rgba(192,122,26,.3)' })),
+    ];
+    const mkFila = (x, color) => ({
+      id: x.id, nombre: x.id === S.dpto ? 'Tu departamento' : x.nombre,
+      monto: d.fmt(c.cuotas[x.id].total), dot: 'background:' + color,
+      wrap: x.id === S.dpto ? 'background:linear-gradient(90deg,rgba(201,119,58,.07),transparent);margin:0 -10px;padding-left:10px;padding-right:10px;border-radius:8px' : '',
+      idCss: x.id === S.dpto ? 'color:#C9773A' : '',
+      nomCss: x.id === S.dpto ? 'color:#0E0E0E;font-weight:400' : '',
+    });
+    V.grupos = [
+      conf.length && { titulo: 'Al día', filas: conf.map(x => mkFila(x, '#2D7A4F')) },
+      avis.length && { titulo: 'Avisaron, falta confirmar', filas: avis.map(x => mkFila(x, '#3E93B8')) },
+      sin.length && { titulo: 'Sin aviso todavía', filas: sin.map(x => mkFila(x, '#C07A1A')) },
+    ].filter(Boolean);
+
+    // ── Bob
+    V.bobLinea = sin.length === 0 && avis.length === 0 ? `${mesInfo.label.split(' ')[0]} cerró completo: los siete al día.`
+      : sin.length === 0 ? `Va bien: solo falta confirmar el pago del ${avis[0].id}.`
+      : `Falta que ${sin.length === 1 ? 'el ' + sin[0].id + ' avise' : sin.length + ' departamentos avisen'}.`;
+
+    // ── Gastos
+    const gs = c.gastos.filter(g => g.monto).sort((a, b) => b.monto - a.monto);
+    const maxG = gs[0].monto;
+    V.topGastos = gs.slice(0, 4).map(g => ({
+      concepto: g.esAgua ? `Factura de agua · ${c.rec.aguaM3} m³` : g.concepto,
+      monto: d.fmt(g.monto),
+      barra: `width:${(g.monto / maxG) * 100}%;background:${g.esAgua ? '#3E93B8' : g.monto === maxG ? '#C9773A' : 'rgba(201,119,58,.5)'}`,
+    }));
+    V.restoGastos = `+ ${gs.length - 4} gastos más · total del mes`;
+    V.gastos = c.gastos.map(g => ({
+      concepto: g.esAgua ? 'Factura de agua SEDAPAL' : g.concepto, anual: !!g.anual,
+      monto: g.porConfirmar ? 'por confirmar' : d.fmt(g.monto),
+      txtCss: g.porConfirmar ? 'color:#7A7570' : '',
+      montoCss: g.porConfirmar ? 'color:#C07A1A;font-size:13px' : '',
+    }));
+
+    // ── Cuenta
+    const sal = d.saldoAl(S.mes);
+    V.saldo = d.fmt(sal.saldo);
+    V.recibido = d.fmt(sal.recibido);
+    V.gastado = d.fmt(sal.gastado);
+    V.notaSaldo = sal.delta < 0
+      ? `acumulado de la cuenta conjunta · este mes bajó S/ ${d.fmt(Math.abs(sal.delta))}`
+      : `acumulado de la cuenta conjunta · este mes subió S/ ${d.fmt(sal.delta)}`;
+    const serieReal = d.serieSaldo().slice(0, idx + 1);
+    const serie = serieReal.map(x => x.saldo);
+    V.sparkline = serie.length >= 3 ? this.spark(serie, 300, 44, '#C9773A')
+      : R('div', { style: { height: '44px', marginTop: '14px', borderRadius: '12px', background: 'rgba(14,14,14,.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "300 12px/1.3 'DM Sans',sans-serif", color: '#A8A29C' } }, 'La curva aparece con el tercer mes');
+    V.sparklineGrande = serie.length >= 3 ? this.spark(serie, 300, 70, '#C9773A', true) : V.sparkline;
+
+    // ── El mes
+    const prev = idx > 0 ? d.calcularMes(d.MESES[idx - 1].id) : null;
+    V.compMes = prev ? (c.totalMes > prev.totalMes ? `S/ ${d.fmt(c.totalMes - prev.totalMes)} más que el mes pasado` : `S/ ${d.fmt(prev.totalMes - c.totalMes)} menos que el mes pasado`) : 'repartido entre los siete según metraje';
+    V.graficoAgua = this.barras(d.DPTOS.map(x => ({ id: x.id, label: x.id, v: c.cuotas[x.id].m3 })), 132, S.dpto);
+    V.explicaAgua = c.ajustado
+      ? `Los medidores sumaron ${d.fmt(c.sumaMedida)} m³ y SEDAPAL facturó ${c.rec.aguaM3}. Como no se puede cobrar más de lo que llegó en el recibo, a cada uno se le descontó la misma proporción.`
+      : `Los medidores sumaron ${d.fmt(c.sumaMedida)} m³ y SEDAPAL facturó ${c.rec.aguaM3}.` + (c.lavado ? ` De la diferencia, ${d.fmt(c.lavado)} m³ son el lavado del 401; los ${d.fmt(c.comunReal)} m³ restantes son área común y se reparten entre los siete.` : ` La diferencia, ${d.fmt(c.comunReal)} m³, se cobra como área común.`);
+    V.cuotasMes = d.DPTOS.map(x => ({
+      id: x.id, total: d.fmt(c.cuotas[x.id].total),
+      desglose: `mant. ${d.fmt(c.cuotas[x.id].mantenimiento)} + agua ${d.fmt(c.cuotas[x.id].agua)}`,
+    }));
+    const pgs = d.DPTOS.filter(x => pagos[x.id] && pagos[x.id].estado === 'confirmado');
+    V.pagosMes = pgs.map(x => ({ id: x.id, detalle: `${pagos[x.id].fecha} · op. ${pagos[x.id].op}`, monto: d.fmt(c.cuotas[x.id].total) }));
+    V.sinPagos = pgs.length === 0;
+
+    // ── Mi dpto
+    const hist = d.MESES.slice(0, idx + 1);
+    let pagado = 0, nConf = 0, nAvi = 0;
+    hist.forEach(m => {
+      const cm = d.calcularMes(m.id), pm = this.pagosDe(m.id);
+      if (!cm || !pm[S.dpto]) return;
+      if (pm[S.dpto].estado === 'confirmado') { pagado += cm.cuotas[S.dpto].total; nConf++; }
+      else nAvi++;
+    });
+    V.totalPagado = d.fmt(pagado);
+    V.resumenAnual = nAvi ? `pagado en 2026 · ${nConf} al día, ${nAvi} en verificación` : `pagado en 2026 · ${nConf} de ${hist.length} meses al día`;
+    V.tiraPagos = Array.from({ length: 12 }, (_, i) => {
+      const m = d.MESES[i]; if (!m || i > idx) return { css: 'background:rgba(14,14,14,.06)' };
+      const p = this.pagosDe(m.id)[S.dpto];
+      return { css: 'background:' + (!p ? 'rgba(192,122,26,.25)' : p.estado === 'aviso' ? '#3E93B8' : i === idx ? '#2D7A4F' : 'rgba(45,122,79,.18)') };
+    });
+    const consumos = hist.map(m => { const cm = d.calcularMes(m.id); return cm ? cm.cuotas[S.dpto].m3 : 0; });
+    const maxC = Math.max(...consumos) || 1;
+    V.tiraAgua = Array.from({ length: 12 }, (_, i) => i <= idx
+      ? { css: `height:${Math.max(6, (consumos[i] / maxC) * 56)}px;background:${i === idx ? '#3E93B8' : 'rgba(14,14,14,.12)'}` }
+      : { css: 'height:5px;background:rgba(14,14,14,.06)' });
+    const prom = consumos.reduce((a, b) => a + b, 0) / consumos.length;
+    V.notaConsumo = `en ${mesInfo.label.split(' ')[0].toLowerCase()} · tu promedio del año es ${d.fmt(prom)}`;
+    V.bobConsumo = consumos.length < 3 ? 'Todavía no tengo suficientes meses para ver un patrón.'
+      : mia.m3 > prom * 1.2 ? `Es tu mes más alto del año, ${d.fmt(mia.m3 - prom)} m³ sobre tu promedio.`
+      : mia.m3 < prom * 0.8 ? 'Este mes consumiste bastante menos de lo habitual.'
+      : 'Tu consumo está estable, cerca de tu promedio de siempre.';
+
+    // ── Historial
+    V.graficoEdificio = this.barras(d.MESES.slice(0, idx + 1).map(m => { const cm = d.calcularMes(m.id); return { id: m.id, label: m.corto, v: cm ? cm.rec.aguaM3 : 0 }; }), 100, S.mes);
+    V.listaMeses = d.MESES.slice(0, idx + 1).reverse().map(m => {
+      const cm = d.calcularMes(m.id), pm = this.pagosDe(m.id);
+      const n = d.DPTOS.filter(x => pm[x.id] && pm[x.id].estado === 'confirmado').length;
+      return { label: m.label, total: cm ? d.fmt(cm.totalMes) : '—', estado: `${n} de 7 al día`, ir: () => this.setState({ mes: m.id, pantalla: 'mes' }) };
+    });
+
+    // ── Avisos
+    const av = [];
+    if (sin.length) av.push({ tipo: 'bob', franja: 'hoy', titulo: `Falta el pago del ${sin[0].id}`, texto: `${sin[0].nombre} todavía no avisa nada de ${mesInfo.label.split(' ')[0].toLowerCase()}.`, cuando: '8:02', nuevo: !S.avisosLeidos });
+    if (avis.length) av.push({ tipo: 'agua', franja: 'hoy', titulo: `El ${avis[0].id} avisó que transfirió`, texto: avis[0] && pagos[avis[0].id].texto ? pagos[avis[0].id].texto : 'Falta confirmarlo contra el estado de cuenta.', cuando: 'ayer', nuevo: !S.avisosLeidos });
+    av.push({ tipo: 'agua', franja: 'semana', titulo: 'Tu consumo del mes', texto: `${d.fmt(mia.m3)} m³` + (mia.lavado ? `, con los ${mia.lavado} del lavado incluidos.` : '.'), cuando: '7:30', nuevo: false });
+    av.push({ tipo: 'check', franja: 'antes', titulo: `${mesInfo.label} está publicado`, texto: `Tu cuota es de S/ ${d.fmt(mia.total)}. El mes cerró en S/ ${d.fmt(c.totalMes)}.`, cuando: mesInfo.corto.toLowerCase(), nuevo: false });
+    if (miPago && miPago.estado === 'confirmado') av.push({ tipo: 'check', franja: 'antes', titulo: 'Tu pago quedó registrado', texto: `S/ ${d.fmt(mia.total)} · operación ${miPago.op}.`, cuando: miPago.fecha, nuevo: false });
+    const iconos = {
+      bob: { bg: 'background:rgba(192,122,26,.12)', el: this.blob(22, '#C07A1A', '#F7F4EE') },
+      agua: { bg: 'background:rgba(62,147,184,.13)', el: this.ico(['M12 3s6 6.5 6 10.5A6 6 0 0 1 6 13.5C6 9.5 12 3 12 3z'], '#3E93B8', 17) },
+      check: { bg: 'background:rgba(45,122,79,.13)', el: this.ico(['M5 13l4 4L19 7'], '#2D7A4F', 16) },
+    };
+    const conIcono = av.map(a => ({ ...a, iconBg: iconos[a.tipo].bg, icono: iconos[a.tipo].el }));
+    V.gruposAvisos = [
+      { titulo: 'Hoy', items: conIcono.filter(a => a.franja === 'hoy') },
+      { titulo: 'Esta semana', items: conIcono.filter(a => a.franja === 'semana') },
+      { titulo: 'Antes', items: conIcono.filter(a => a.franja === 'antes') },
+    ].filter(g => g.items.length);
+
+    V.contenidoHoja = this.hoja(d, c, S, mia, pagos, sin, avis);
+    V.vistaAdmin = this.vistaAdmin(d, c, S, pagos);
+    return V;
+  }
+
+  // ══════════ HOJAS ══════════
+  hoja(d, c, S, mia, pagos, sin, avis) {
+    const R = React.createElement;
+    const mesInfo = d.MESES.find(m => m.id === S.mes) || { label: '', corto: '' };
+    const miPago = pagos ? pagos[S.dpto] : null;
+    const P = (s, k) => R('div', { key: k, style: s });
+    const t = {
+      lbl: { font: "500 9px/1 'JetBrains Mono',monospace", letterSpacing: '.15em', textTransform: 'uppercase', color: '#7A7570', marginBottom: '11px' },
+      h: { font: "800 24px/1.15 Syne,sans-serif", margin: '0 0 8px', letterSpacing: '-.02em' },
+      p: { font: "300 13.5px/1.5 'DM Sans',sans-serif", color: '#7A7570', margin: 0 },
+      card: { background: '#fff', borderRadius: '20px', border: '1px solid rgba(14,14,14,.07)', padding: '20px' },
+      row: { display: 'flex', alignItems: 'center', padding: '11px 0', borderBottom: '1px solid rgba(14,14,14,.07)' },
+      mono: { font: "400 13px/1 'JetBrains Mono',monospace" },
+    };
+    const wrap = (kids) => R('div', { style: { padding: '20px 24px 34px' } }, kids);
+
+    if (S.hoja === 'bob') {
+      const chat = S.chat || [];
+      const idx = d.MESES.findIndex(m => m.id === S.mes);
+      const prev = idx > 0 ? d.calcularMes(d.MESES[idx - 1].id) : null;
+      const linea = sin.length === 0 && avis.length === 0;
+
+      const responder = (preg) => {
+        const q = preg.toLowerCase();
+        let resp;
+        if (/agua|sedapal|m3|m³|consumo/.test(q)) {
+          if (!prev) resp = `Este mes el edificio consumió ${c.rec.aguaM3} m³ y la factura fue de S/ ${d.fmt(c.facturaAgua)}. Tú pagaste S/ ${d.fmt(mia.agua)} por ${d.fmt(mia.m3)} m³. Todavía no tengo un mes anterior con el que comparar.`;
+          else {
+            const dif = Math.round((c.facturaAgua - prev.facturaAgua) * 100) / 100;
+            const cambios = d.DPTOS.map(x => ({ id: x.id, dif: Math.round((c.consumos[x.id] - prev.consumos[x.id]) * 100) / 100 })).sort((a2, b2) => Math.abs(b2.dif) - Math.abs(a2.dif));
+            resp = `La factura de agua pasó de S/ ${d.fmt(prev.facturaAgua)} a S/ ${d.fmt(c.facturaAgua)}${dif > 0 ? `, S/ ${d.fmt(dif)} más` : dif < 0 ? `, S/ ${d.fmt(Math.abs(dif))} menos` : ', igual'}. El que más cambió su consumo fue el ${cambios[0].id}: ${cambios[0].dif > 0 ? '+' : ''}${d.fmt(cambios[0].dif)} m³. Tú consumiste ${d.fmt(mia.m3)} m³.`;
+          }
+        } else if (/luz|electric/.test(q)) {
+          const l = c.gastos.find(g => g.concepto === 'Recibo de luz común');
+          const lp = prev ? prev.gastos.find(g => g.concepto === 'Recibo de luz común') : null;
+          resp = `El recibo de luz común fue de S/ ${d.fmt(l.monto)}${lp ? `, contra S/ ${d.fmt(lp.monto)} el mes pasado` : ''}. Se reparte entre los siete según metraje, así que a ti te tocaron S/ ${d.fmt(Math.round(l.monto * d.DPTOS.find(x => x.id === S.dpto).flat) / 100)}.`;
+        } else if (/deb|pagar|cuota|cuánto|cuanto pago/.test(q)) {
+          resp = `Tu cuota de ${mesInfo.label.split(' ')[0].toLowerCase()} es S/ ${d.fmt(mia.total)}: S/ ${d.fmt(mia.mantenimiento)} de mantenimiento y S/ ${d.fmt(mia.agua)} de agua por ${d.fmt(mia.m3)} m³. ${miPago ? (miPago.estado === 'confirmado' ? `Ya está pagada, el ${miPago.fecha}.` : 'Ya avisaste, falta que la confirmen.') : 'Todavía no hay pago registrado.'}`;
+        } else if (/llevo|pagado|año|total/.test(q)) {
+          let tot = 0, n = 0;
+          d.MESES.slice(0, idx + 1).forEach(m => { const cm = d.calcularMes(m.id), pm = this.pagosDe(m.id); if (cm && pm[S.dpto] && pm[S.dpto].estado === 'confirmado') { tot += cm.cuotas[S.dpto].total; n++; } });
+          resp = `Llevas S/ ${d.fmt(tot)} pagados en 2026, en ${n} ${n === 1 ? 'mes' : 'meses'}. Tu cuota promedio es S/ ${d.fmt(tot / Math.max(1, n))}.`;
+        } else if (/falta|quién|quien|deb/.test(q)) {
+          resp = sin.length ? `Falta el ${sin.map(x => `${x.id} (${x.nombre})`).join(' y el ')}.` : avis.length ? `El ${avis[0].id} ya avisó que transfirió, falta confirmarlo contra el estado de cuenta.` : 'Nadie. Los siete están al día este mes.';
+        } else if (/gast|plata|cuenta|saldo/.test(q)) {
+          const sal = d.saldoAl(S.mes);
+          const top = c.gastos.filter(g => g.monto).sort((a2, b2) => b2.monto - a2.monto)[0];
+          resp = `El mes costó S/ ${d.fmt(c.totalMes)} y el gasto más grande fue ${top.concepto.toLowerCase()}, S/ ${d.fmt(top.monto)}. En la cuenta hay S/ ${d.fmt(sal.saldo)}: este mes entraron S/ ${d.fmt(sal.recibido)} y salieron S/ ${d.fmt(sal.gastado)}.`;
+        } else if (/lavado|carro|auto|vehículo/.test(q)) {
+          resp = c.lavado > 0
+            ? `El lavado del 401 son ${d.fmt(c.lavado)} m³ al mes que salen del caño común. No se cobran por fuera de la factura: se restan del área común —que este mes queda en ${d.fmt(c.comunReal)} m³— y se le suman al 401, así que el total del edificio sigue siendo exactamente lo que factura SEDAPAL.`
+            : `Este mes el lavado del 401 no se está cobrando, así que los ${d.fmt(c.comunReal)} m³ de diferencia van completos al área común y se reparten entre los siete.`;
+        } else if (/compar/.test(q)) {
+          resp = prev ? `${mesInfo.label} costó S/ ${d.fmt(c.totalMes)} y el mes anterior S/ ${d.fmt(prev.totalMes)}: ${c.totalMes > prev.totalMes ? `S/ ${d.fmt(c.totalMes - prev.totalMes)} más` : `S/ ${d.fmt(prev.totalMes - c.totalMes)} menos`}. Tu cuota pasó de S/ ${d.fmt(prev.cuotas[S.dpto].total)} a S/ ${d.fmt(mia.total)}.` : 'Todavía no tengo un mes anterior con el que comparar.';
+        } else {
+          resp = `Puedo contarte de tu cuota, del consumo de agua, del recibo de luz común, de en qué se gastó el mes, de quién falta pagar o del saldo de la cuenta. ¿Cuál te interesa?`;
+        }
+        const nuevoChat = [...chat, { de: 'yo', txt: preg }, { de: 'bob', txt: resp }];
+        this.setState({ chat: nuevoChat });
+        setTimeout(() => { const sc = document.querySelector('[data-chat]'); if (sc) sc.scrollTop = sc.scrollHeight; }, 40);
+      };
+
+      const burbuja = (m, i2) => m.de === 'yo'
+        ? R('div', { key: i2, style: { display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' } },
+            R('div', { style: { maxWidth: '80%', background: '#17172B', color: '#F7F4EE', borderRadius: '18px 18px 5px 18px', padding: '12px 16px', font: "400 14px/1.45 'DM Sans',sans-serif" } }, m.txt))
+        : R('div', { key: i2, style: { display: 'flex', gap: '9px', alignItems: 'flex-end', marginBottom: '12px' } }, [
+            R('div', { key: 'a', style: { flex: '0 0 auto', marginBottom: '2px' } }, this.blob(22, '#C07A1A', '#F7F4EE')),
+            R('div', { key: 'b', style: { maxWidth: '82%', background: '#fff', border: '1px solid rgba(14,14,14,.07)', borderRadius: '18px 18px 18px 5px', padding: '13px 16px', font: "400 14px/1.5 'DM Sans',sans-serif" } }, m.txt),
+          ]);
+
+      const chips = ['¿Cuánto debo este mes?', '¿Por qué cambió el agua?', '¿Quién falta pagar?', '¿En qué se gastó?', '¿Cuánto hay en la cuenta?', '¿Qué es el lavado del 401?'];
+
+      return R('div', { style: { display: 'flex', flexDirection: 'column', height: '100%', padding: '0 0 0' } }, [
+        R('div', { key: 'h', style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '18px 22px 16px', borderBottom: '1px solid rgba(14,14,14,.08)', flex: '0 0 auto' } }, [
+          R('div', { key: 'a', style: { width: '42px', height: '42px', borderRadius: '14px', background: 'rgba(192,122,26,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' } }, this.blob(30, '#C07A1A', '#F7F4EE', true)),
+          R('div', { key: 'b', style: { flex: 1, minWidth: 0 } }, [
+            R('div', { key: 1, style: { font: "700 17px/1.1 Syne,sans-serif" } }, 'Bob'),
+            R('div', { key: 2, style: { font: "300 12px/1.3 'DM Sans',sans-serif", color: '#7A7570', marginTop: '4px' } }, `lee todo el historial del edificio`),
+          ]),
+          R('div', { key: 'c', onClick: () => this.setState({ hoja: null }), style: { width: '30px', height: '30px', borderRadius: '999px', background: 'rgba(14,14,14,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: '0 0 auto' } }, this.ico(['M5 5l14 14', 'M19 5 5 19'], '#0E0E0E', 13)),
+        ]),
+        R('div', { key: 'sc', 'data-chat': '1', className: 'sc', style: { flex: 1, overflowY: 'auto', padding: '18px 22px 8px' } }, [
+          chat.length === 0 && R('div', { key: 'rep', style: { background: '#17172B', borderRadius: '20px', padding: '20px', color: '#F7F4EE', marginBottom: '16px' } }, [
+            R('div', { key: 1, style: { ...t.lbl, color: 'rgba(247,244,238,.45)' } }, 'Qué pasó'),
+            R('div', { key: 2, style: { font: "300 14px/1.5 'DM Sans',sans-serif", color: 'rgba(247,244,238,.9)', marginBottom: '16px' } }, `${mesInfo.label} cerró en S/ ${d.fmt(c.totalMes)} y tu cuota es de S/ ${d.fmt(mia.total)}.`),
+            R('div', { key: 3, style: { ...t.lbl, color: 'rgba(247,244,238,.45)' } }, 'Qué cambió'),
+            R('div', { key: 4, style: { font: "300 14px/1.5 'DM Sans',sans-serif", color: 'rgba(247,244,238,.9)', marginBottom: '16px' } }, `El edificio consumió ${c.rec.aguaM3} m³ de agua. ${c.ajustado ? 'Los medidores midieron más que lo facturado, así que el reparto se ajustó.' : 'El reparto del agua fue el normal.'}`),
+            R('div', { key: 5, style: { ...t.lbl, color: linea ? '#7BD3A0' : '#E8A94A' } }, 'Necesita atención'),
+            R('div', { key: 6, style: { font: "300 14px/1.5 'DM Sans',sans-serif", color: 'rgba(247,244,238,.9)' } }, linea ? 'Nada. Todos registraron su pago.' : sin.length ? `El ${sin.map(x => x.id).join(' y el ')} todavía no avisa nada.` : `Falta confirmar el pago del ${avis[0].id}.`),
+          ]),
+          chat.length === 0 && R('div', { key: 'inv', style: { font: "300 13px/1.5 'DM Sans',sans-serif", color: '#7A7570', textAlign: 'center', padding: '0 20px 8px' } }, 'Pregúntame lo que quieras sobre los números del edificio.'),
+          ...chat.map(burbuja),
+        ].filter(Boolean)),
+        R('div', { key: 'ch', className: 'sc', style: { display: 'flex', gap: '8px', padding: '6px 22px 10px', overflowX: 'auto', flex: '0 0 auto' } },
+          chips.map((q, i2) => R('span', { key: i2, onClick: () => responder(q), style: { font: "400 12.5px/1 'DM Sans',sans-serif", background: '#fff', border: '1px solid rgba(14,14,14,.08)', padding: '10px 14px', borderRadius: '999px', cursor: 'pointer', flex: '0 0 auto', whiteSpace: 'nowrap' } }, q))),
+        R('div', { key: 'in', style: { display: 'flex', gap: '10px', alignItems: 'center', padding: '8px 22px 26px', flex: '0 0 auto' } }, [
+          R('input', {
+            key: 'i', value: S.borrador || '', placeholder: 'Pregunta lo que quieras…',
+            onChange: (ev) => this.setState({ borrador: ev.target.value }),
+            onKeyDown: (ev) => { if (ev.key === 'Enter' && (S.borrador || '').trim()) { const q = S.borrador; this.setState({ borrador: '' }); responder(q); } },
+            style: { flex: 1, minWidth: 0, height: '50px', borderRadius: '999px', background: '#fff', border: '1px solid rgba(14,14,14,.1)', padding: '0 20px', font: "300 14px/1 'DM Sans',sans-serif", color: '#0E0E0E', outline: 'none', fontFamily: "'DM Sans',sans-serif" },
+          }),
+          R('div', { key: 'b', onClick: () => { if ((S.borrador || '').trim()) { const q = S.borrador; this.setState({ borrador: '' }); responder(q); } }, style: { width: '50px', height: '50px', borderRadius: '999px', background: (S.borrador || '').trim() ? '#C9773A' : '#17172B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: '0 0 auto' } }, this.ico(['M12 19V5', 'M6 11l6-6 6 6'], '#F7F4EE', 18)),
+        ]),
+      ]);
+    }
+
+    if (S.hoja === 'calculo') {
+      return wrap([
+        R('div', { key: 'h1', style: { ...t.lbl, color: '#3E93B8' } }, `El agua de ${d.MESES.find(m => m.id === S.mes).label}`),
+        R('h3', { key: 'h2', style: t.h }, 'De dónde sale cada monto'),
+        R('p', { key: 'h3', style: { ...t.p, marginBottom: '22px' } }, 'La suma tiene que dar exactamente lo que facturó SEDAPAL.'),
+        R('div', { key: 's1', style: { ...t.card, marginBottom: '12px' } }, [
+          R('div', { key: 1, style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '14px' } }, [
+            R('span', { key: 'n', style: { width: '22px', height: '22px', borderRadius: '999px', background: '#17172B', color: '#F7F4EE', font: "500 11px/22px 'JetBrains Mono',monospace", textAlign: 'center' } }, '1'),
+            R('span', { key: 't', style: { font: "500 14px/1.3 'DM Sans',sans-serif" } }, 'Lo que cobró SEDAPAL'),
+          ]),
+          R('div', { key: 2, style: { display: 'flex', borderTop: '1px solid rgba(14,14,14,.07)', paddingTop: '14px' } }, [
+            R('div', { key: 'a', style: { flex: 1 } }, [R('div', { key: 1, style: t.lbl }, 'Metros cúbicos'), R('div', { key: 2, style: { font: "500 22px/1 'JetBrains Mono',monospace" } }, String(c.rec.aguaM3))]),
+            R('div', { key: 'b', style: { flex: 1, borderLeft: '1px solid rgba(14,14,14,.07)', paddingLeft: '18px' } }, [R('div', { key: 1, style: t.lbl }, 'La factura'), R('div', { key: 2, style: { font: "500 22px/1 'JetBrains Mono',monospace" } }, d.fmt(c.facturaAgua))]),
+          ]),
+          R('div', { key: 3, style: { font: "300 13px/1.5 'DM Sans',sans-serif", color: '#7A7570', marginTop: '14px' } }, ['Cada metro cúbico costó ', R('span', { key: 'x', style: { font: "500 13px/1 'JetBrains Mono',monospace", color: '#3E93B8' } }, `S/ ${d.fmt(c.precioM3)}`), '. Ese precio se usa para todos por igual.']),
+        ]),
+        R('div', { key: 's2', style: { ...t.card, marginBottom: '12px' } }, [
+          R('div', { key: 1, style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '14px' } }, [
+            R('span', { key: 'n', style: { width: '22px', height: '22px', borderRadius: '999px', background: '#17172B', color: '#F7F4EE', font: "500 11px/22px 'JetBrains Mono',monospace", textAlign: 'center' } }, '2'),
+            R('span', { key: 't', style: { font: "500 14px/1.3 'DM Sans',sans-serif" } }, 'Lo que midió cada medidor'),
+          ]),
+          ...d.DPTOS.map((x, i) => R('div', { key: 'd' + i, style: { ...t.row, borderTop: i === 0 ? '1px solid rgba(14,14,14,.07)' : 'none', borderBottom: 'none' } }, [
+            R('span', { key: 1, style: { font: "500 13px/1 'JetBrains Mono',monospace", width: '38px', color: x.id === S.dpto ? '#3E93B8' : '#0E0E0E' } }, x.id),
+            R('span', { key: 2, style: { flex: 1, font: "300 12px/1.3 'DM Sans',sans-serif", color: '#7A7570' } }, `${d.fmt3(c.cuotas[x.id].lecturaAnterior)} → ${d.fmt3(c.cuotas[x.id].lecturaActual)}`),
+            R('span', { key: 3, style: t.mono }, d.fmt(c.consumos[x.id])),
+          ])),
+          R('div', { key: 'tot', style: { display: 'flex', paddingTop: '13px', borderTop: '1px solid rgba(14,14,14,.12)', marginTop: '5px' } }, [
+            R('span', { key: 1, style: { flex: 1, font: "500 13.5px/1.3 'DM Sans',sans-serif" } }, 'Suman'),
+            R('span', { key: 2, style: { font: "500 15px/1 'JetBrains Mono',monospace" } }, `${d.fmt(c.sumaMedida)} m³`),
+          ]),
+        ]),
+        R('div', { key: 's3', style: { ...t.card, marginBottom: '12px' } }, [
+          R('div', { key: 1, style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '14px' } }, [
+            R('span', { key: 'n', style: { width: '22px', height: '22px', borderRadius: '999px', background: '#17172B', color: '#F7F4EE', font: "500 11px/22px 'JetBrains Mono',monospace", textAlign: 'center' } }, '3'),
+            R('span', { key: 't', style: { font: "500 14px/1.3 'DM Sans',sans-serif" } }, c.ajustado ? 'Por qué se ajustó' : 'Qué pasó con la diferencia'),
+          ]),
+          R('div', { key: 2, style: { font: "300 13.5px/1.55 'DM Sans',sans-serif", color: '#7A7570', borderTop: '1px solid rgba(14,14,14,.07)', paddingTop: '14px' } },
+            c.ajustado
+              ? `Los medidores midieron ${d.fmt(c.sumaMedida)} m³ pero SEDAPAL facturó ${c.rec.aguaM3}. SEDAPAL lee unos días antes que nosotros, así que este ciclo nuestros medidores contaron días que el recibo todavía no incluye. Como no se puede cobrar más de lo que llegó, a cada uno se le descuenta la misma proporción.`
+              : `Sobran ${d.fmt(c.brutoComun)} m³ que pasaron por el caño común.`),
+          !c.ajustado && R('div', { key: 3, style: { display: 'flex', gap: '10px', marginTop: '16px' } }, [
+            c.lavado > 0 && R('div', { key: 'a', style: { flex: 1, background: 'rgba(62,147,184,.1)', borderRadius: '14px', padding: '14px' } }, [
+              R('div', { key: 1, style: { font: "500 18px/1 'JetBrains Mono',monospace", color: '#1E5A73' } }, d.fmt(c.lavado)),
+              R('div', { key: 2, style: { font: "300 11.5px/1.4 'DM Sans',sans-serif", color: '#1E5A73', marginTop: '7px' } }, 'del lavado de vehículo, van al 401'),
+            ]),
+            R('div', { key: 'b', style: { flex: 1, background: 'rgba(14,14,14,.05)', borderRadius: '14px', padding: '14px' } }, [
+              R('div', { key: 1, style: { font: "500 18px/1 'JetBrains Mono',monospace" } }, d.fmt(c.comunReal)),
+              R('div', { key: 2, style: { font: "300 11.5px/1.4 'DM Sans',sans-serif", color: '#7A7570', marginTop: '7px' } }, 'área común, se reparte entre los siete'),
+            ]),
+          ].filter(Boolean)),
+        ]),
+        R('div', { key: 's4', style: { ...t.card, marginBottom: '12px' } }, [
+          R('div', { key: 1, style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '14px' } }, [
+            R('span', { key: 'n', style: { width: '22px', height: '22px', borderRadius: '999px', background: '#17172B', color: '#F7F4EE', font: "500 11px/22px 'JetBrains Mono',monospace", textAlign: 'center' } }, '4'),
+            R('span', { key: 't', style: { font: "500 14px/1.3 'DM Sans',sans-serif" } }, 'Lo que paga cada uno'),
+          ]),
+          ...d.DPTOS.map((x, i) => {
+            const cu = c.cuotas[x.id], mine = x.id === S.dpto;
+            return R('div', { key: 'p' + i, style: { ...t.row, borderTop: i === 0 ? '1px solid rgba(14,14,14,.07)' : 'none', borderBottom: 'none', background: mine ? 'rgba(62,147,184,.07)' : 'transparent', margin: mine ? '0 -8px' : 0, padding: mine ? '11px 8px' : '11px 0', borderRadius: mine ? '8px' : 0 } }, [
+              R('span', { key: 1, style: { font: "500 13px/1 'JetBrains Mono',monospace", width: '38px', color: mine ? '#3E93B8' : '#0E0E0E' } }, x.id),
+              R('span', { key: 2, style: { flex: 1, font: "300 12px/1.3 'DM Sans',sans-serif", color: mine ? '#1E5A73' : '#7A7570' } }, cu.lavado ? `${d.fmt(cu.m3medidos)} + ${d.fmt(cu.lavado)} = ${d.fmt(cu.m3)} m³` : `${d.fmt(cu.m3)} m³ × ${d.fmt(c.precioM3)}`),
+              R('span', { key: 3, style: { font: `${mine ? 500 : 400} 13px/1 'JetBrains Mono',monospace` } }, d.fmt(cu.agua)),
+            ]);
+          }),
+          !c.ajustado && R('div', { key: 'ac', style: { ...t.row, borderBottom: 'none', borderTop: '1px solid rgba(14,14,14,.06)' } }, [
+            R('span', { key: 1, style: { flex: 1, font: "300 12.5px/1.3 'DM Sans',sans-serif", color: '#7A7570' } }, `Área común · ${d.fmt(c.comunReal)} m³`),
+            R('span', { key: 2, style: { ...t.mono, color: '#7A7570' } }, d.fmt(c.montoComun)),
+          ]),
+        ]),
+        R('div', { key: 's5', style: { background: 'rgba(45,122,79,.1)', borderRadius: '20px', padding: '20px' } }, [
+          R('div', { key: 1, style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '12px' } }, [
+            R('span', { key: 'n', style: { width: '22px', height: '22px', borderRadius: '999px', background: '#2D7A4F', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, this.ico(['M5 13l4 4L19 7'], '#fff', 11)),
+            R('span', { key: 't', style: { font: "500 14px/1.3 'DM Sans',sans-serif", color: '#1E5637' } }, 'El cuadre'),
+          ]),
+          R('div', { key: 2, style: { display: 'flex', justifyContent: 'space-between', padding: '8px 0' } }, [
+            R('span', { key: 1, style: { font: "300 13px/1.3 'DM Sans',sans-serif", color: '#2D5C42' } }, 'Los siete departamentos'),
+            R('span', { key: 2, style: { ...t.mono, color: '#1E5637' } }, d.fmt(c.sumaAgua)),
+          ]),
+          R('div', { key: 3, style: { display: 'flex', justifyContent: 'space-between', padding: '8px 0' } }, [
+            R('span', { key: 1, style: { font: "300 13px/1.3 'DM Sans',sans-serif", color: '#2D5C42' } }, 'El área común'),
+            R('span', { key: 2, style: { ...t.mono, color: '#1E5637' } }, c.ajustado ? '—' : d.fmt(c.montoComun)),
+          ]),
+          R('div', { key: 4, style: { display: 'flex', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid rgba(45,122,79,.25)', marginTop: '6px' } }, [
+            R('span', { key: 1, style: { font: "500 13.5px/1.3 'DM Sans',sans-serif", color: '#1E5637' } }, 'La factura de SEDAPAL'),
+            R('span', { key: 2, style: { font: "500 16px/1 'JetBrains Mono',monospace", color: '#1E5637' } }, d.fmt(c.facturaAgua)),
+          ]),
+        ]),
+      ]);
+    }
+
+    if (S.hoja === 'agua' || S.hoja === 'pagos') {
+      const idx = d.MESES.findIndex(m => m.id === S.mes);
+      const hist = d.MESES.slice(0, idx + 1).reverse();
+      const esAgua = S.hoja === 'agua';
+      return wrap([
+        R('div', { key: 'l', style: { ...t.lbl, color: esAgua ? '#3E93B8' : '#7A7570' } }, esAgua ? `Tu consumo de agua · ${S.dpto}` : `Historial de pagos · ${S.dpto}`),
+        R('h3', { key: 'h', style: { ...t.h, marginBottom: '22px' } }, esAgua ? `${hist.length} meses de lecturas` : `${hist.length} meses registrados`),
+        ...hist.map((m, i) => {
+          const cm = d.calcularMes(m.id); if (!cm) return null;
+          const cu = cm.cuotas[S.dpto], pm = this.pagosDe(m.id)[S.dpto];
+          return R('div', { key: i, style: { display: 'flex', alignItems: 'center', padding: '14px 0', borderBottom: '1px solid rgba(14,14,14,.08)' } }, esAgua ? [
+            R('span', { key: 1, style: { flex: 1, font: "400 13.5px/1.3 'DM Sans',sans-serif" } }, m.label),
+            R('span', { key: 2, style: { font: "400 13px/1 'JetBrains Mono',monospace", color: '#7A7570', width: '72px', textAlign: 'right' } }, `${d.fmt(cu.m3)} m³`),
+            R('span', { key: 3, style: { font: "500 13.5px/1 'JetBrains Mono',monospace", width: '64px', textAlign: 'right' } }, d.fmt(cu.agua)),
+          ] : [
+            R('span', { key: 1, style: { flex: 1 } }, [
+              R('div', { key: 'a', style: { font: "400 13.5px/1.3 'DM Sans',sans-serif" } }, m.label),
+              R('div', { key: 'b', style: { font: "300 11.5px/1.3 'DM Sans',sans-serif", color: '#7A7570', marginTop: '6px' } }, pm ? (pm.estado === 'aviso' ? `avisó el ${pm.fecha}` : `${pm.fecha} · op. ${pm.op}`) : 'sin registrar'),
+            ]),
+            R('span', { key: 2, style: { font: "500 13.5px/1 'JetBrains Mono',monospace", marginRight: '12px' } }, d.fmt(cu.total)),
+            R('span', { key: 3, style: { width: '7px', height: '7px', borderRadius: '999px', background: !pm ? '#C07A1A' : pm.estado === 'aviso' ? '#3E93B8' : '#2D7A4F' } }),
+          ]);
+        }).filter(Boolean),
+      ]);
+    }
+
+    if (S.hoja === 'pagar') {
+      return wrap([
+        R('h3', { key: 'h', style: t.h }, `Cómo pagar ${d.MESES.find(m => m.id === S.mes).label.split(' ')[0].toLowerCase()}`),
+        R('p', { key: 'p', style: { ...t.p, marginBottom: '22px' } }, 'Transferencia a la cuenta conjunta del edificio.'),
+        R('div', { key: 'c', style: { background: '#17172B', borderRadius: '22px', padding: '22px', color: '#F7F4EE' } }, [
+          R('div', { key: 1, style: { ...t.lbl, color: 'rgba(247,244,238,.5)' } }, 'Monto exacto'),
+          R('div', { key: 2, style: { display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '20px' } }, [
+            R('span', { key: 'a', style: { font: "400 18px/1 'JetBrains Mono',monospace", color: 'rgba(247,244,238,.45)' } }, 'S/'),
+            R('span', { key: 'b', style: { font: "500 36px/1 'JetBrains Mono',monospace", letterSpacing: '-.03em' } }, d.fmt(mia.total)),
+          ]),
+          R('div', { key: 3, style: { borderTop: '1px solid rgba(247,244,238,.12)', paddingTop: '16px' } }, [
+            R('div', { key: 'a', style: { ...t.lbl, color: 'rgba(247,244,238,.5)' } }, 'Cuenta conjunta · BCP'),
+            R('div', { key: 'b', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, [
+              R('span', { key: 1, style: { font: "400 16px/1 'JetBrains Mono',monospace" } }, '194-2087453-0-72'),
+              R('div', { key: 2, style: { height: '32px', padding: '0 14px', borderRadius: '999px', background: 'rgba(247,244,238,.12)', display: 'flex', alignItems: 'center', font: "400 12px/1.3 'DM Sans',sans-serif", cursor: 'pointer' } }, 'Copiar'),
+            ]),
+          ]),
+        ]),
+        R('div', { key: 'n', style: { ...t.card, marginTop: '14px' } },
+          R('div', { style: { font: "300 13.5px/1.5 'DM Sans',sans-serif", color: '#7A7570' } }, 'Cuando transfieras, avisa aquí con el número de operación. Quien administra lo confirma contra el estado de cuenta.')),
+        R('div', { key: 'b', onClick: () => this.avisarPago(), style: { marginTop: '18px', height: '54px', borderRadius: '999px', background: '#C9773A', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "500 15px/1.3 'DM Sans',sans-serif", color: '#fff', cursor: 'pointer' } }, 'Ya transferí, avisar'),
+      ]);
+    }
+
+    if (S.hoja === 'wizard') return this.wizard(d, S);
+
+    if (S.hoja === 'cargos') {
+      const lav = this._lavM3 != null ? this._lavM3 : d.LAVADO.m3;
+      return wrap([
+        R('h3', { key: 'h', style: t.h }, 'Cargos y créditos activos'),
+        R('p', { key: 'p', style: { ...t.p, marginBottom: '22px' } }, 'Lo que se aplica todos los meses hasta que alguien lo cambie.'),
+        R('div', { key: 'c1', style: { ...t.card, marginBottom: '12px' } }, [
+          R('div', { key: 1, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px solid rgba(14,14,14,.07)' } }, [
+            R('span', { key: 'a', style: { ...t.lbl, marginBottom: 0, color: '#3E93B8', flex: 1, minWidth: 0 } }, '401 · lavado de vehículo'),
+            R('span', { key: 'b', style: { font: "400 14px/1 'JetBrains Mono',monospace", flex: '0 0 auto' } }, `${d.fmt(lav)} m³`),
+          ]),
+          R('div', { key: 2, style: { font: "300 13px/1.5 'DM Sans',sans-serif", color: '#7A7570', paddingTop: '11px' } }, 'Sale del caño común, así que se resta del área común y se le suma al 401. Activo desde mayo 2026.'),
+          R('div', { key: 3, onClick: () => this.abrirNumpad('lv2', 'Consumo mensual del lavado · 401', lav, true, 'm³', (n) => { this._lavM3 = n; this.setState({ lavM3: n }); }), style: { marginTop: '14px', height: '44px', borderRadius: '999px', background: 'rgba(14,14,14,.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "400 13.5px/1 'DM Sans',sans-serif", cursor: 'pointer' } }, 'Cambiar el consumo'),
+        ]),
+        R('div', { key: 'e', style: { font: "300 13px/1.5 'DM Sans',sans-serif", color: '#7A7570', textAlign: 'center', padding: '20px 24px' } }, 'No hay otros cargos ni créditos activos. Los gastos puntuales de un solo mes se añaden en el paso 5 al cerrar el mes.'),
+      ]);
+    }
+
+    if (S.hoja === 'export') {
+      const idx = d.MESES.findIndex(m => m.id === S.mes);
+      return wrap([
+        R('h3', { key: 'h', style: t.h }, 'Exportar el año'),
+        R('p', { key: 'p', style: { ...t.p, marginBottom: '22px' } }, 'Un archivo con todo lo que hay en la app, mes por mes.'),
+        R('div', { key: 'c', style: { ...t.card } }, [
+          R('div', { key: 't', style: t.lbl }, 'Va a incluir'),
+          ...['Las 7 cuotas de cada mes con su desglose', 'Las lecturas de medidor y los consumos', 'Los recibos de agua y de luz común', 'Todos los gastos, mes por mes', 'Los pagos con fecha y número de operación'].map((x, i) =>
+            R('div', { key: i, style: { display: 'flex', gap: '11px', alignItems: 'flex-start', padding: '9px 0' } }, [
+              this.ico(['M5 13l4 4L19 7'], '#2D7A4F', 15),
+              R('span', { key: 1, style: { font: "300 13px/1.4 'DM Sans',sans-serif", flex: 1, minWidth: 0 } }, x),
+            ])),
+        ]),
+        R('div', { key: 'n', style: { font: "300 12.5px/1.5 'DM Sans',sans-serif", color: '#7A7570', marginTop: '14px' } }, `${idx + 1} ${idx === 0 ? 'mes' : 'meses'} de 2026, desde enero.`),
+        R('div', { key: 'b', onClick: () => this.setState({ hoja: null }), style: { marginTop: '20px', height: '54px', borderRadius: '999px', background: '#17172B', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "500 15px/1 'DM Sans',sans-serif", color: '#F7F4EE', cursor: 'pointer' } }, 'Descargar el Excel'),
+      ]);
+    }
+
+    if (S.hoja === 'aviso-ok') {
+      return wrap([
+        R('div', { key: 'i', style: { width: '56px', height: '56px', borderRadius: '18px', background: 'rgba(62,147,184,.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '10px auto 22px' } }, this.blob(38, '#3E93B8', '#F7F4EE', true)),
+        R('h3', { key: 'h', style: { ...t.h, textAlign: 'center' } }, 'Listo, ya avisaste'),
+        R('p', { key: 'p', style: { ...t.p, textAlign: 'center', marginBottom: '24px' } }, 'Tu mes pasó a «en verificación». Deja de figurar como pendiente y quien administra lo confirma contra el estado de cuenta.'),
+        R('div', { key: 'b', onClick: () => this.setState({ hoja: null }), style: { height: '54px', borderRadius: '999px', background: '#17172B', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "500 15px/1.3 'DM Sans',sans-serif", color: '#F7F4EE', cursor: 'pointer' } }, 'Entendido'),
+      ]);
+    }
+    return null;
+  }
+
+  // ══════════ TECLADO NUMÉRICO ══════════
+  abrirNumpad(campo, etiqueta, valorActual, dec, sufijo, onOk) {
+    this._np = valorActual != null ? String(valorActual) : '';
+    this.setState({ numpad: { campo, etiqueta, dec, sufijo }, npVal: this._np });
+    this._npOk = onOk;
+  }
+
+  numpad() {
+    const R = React.createElement;
+    const S = this.state, cfg = S.numpad;
+    if (!cfg) return null;
+    const val = S.npVal || '';
+    const teclas = ['1','2','3','4','5','6','7','8','9', cfg.dec ? '.' : '', '0', '←'];
+    const push = (k) => {
+      let v = this._np != null ? this._np : '';
+      if (k === '←') v = v.slice(0, -1);
+      else if (k === '.') { if (!v.includes('.')) v = (v || '0') + '.'; }
+      else {
+        if (cfg.dec && v.includes('.') && v.split('.')[1].length >= 3) return;
+        v = v + k;
+      }
+      this._np = v;
+      this.setState({ npVal: v });
+    };
+    const cerrar = () => { this._np = null; this.setState({ numpad: null, npVal: '' }); };
+    const ok = () => { const n = parseFloat(this._np); this._np = null; this.setState({ numpad: null, npVal: '' }); if (!isNaN(n) && this._npOk) this._npOk(n); };
+    return R('div', { style: { position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' } }, [
+      R('div', { key: 'ov', onClick: cerrar, style: { position: 'absolute', inset: 0, background: 'rgba(14,14,14,.42)' } }),
+      R('div', { key: 'p', style: { position: 'relative', background: '#F7F4EE', borderRadius: '28px 28px 38px 38px', padding: '22px 22px 30px', boxShadow: '0 -8px 40px rgba(14,14,14,.22)' } }, [
+        R('div', { key: 'l', style: { font: "500 9px/1 'JetBrains Mono',monospace", letterSpacing: '.15em', textTransform: 'uppercase', color: '#7A7570', marginBottom: '12px' } }, cfg.etiqueta),
+        R('div', { key: 'v', style: { display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '20px', minHeight: '40px' } }, [
+          cfg.sufijo === 'S/' && R('span', { key: 'p', style: { font: "400 18px/1 'JetBrains Mono',monospace", color: '#7A7570' } }, 'S/'),
+          R('span', { key: 'n', style: { font: "500 36px/1 'JetBrains Mono',monospace", letterSpacing: '-.02em', color: val ? '#0E0E0E' : '#C4BFB8' } }, val || '0'),
+          cfg.sufijo === 'm³' && R('span', { key: 's', style: { font: "400 18px/1 'JetBrains Mono',monospace", color: '#7A7570' } }, 'm³'),
+          R('span', { key: 'c', style: { width: '2px', height: '30px', background: '#C9773A', display: 'inline-block' } }),
+        ].filter(Boolean)),
+        R('div', { key: 'k', style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' } },
+          teclas.map((k, i) => k === '' ? R('div', { key: i }) : R('div', {
+            key: i, onClick: () => push(k),
+            style: { height: '54px', borderRadius: '16px', background: k === '←' ? 'transparent' : '#fff', border: k === '←' ? 'none' : '1px solid rgba(14,14,14,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "400 22px/1 'JetBrains Mono',monospace", cursor: 'pointer', userSelect: 'none' },
+          }, k === '←' ? this.ico(['M21 5H9L3 12l6 7h12z', 'M17 9l-5 6', 'M12 9l5 6'], '#7A7570', 22) : k))),
+        R('div', { key: 'b', style: { display: 'flex', gap: '10px', marginTop: '16px' } }, [
+          R('div', { key: 'c', onClick: cerrar, style: { flex: 1, height: '52px', borderRadius: '999px', background: 'rgba(14,14,14,.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "400 15px/1 'DM Sans',sans-serif", cursor: 'pointer' } }, 'Cancelar'),
+          R('div', { key: 'o', onClick: val ? ok : null, style: { flex: 2, height: '52px', borderRadius: '999px', background: val ? '#17172B' : 'rgba(14,14,14,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "500 15px/1 'DM Sans',sans-serif", color: val ? '#F7F4EE' : '#A8A29C', cursor: val ? 'pointer' : 'default' } }, 'Guardar'),
+        ]),
+      ]),
+    ]);
+  }
+
+  // ══════════ WIZARD: cerrar el mes ══════════
+  wizard(d, S) {
+    const R = React.createElement;
+    const MES = '2026-07';
+    const ov = {
+      lecturas: this._lec || {},
+      recibo: this._rec || {},
+      fijos: this._fijos || {},
+      extras: this._extras || [],
+      lavadoM3: this._lavado === false ? 0 : (this._lavM3 != null ? this._lavM3 : d.LAVADO.m3),
+    };
+    const paso = S.paso || 0;
+    const lecAnt = d.LECTURAS['2026-06'];
+    const lecReal = d.LECTURAS['2026-07'];
+    const rec = d.RECIBOS['2026-07'];
+    const tecleadas = S.lecturas || {};
+    const t = {
+      lbl: { font: "500 9px/1 'JetBrains Mono',monospace", letterSpacing: '.14em', textTransform: 'uppercase', color: '#7A7570', marginBottom: '12px' },
+      h: { font: "800 26px/1.15 Syne,sans-serif", margin: '0 0 8px', letterSpacing: '-.02em' },
+      p: { font: "300 13.5px/1.45 'DM Sans',sans-serif", color: '#7A7570', margin: 0 },
+      card: { background: '#fff', borderRadius: '20px', border: '1px solid rgba(14,14,14,.07)', padding: '20px' },
+    };
+    const btn = (txt, on, activo) => R('div', {
+      onClick: activo ? on : null,
+      style: { height: '56px', borderRadius: '999px', background: activo ? '#17172B' : 'rgba(14,14,14,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "500 15px/1.3 'DM Sans',sans-serif", color: activo ? '#F7F4EE' : '#A8A29C', cursor: activo ? 'pointer' : 'default', marginTop: '26px' },
+    }, txt);
+    const bobDice = (texto, color) => R('div', {
+      key: 'bob', style: { background: color === 'azul' ? 'rgba(62,147,184,.09)' : 'rgba(192,122,26,.11)', borderRadius: '16px', padding: '14px 16px', display: 'flex', gap: '11px', alignItems: 'flex-start', marginTop: '14px' },
+    }, [
+      R('div', { key: 1, style: { flex: '0 0 auto', marginTop: '1px' } }, this.blob(20, color === 'azul' ? '#3E93B8' : '#C07A1A', '#F7F4EE')),
+      R('div', { key: 2, style: { font: "300 13px/1.5 'DM Sans',sans-serif", color: color === 'azul' ? '#1E5A73' : '#7A4A1E' } }, texto),
+    ]);
+
+    const barra = R('div', { style: { display: 'flex', gap: '5px', padding: '4px 0 0' } },
+      [0, 1, 2, 3, 4, 5, 6].map(i => R('div', { key: i, style: { flex: 1, height: '4px', borderRadius: '999px', background: i < paso ? '#17172B' : i === paso ? '#C9773A' : 'rgba(14,14,14,.1)', transition: 'background .3s' } })));
+
+    const cab = (n) => R('div', { key: 'cab', style: { padding: '16px 24px 0' } }, [
+      R('div', { key: 1, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' } }, [
+        R('div', { key: 'b', onClick: () => paso === 0 ? this.setState({ hoja: null }) : this.setState({ paso: paso - 1 }), style: { width: '32px', height: '32px', borderRadius: '999px', background: 'rgba(14,14,14,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' } }, this.ico(['M19 12H5', 'M11 18l-6-6 6-6'], '#0E0E0E', 14)),
+        R('span', { key: 's', style: { font: "500 10px/1 'JetBrains Mono',monospace", letterSpacing: '.16em', textTransform: 'uppercase', color: '#7A7570' } }, n === 0 ? 'Julio 2026' : `Paso ${n} de 7`),
+        R('div', { key: 'x', style: { width: '32px' } }),
+      ]),
+      n > 0 && barra,
+    ].filter(Boolean));
+
+    const cuerpo = (kids) => R('div', { style: { padding: '22px 24px 40px' } }, kids);
+
+    // Paso 0
+    if (paso === 0) return R('div', {}, [cab(0), cuerpo([
+      R('h2', { key: 'h', style: { ...t.h, font: "800 30px/1.14 Syne,sans-serif" } }, 'Vamos a cerrar julio'),
+      R('p', { key: 'p', style: { ...t.p, marginBottom: '28px' } }, 'Son siete pasos. Se guarda solo en cada uno, así que puedes salir y volver cuando quieras.'),
+      R('div', { key: 'l', style: t.lbl }, 'Vas a necesitar'),
+      R('div', { key: 'c', style: { ...t.card, padding: 0, overflow: 'hidden' } },
+        [['Las 7 lecturas de medidor', 'se leen el día 25', '#3E93B8'], ['El recibo de SEDAPAL', 'los m³ y el monto', '#3E93B8'], ['El recibo de luz común', 'solo el monto', '#C9773A']].map((x, i) =>
+          R('div', { key: i, style: { display: 'flex', gap: '14px', alignItems: 'center', padding: '18px 20px', borderBottom: i < 2 ? '1px solid rgba(14,14,14,.07)' : 'none' } }, [
+            R('span', { key: 1, style: { width: '8px', height: '8px', borderRadius: '999px', background: x[2], flex: '0 0 auto' } }),
+            R('div', { key: 2, style: { flex: 1, minWidth: 0 } }, [
+              R('div', { key: 'a', style: { font: "400 14.5px/1.3 'DM Sans',sans-serif" } }, x[0]),
+              R('div', { key: 'b', style: { font: "300 12px/1.3 'DM Sans',sans-serif", color: '#7A7570', marginTop: '5px' } }, x[1]),
+            ]),
+          ]))),
+      bobDice('Los gastos fijos ya te los dejé puestos. Solo los confirmas en el paso 4.'),
+      btn('Empezar', () => this.setState({ paso: 1 }), true),
+    ])]);
+
+    // Paso 1 · lecturas
+    if (paso === 1) {
+      const listas = d.DPTOS.filter(x => tecleadas[x.id] != null);
+      const sumaOtros = d.DPTOS.reduce((s, x) => s + (tecleadas[x.id] != null ? tecleadas[x.id] - lecAnt[x.id] : 0), 0);
+      return R('div', {}, [cab(1), cuerpo([
+        R('div', { key: 'h', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px' } }, [
+          R('div', { key: 1, style: { flex: 1, minWidth: 0, marginRight: '12px' } }, [R('h2', { key: 'a', style: t.h }, 'Las lecturas'), R('p', { key: 'b', style: t.p }, 'Al lado tienes la del mes pasado.')]),
+          R('span', { key: 2, style: { font: "500 12px/1 'JetBrains Mono',monospace", color: '#3E93B8', background: 'rgba(62,147,184,.12)', padding: '8px 12px', borderRadius: '999px', whiteSpace: 'nowrap', flex: '0 0 auto' } }, `${listas.length} / 7`),
+        ]),
+        ...d.DPTOS.map(x => {
+          const val = tecleadas[x.id];
+          const cons = val != null ? Math.round((val - lecAnt[x.id]) * 100) / 100 : null;
+          const prom = 12;
+          const alto = cons != null && cons > prom * 1.9;
+          const puesto = val != null;
+          return R('div', { key: x.id, style: { background: puesto ? '#fff' : 'rgba(255,255,255,.55)', borderRadius: '16px', border: alto ? '1.5px solid #C07A1A' : `1px solid rgba(14,14,14,${puesto ? '.07' : '.05'})`, padding: '14px 16px', marginBottom: '10px' } }, [
+            R('div', { key: 'r', style: { display: 'flex', alignItems: 'center', gap: '14px' } }, [
+              R('div', { key: 1, style: { width: '48px', flex: '0 0 auto' } }, [
+                R('div', { key: 'a', style: { font: "500 15px/1 'JetBrains Mono',monospace", color: puesto ? '#0E0E0E' : '#A8A29C' } }, x.id),
+                R('div', { key: 'b', style: { font: "300 10px/1.3 'DM Sans',sans-serif", color: '#A8A29C', marginTop: '5px' } }, d.fmt3(lecAnt[x.id])),
+              ]),
+              R('div', { key: 2, onClick: () => this.abrirNumpad('lec-' + x.id, `Lectura del ${x.id} · anterior ${d.fmt3(lecAnt[x.id])}`, val, true, 'm³', (n) => { this._lec = { ...(this._lec || this.state.lecturas || {}), [x.id]: n }; this.setState({ lecturas: this._lec }); }), style: { flex: 1, textAlign: 'right', cursor: 'pointer' } }, puesto ? [
+                R('div', { key: 'a', style: { font: "500 19px/1 'JetBrains Mono',monospace" } }, d.fmt3(val)),
+                R('div', { key: 'b', style: { font: "400 11px/1 'JetBrains Mono',monospace", color: alto ? '#C07A1A' : '#3E93B8', marginTop: '6px' } }, `consumo ${d.fmt(cons)} m³`),
+              ] : [
+                R('div', { key: 'a', style: { font: "500 19px/1 'JetBrains Mono',monospace", color: '#C4BFB8' } }, '000.000'),
+                R('div', { key: 'b', style: { font: "400 11px/1.3 'DM Sans',sans-serif", color: '#C9773A', marginTop: '6px' } }, 'escribir la lectura'),
+              ]),
+              puesto && !alto && R('div', { key: 3, style: { width: '20px', height: '20px', borderRadius: '999px', background: '#2D7A4F', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' } }, this.ico(['M5 13l4 4L19 7'], '#fff', 10)),
+              alto && R('div', { key: 4, style: { flex: '0 0 auto' } }, this.ico(['M12 8v5', 'M12 16.5h.01'], '#C07A1A', 18)),
+            ].filter(Boolean)),
+            alto && R('div', { key: 'w', style: { font: "300 12.5px/1.45 'DM Sans',sans-serif", color: '#7A4A1E', marginTop: '12px', paddingTop: '11px', borderTop: '1px solid rgba(192,122,26,.2)' } }, `Es más del doble de lo habitual del ${x.id}. ¿Es correcto?`),
+          ].filter(Boolean));
+        }),
+        btn(listas.length === 7 ? 'Siguiente' : (7 - listas.length) === 1 ? 'Falta una lectura' : `Faltan ${7 - listas.length} lecturas`, () => this.setState({ paso: 2 }), listas.length === 7),
+      ])]);
+    }
+
+    // Paso 2 · SEDAPAL
+    if (paso === 2) {
+      const rc = this._rec || {};
+      const m3 = rc.aguaM3 != null ? rc.aguaM3 : null;
+      const mt = rc.aguaMonto != null ? rc.aguaMonto : null;
+      const set = (k, n) => { this._rec = { ...(this._rec || {}), [k]: n }; this.setState({ rec: this._rec }); };
+      const campo = (etq, valor, sufijo, color, onTap) => R('div', {
+        onClick: onTap,
+        style: { ...t.card, border: `1.5px solid ${valor != null ? color : 'rgba(14,14,14,.12)'}`, marginBottom: '12px', cursor: 'pointer' },
+      }, [
+        R('div', { key: 1, style: { ...t.lbl, color: valor != null ? color : '#7A7570' } }, etq),
+        R('div', { key: 2, style: { display: 'flex', alignItems: 'baseline', gap: '8px' } }, [
+          sufijo === 'S/' && R('span', { key: 'a', style: { font: "400 18px/1 'JetBrains Mono',monospace", color: '#7A7570' } }, 'S/'),
+          R('span', { key: 'b', style: { font: "500 34px/1 'JetBrains Mono',monospace", color: valor != null ? '#0E0E0E' : '#C4BFB8' } }, valor != null ? d.fmt(valor) : '0.00'),
+          sufijo === 'm³' && R('span', { key: 'c', style: { font: "400 18px/1 'JetBrains Mono',monospace", color: '#7A7570' } }, 'm³'),
+        ].filter(Boolean)),
+        valor == null && R('div', { key: 3, style: { font: "400 12px/1.3 'DM Sans',sans-serif", color: '#C9773A', marginTop: '10px' } }, 'toca para escribirlo'),
+      ].filter(Boolean));
+      const listo = m3 != null && mt != null;
+      return R('div', {}, [cab(2), cuerpo([
+        R('h2', { key: 'h', style: t.h }, 'La factura de agua'),
+        R('p', { key: 'p', style: { ...t.p, marginBottom: '24px' } }, 'Del recibo de SEDAPAL, tal como viene en el papel.'),
+        campo('Consumo de agua del edificio', m3, 'm³', '#3E93B8', () => this.abrirNumpad('m3', 'Consumo de agua del edificio · m³ de SEDAPAL', m3, false, 'm³', (n) => set('aguaM3', n))),
+        campo('Monto de la factura de agua', mt, 'S/', '#3E93B8', () => this.abrirNumpad('mt', 'Monto de la factura de agua · SEDAPAL', mt, true, 'S/', (n) => set('aguaMonto', n))),
+        m3 != null && bobDice(m3 > 90 ? `${m3} m³ es bastante más que los últimos meses (junio 78, mayo 78). ¿Lo confirmas?` : `${m3} m³ está en línea con los últimos meses: junio fueron 78 y mayo 78.`, m3 > 90 ? 'ambar' : 'azul'),
+        btn(listo ? 'Siguiente' : 'Escribe los dos datos', () => this.setState({ paso: 3 }), listo),
+      ].filter(Boolean))]);
+    }
+
+    // Paso 3 · luz
+    if (paso === 3) {
+      const luz = (this._rec || {}).luz;
+      const prevLuz = d.RECIBOS['2026-06'].luz;
+      const dif = luz != null ? Math.round((luz - prevLuz) * 100) / 100 : null;
+      return R('div', {}, [cab(3), cuerpo([
+        R('h2', { key: 'h', style: t.h }, 'El recibo de luz común'),
+        R('p', { key: 'p', style: { ...t.p, marginBottom: '24px' } }, 'La luz de pasillos, ascensor y bomba. Solo el monto.'),
+        R('div', { key: 'a', onClick: () => this.abrirNumpad('luz', 'Monto del recibo de luz común', luz, true, 'S/', (n) => { this._rec = { ...(this._rec || {}), luz: n }; this.setState({ rec: this._rec }); }), style: { ...t.card, border: `1.5px solid ${luz != null ? '#C9773A' : 'rgba(14,14,14,.12)'}`, cursor: 'pointer' } }, [
+          R('div', { key: 1, style: { ...t.lbl, color: luz != null ? '#C9773A' : '#7A7570' } }, 'Monto del recibo de luz común'),
+          R('div', { key: 2, style: { display: 'flex', alignItems: 'baseline', gap: '8px' } }, [
+            R('span', { key: 'a', style: { font: "400 18px/1 'JetBrains Mono',monospace", color: '#7A7570' } }, 'S/'),
+            R('span', { key: 'b', style: { font: "500 34px/1 'JetBrains Mono',monospace", color: luz != null ? '#0E0E0E' : '#C4BFB8' } }, luz != null ? d.fmt(luz) : '0.00'),
+          ]),
+          luz == null && R('div', { key: 3, style: { font: "400 12px/1.3 'DM Sans',sans-serif", color: '#C9773A', marginTop: '10px' } }, 'toca para escribirlo'),
+        ].filter(Boolean)),
+        dif != null && bobDice(dif > 20 ? `Subió S/ ${d.fmt(dif)} respecto a junio, y junio ya había subido. Es el tercer mes seguido en alza — quizá valga revisar el medidor común.` : dif < -20 ? `Bajó S/ ${d.fmt(Math.abs(dif))} respecto a junio.` : `Está en línea con junio (S/ ${d.fmt(prevLuz)}).`, Math.abs(dif) > 20 ? 'ambar' : 'azul'),
+        R('div', { key: 'g', style: { marginTop: '26px' } }, [
+          R('div', { key: 1, style: t.lbl }, 'Consumo de luz común, últimos meses'),
+          this.barras(d.MESES.map(m => ({ id: m.id, label: m.corto, v: d.RECIBOS[m.id].luz })).concat(luz != null ? [{ id: MES, label: 'JUL', v: luz }] : []), 74, MES),
+        ]),
+        btn(luz != null ? 'Siguiente' : 'Escribe el monto', () => this.setState({ paso: 4 }), luz != null),
+      ].filter(Boolean))]);
+    }
+
+    // Paso 4 · gastos fijos
+    if (paso === 4) {
+      const ed = this._fijos || {};
+      const fijos = d.FIJOS.map(g => ({ ...g, monto: ed[g.concepto] !== undefined ? ed[g.concepto] : g.monto }));
+      const suma = fijos.reduce((s, g) => s + (g.monto || 0), 0);
+      const setF = (concepto, n) => { this._fijos = { ...(this._fijos || {}), [concepto]: n }; this.setState({ fijos: this._fijos }); };
+      return R('div', {}, [cab(4), cuerpo([
+        R('h2', { key: 'h', style: t.h }, 'Los gastos que no cambian'),
+        R('p', { key: 'p', style: { ...t.p, marginBottom: '22px' } }, 'Ya están puestos. Toca cualquiera si cambió de monto.'),
+        R('div', { key: 'l', style: { ...t.card, padding: 0, overflow: 'hidden' } },
+          fijos.map((g, i2) => {
+            const sinCifra = g.monto == null;
+            return R('div', {
+              key: i2,
+              onClick: () => this.abrirNumpad('fj' + i2, g.concepto, g.monto, true, 'S/', (n) => setF(g.concepto, n)),
+              style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: i2 < fijos.length - 1 ? '1px solid rgba(14,14,14,.07)' : 'none', background: sinCifra ? 'rgba(192,122,26,.07)' : 'transparent', cursor: 'pointer' },
+            }, [
+              R('span', { key: 1, style: { font: "300 14px/1.3 'DM Sans',sans-serif", display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, color: sinCifra ? '#7A4A1E' : '#0E0E0E' } }, [
+                g.concepto,
+                g.anual && R('span', { key: 'a', style: { font: "500 8px/1 'JetBrains Mono',monospace", letterSpacing: '.1em', color: '#7A7570', background: 'rgba(14,14,14,.06)', padding: '4px 6px', borderRadius: '5px', flex: '0 0 auto', whiteSpace: 'nowrap' } }, 'ANUAL ÷ 12'),
+              ].filter(Boolean)),
+              R('span', { key: 2, style: sinCifra ? { font: "500 11px/1 'JetBrains Mono',monospace", letterSpacing: '.06em', textTransform: 'uppercase', color: '#C07A1A', flex: '0 0 auto', whiteSpace: 'nowrap' } : { font: "400 14px/1 'JetBrains Mono',monospace", flex: '0 0 auto' } }, sinCifra ? 'Escribir monto' : d.fmt(g.monto)),
+            ]);
+          })),
+        R('div', { key: 'n', style: { font: "300 12.5px/1.5 'DM Sans',sans-serif", color: '#7A7570', marginTop: '14px' } }, fijos.find(g => g.monto == null) ? 'El pozo a tierra sigue sin cifra. Puedes escribirla ahora o dejarla pendiente: el mes cierra igual y la nota queda visible para los siete.' : 'Todos los gastos fijos tienen monto este mes.'),
+        R('div', { key: 's', style: { background: '#17172B', borderRadius: '18px', padding: '18px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#F7F4EE', marginTop: '20px' } }, [
+          R('span', { key: 1, style: { ...t.lbl, marginBottom: 0, color: 'rgba(247,244,238,.5)', flex: 1, minWidth: 0 } }, 'Suman'),
+          R('span', { key: 2, style: { font: "500 20px/1 'JetBrains Mono',monospace", flex: '0 0 auto' } }, d.fmt(suma)),
+        ]),
+        btn('Confirmar y seguir', () => this.setState({ paso: 5 }), true),
+      ])]);
+    }
+
+    // Paso 5 · lo puntual
+    if (paso === 5) {
+      const extras = this._extras || [];
+      const lavado = this._lavado !== false;
+      const nuevoExtra = (tipo) => {
+        this.abrirNumpad('ex', tipo === 'gasto' ? 'Monto del gasto extraordinario' : 'Monto del crédito', null, true, 'S/', (n) => {
+          this._extras = [...(this._extras || []), { tipo, monto: n, concepto: tipo === 'gasto' ? 'Gasto extraordinario' : 'Crédito a un departamento', dpto: tipo === 'credito' ? '301' : null }];
+          this.setState({ extras: this._extras });
+        });
+      };
+      const op = (id, tit, sub, color, onTap) => R('div', {
+        key: id, onClick: onTap,
+        style: { background: '#fff', borderRadius: '20px', border: '1px solid rgba(14,14,14,.07)', padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px', cursor: 'pointer' },
+      }, [
+        R('div', { key: 1, style: { width: '40px', height: '40px', borderRadius: '14px', background: color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto', alignSelf: 'flex-start' } }, this.ico(id === 'gasto' ? ['M12 5v14', 'M5 12h14'] : ['M5 12h14'], color, 18)),
+        R('div', { key: 2, style: { flex: 1, minWidth: 0 } }, [
+          R('div', { key: 'a', style: { font: "400 15px/1.3 'DM Sans',sans-serif" } }, tit),
+          R('div', { key: 'b', style: { font: "300 12.5px/1.4 'DM Sans',sans-serif", color: '#7A7570', marginTop: '6px' } }, sub),
+        ]),
+        R('span', { key: 3, style: { flex: '0 0 auto' } }, this.ico(['M12 5v14', 'M5 12h14'], '#C4BFB8', 16)),
+      ]);
+      return R('div', {}, [cab(5), cuerpo([
+        R('h2', { key: 'h', style: t.h }, '¿Pasó algo fuera de lo normal?'),
+        R('p', { key: 'p', style: { ...t.p, marginBottom: '24px' } }, 'La mayoría de meses no pasa nada. Puedes seguir de largo sin añadir nada.'),
+        op('gasto', 'Añadir un gasto extraordinario', 'reparación urgente, compra puntual', '#C9773A', () => nuevoExtra('gasto')),
+        op('credito', 'Añadir un crédito a un departamento', 'alguien adelantó un pago', '#2D7A4F', () => nuevoExtra('credito')),
+        extras.length > 0 && R('div', { key: 'lst' }, [
+          R('div', { key: 't', style: { ...t.lbl, marginTop: '18px' } }, `Añadido este mes · ${extras.length}`),
+          ...extras.map((e, i2) => R('div', { key: i2, style: { ...t.card, display: 'flex', alignItems: 'center', gap: '12px', padding: '15px 18px', marginBottom: '8px' } }, [
+            R('div', { key: 1, style: { width: '8px', height: '8px', borderRadius: '999px', background: e.tipo === 'gasto' ? '#C9773A' : '#2D7A4F', flex: '0 0 auto' } }),
+            R('div', { key: 2, style: { flex: 1, minWidth: 0 } }, [
+              R('div', { key: 'a', style: { font: "400 13.5px/1.3 'DM Sans',sans-serif" } }, e.concepto),
+              R('div', { key: 'b', style: { font: "300 11.5px/1.3 'DM Sans',sans-serif", color: '#7A7570', marginTop: '5px' } }, e.tipo === 'gasto' ? 'se reparte entre los siete' : `a favor del ${e.dpto}`),
+            ]),
+            R('span', { key: 3, style: { font: "400 14px/1 'JetBrains Mono',monospace", flex: '0 0 auto' } }, d.fmt(e.monto)),
+            R('span', { key: 4, onClick: (ev) => { ev.stopPropagation(); this._extras = extras.filter((_, k) => k !== i2); this.setState({ extras: this._extras }); }, style: { flex: '0 0 auto', cursor: 'pointer' } }, this.ico(['M5 5l14 14', 'M19 5 5 19'], '#C4BFB8', 14)),
+          ])),
+        ].filter(Boolean)),
+        R('div', { key: 'l', style: { ...t.lbl, marginTop: '24px' } }, 'Reasignaciones de agua · ¿siguen?'),
+        R('div', { key: 'c', onClick: () => { this._lavado = !lavado; this.setState({ lavadoOn: this._lavado }); }, style: { ...t.card, display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 18px', cursor: 'pointer' } }, [
+          R('div', { key: 1, style: { width: '24px', height: '24px', borderRadius: '8px', background: lavado ? '#2D7A4F' : 'transparent', border: lavado ? 'none' : '1.6px solid rgba(14,14,14,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto' } }, lavado ? this.ico(['M5 13l4 4L19 7'], '#fff', 13) : null),
+          R('div', { key: 2, style: { flex: 1, minWidth: 0 } }, [
+            R('div', { key: 'a', style: { font: "400 14px/1.3 'DM Sans',sans-serif", color: lavado ? '#0E0E0E' : '#7A7570' } }, '401 · lavado de vehículo'),
+            R('div', { key: 'b', style: { font: "300 12px/1.3 'DM Sans',sans-serif", color: '#7A7570', marginTop: '5px' } }, lavado ? 'activo · se descuenta del área común' : 'desactivado este mes'),
+          ]),
+          R('span', { key: 3, style: { font: "400 14px/1 'JetBrains Mono',monospace", color: lavado ? '#3E93B8' : '#C4BFB8', flex: '0 0 auto' } }, `${d.fmt(this._lavM3 != null ? this._lavM3 : d.LAVADO.m3)} m³`),
+        ]),
+        btn(extras.length ? 'Siguiente' : 'Nada más este mes, seguir', () => this.setState({ paso: 6 }), true),
+      ].filter(Boolean))]);
+    }
+
+    // Paso 6 · revisión
+    if (paso === 6) {
+      const c = d.calcularMes(MES, ov);
+      const prev = d.calcularMes('2026-06');
+      return R('div', {}, [cab(6), cuerpo([
+        R('h2', { key: 'h', style: t.h }, 'Así queda julio'),
+        R('p', { key: 'p', style: { ...t.p, marginBottom: '22px' } }, 'Revisa antes de que lo vean los siete.'),
+        R('div', { key: 'n', style: { background: '#17172B', borderRadius: '24px', padding: '24px', color: '#F7F4EE' } }, [
+          R('div', { key: 1, style: { ...t.lbl, color: 'rgba(247,244,238,.5)' } }, 'Total de julio'),
+          R('div', { key: 2, style: { display: 'flex', alignItems: 'baseline', gap: '6px' } }, [
+            R('span', { key: 'a', style: { font: "400 20px/1 'JetBrains Mono',monospace", color: 'rgba(247,244,238,.45)' } }, 'S/'),
+            R('span', { key: 'b', style: { font: "500 42px/1 'JetBrains Mono',monospace", letterSpacing: '-.03em' } }, d.fmt(c.totalMes)),
+          ]),
+          R('div', { key: 3, style: { font: "300 13px/1.4 'DM Sans',sans-serif", color: 'rgba(247,244,238,.55)', marginTop: '8px' } }, `S/ ${d.fmt(Math.abs(c.totalMes - prev.totalMes))} ${c.totalMes > prev.totalMes ? 'más' : 'menos'} que junio.`),
+        ]),
+        (() => {
+          const exceso = Math.round((c.sumaMedida - c.rec.aguaM3) * 100) / 100;
+          const pct = Math.round((Math.abs(exceso) / c.rec.aguaM3) * 1000) / 10;
+          const raro = d.DPTOS.map(x => {
+            const hist = d.MESES.map(m => { const cm = d.calcularMes(m.id); return cm ? cm.consumos[x.id] : 0; });
+            const prom = hist.reduce((s, v) => s + v, 0) / hist.length;
+            return { id: x.id, nombre: x.nombre, cons: c.consumos[x.id], prom: Math.round(prom * 100) / 100, ratio: c.consumos[x.id] / (prom || 1) };
+          }).sort((a2, b2) => b2.ratio - a2.ratio)[0];
+          const pctComun = Math.round((c.comunReal / c.rec.aguaM3) * 1000) / 10;
+          const graveExceso = exceso > 0 && pct > 8;
+          const graveComun = !c.ajustado && pctComun > 10;
+          const grave = graveExceso || graveComun;
+          const ok = c.cuadraAgua && !grave;
+          if (ok) return R('div', { key: 'v', style: { background: 'rgba(45,122,79,.1)', borderRadius: '18px', padding: '18px 20px', marginTop: '14px', display: 'flex', gap: '11px', alignItems: 'flex-start' } }, [
+            R('div', { key: 1, style: { width: '22px', height: '22px', borderRadius: '999px', background: '#2D7A4F', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto', marginTop: '1px' } }, this.ico(['M5 13l4 4L19 7'], '#fff', 11)),
+            R('div', { key: 2, style: { flex: 1, minWidth: 0 } }, [
+              R('div', { key: 'a', style: { font: "500 13.5px/1.4 'DM Sans',sans-serif", color: '#1E5637', marginBottom: '7px' } }, c.ajustado ? 'El agua cuadra · reparto ajustado' : 'El agua cuadra exacto'),
+              R('div', { key: 'b', style: { font: "300 13px/1.5 'DM Sans',sans-serif", color: '#2D5C42' } }, c.ajustado
+                ? `Los medidores sumaron ${d.fmt(c.sumaMedida)} m³ y SEDAPAL facturó ${c.rec.aguaM3}. Como no se puede cobrar más de lo que llegó, a cada uno se le descontó la misma proporción. Los siete pagan S/ ${d.fmt(c.sumaAgua)}, que es la factura completa.`
+                : c.lavado
+                  ? `Los medidores sumaron ${d.fmt(c.sumaMedida)} m³ y SEDAPAL facturó ${c.rec.aguaM3}. De la diferencia, ${d.fmt(c.lavado)} m³ son el lavado del 401 y quedan ${d.fmt(c.comunReal)} m³ de área común. Los siete pagan S/ ${d.fmt(c.sumaAgua)} y el área común S/ ${d.fmt(c.montoComun)} — juntos, la factura completa.`
+                  : `Los medidores sumaron ${d.fmt(c.sumaMedida)} m³ y SEDAPAL facturó ${c.rec.aguaM3}. La diferencia, ${d.fmt(c.comunReal)} m³, se cobra como área común. Los siete pagan S/ ${d.fmt(c.sumaAgua)} y el área común S/ ${d.fmt(c.montoComun)} — juntos, la factura completa.`),
+            ]),
+          ]);
+          return R('div', { key: 'v' }, [
+            R('div', { key: 'w', style: { background: 'rgba(192,122,26,.12)', borderRadius: '22px', padding: '20px', marginTop: '14px' } }, [
+              R('div', { key: 1, style: { display: 'flex', gap: '11px', alignItems: 'flex-start', marginBottom: '16px' } }, [
+                R('div', { key: 'i', style: { flex: '0 0 auto', marginTop: '1px' } }, this.ico(['M12 8v5', 'M12 16.5h.01'], '#A85F2A', 20)),
+                R('div', { key: 't', style: { flex: 1, minWidth: 0, font: "400 13.5px/1.5 'DM Sans',sans-serif", color: '#7A4A1E' } }, graveExceso
+                  ? `Los medidores suman ${d.fmt(c.sumaMedida)} m³ y SEDAPAL facturó ${c.rec.aguaM3}. Sobran ${d.fmt(exceso)} m³, un ${pct}% de la factura.`
+                  : `Los medidores suman ${d.fmt(c.sumaMedida)} m³ y SEDAPAL facturó ${c.rec.aguaM3}. Quedarían ${d.fmt(c.comunReal)} m³ como área común: un ${pctComun}% de la factura, que se reparte entre los siete.`),
+              ]),
+              R('div', { key: 2, style: { background: 'rgba(255,255,255,.6)', borderRadius: '16px', padding: '16px', font: "300 13px/1.5 'DM Sans',sans-serif", color: '#7A4A1E' } }, graveExceso
+                ? 'Cuando SEDAPAL lee unos días antes que nosotros la diferencia suele ser de 3 a 5%. Esta es más grande, así que conviene revisar una lectura antes de publicar.'
+                : 'El área común normal del edificio es de 2 a 4%. Un salto así suele ser una fuga en el caño común, o un dígito de más en el recibo. Revísalo antes de publicar.'),
+            ]),
+            raro && raro.ratio > 1.6 && R('div', { key: 'r', style: { background: '#fff', borderRadius: '22px', border: '1.5px solid #C07A1A', padding: '20px', marginTop: '12px' } }, [
+              R('div', { key: 1, style: { ...t.lbl, color: '#C07A1A' } }, 'Probablemente sea esto'),
+              R('div', { key: 2, style: { display: 'flex', alignItems: 'center', gap: '14px', paddingBottom: '14px', borderBottom: '1px solid rgba(14,14,14,.07)' } }, [
+                R('span', { key: 'a', style: { font: "500 17px/1 'JetBrains Mono',monospace", width: '38px', flex: '0 0 auto' } }, raro.id),
+                R('div', { key: 'b', style: { flex: 1, minWidth: 0 } }, [
+                  R('div', { key: 1, style: { font: "400 14px/1.3 'DM Sans',sans-serif" } }, raro.nombre),
+                  R('div', { key: 2, style: { font: "300 12px/1.3 'DM Sans',sans-serif", color: '#7A7570', marginTop: '5px' } }, `anterior ${d.fmt3(c.cuotas[raro.id].lecturaAnterior)} → escribiste ${d.fmt3(c.cuotas[raro.id].lecturaActual)}`),
+                ]),
+              ]),
+              R('div', { key: 3, style: { display: 'flex', paddingTop: '14px' } }, [
+                R('div', { key: 'a', style: { flex: 1 } }, [R('div', { key: 1, style: { ...t.lbl, marginBottom: '8px' } }, 'Consumo'), R('div', { key: 2, style: { font: "500 20px/1 'JetBrains Mono',monospace", color: '#C07A1A' } }, `${d.fmt(raro.cons)} m³`)]),
+                R('div', { key: 'b', style: { flex: 1, borderLeft: '1px solid rgba(14,14,14,.08)', paddingLeft: '18px' } }, [R('div', { key: 1, style: { ...t.lbl, marginBottom: '8px' } }, 'Su promedio'), R('div', { key: 2, style: { font: "500 20px/1 'JetBrains Mono',monospace" } }, `${d.fmt(raro.prom)} m³`)]),
+              ]),
+              R('div', { key: 4, onClick: () => this.setState({ paso: 1 }), style: { marginTop: '16px', height: '44px', borderRadius: '999px', background: '#C9773A', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "500 13.5px/1 'DM Sans',sans-serif", color: '#fff', cursor: 'pointer' } }, `Revisar la lectura del ${raro.id}`),
+            ].filter(Boolean)),
+          ].filter(Boolean));
+        })(),
+        R('div', { key: 'l', style: { ...t.lbl, marginTop: '28px' } }, 'Las 7 cuotas'),
+        ...d.DPTOS.map(x => {
+          const cu = c.cuotas[x.id], pv = prev.cuotas[x.id];
+          const dif = cu.total - pv.total;
+          return R('div', { key: x.id, style: { display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 0', borderBottom: '1px solid rgba(14,14,14,.08)' } }, [
+            R('span', { key: 1, style: { font: "500 14px/1 'JetBrains Mono',monospace", width: '34px', flex: '0 0 auto' } }, x.id),
+            R('span', { key: 2, style: { flex: 1, minWidth: 0, font: "300 12px/1.3 'DM Sans',sans-serif", color: '#7A7570' } }, `mant. ${d.fmt(cu.mantenimiento)} + agua ${d.fmt(cu.agua)}`),
+            R('span', { key: 3, style: { font: "400 14px/1 'JetBrains Mono',monospace", flex: '0 0 auto' } }, d.fmt(cu.total)),
+            R('span', { key: 4, style: { font: "400 11px/1 'JetBrains Mono',monospace", color: dif > 0 ? '#C07A1A' : '#2D7A4F', width: '58px', textAlign: 'right', whiteSpace: 'nowrap' } }, `${dif > 0 ? '↑' : '↓'} ${d.fmt(Math.abs(dif))}`),
+          ]);
+        }),
+        R('div', { key: 'sum', style: { marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(14,14,14,.12)' } }, [
+          R('div', { key: 'a', style: { display: 'flex', alignItems: 'center', padding: '7px 0' } }, [
+            R('span', { key: 1, style: { flex: 1, minWidth: 0, font: "400 13px/1.35 'DM Sans',sans-serif", color: '#7A7570' } }, 'Lo que pagan los siete'),
+            R('span', { key: 2, style: { font: "400 14px/1 'JetBrains Mono',monospace", flex: '0 0 auto' } }, d.fmt(c.sumaCuotas)),
+          ]),
+          R('div', { key: 'b', style: { display: 'flex', alignItems: 'center', padding: '7px 0' } }, [
+            R('span', { key: 1, style: { flex: 1, minWidth: 0, font: "400 13px/1.35 'DM Sans',sans-serif", color: '#7A7570' } }, `Área común del agua · ${d.fmt(c.comunReal)} m³`),
+            R('span', { key: 2, style: { font: "400 14px/1 'JetBrains Mono',monospace", flex: '0 0 auto' } }, d.fmt(c.montoComun)),
+          ]),
+          c.totalCreditos > 0 && R('div', { key: 'c', style: { display: 'flex', alignItems: 'flex-start', padding: '7px 0' } }, [
+            R('span', { key: 1, style: { flex: 1, minWidth: 0, marginRight: '12px' } }, [
+              R('span', { key: 'x', style: { font: "400 13px/1.35 'DM Sans',sans-serif", color: '#2D5C42' } }, 'Créditos aplicados'),
+              R('span', { key: 'y', style: { display: 'block', font: "300 11.5px/1.35 'DM Sans',sans-serif", color: '#7A7570', marginTop: '4px' } }, 'salen del saldo de la cuenta, no de los demás vecinos'),
+            ]),
+            R('span', { key: 2, style: { font: "400 14px/1 'JetBrains Mono',monospace", color: '#2D7A4F', flex: '0 0 auto' } }, d.fmt(c.totalCreditos)),
+          ]),
+          R('div', { key: 'd', style: { display: 'flex', alignItems: 'center', padding: '13px 0 0', marginTop: '6px', borderTop: '1px solid rgba(14,14,14,.1)' } }, [
+            R('span', { key: 1, style: { flex: 1, minWidth: 0, font: "500 13.5px/1.35 'DM Sans',sans-serif" } }, 'Total de julio'),
+            R('span', { key: 2, style: { font: "500 17px/1 'JetBrains Mono',monospace", flex: '0 0 auto', color: c.cuadraMes ? '#0E0E0E' : '#C07A1A' } }, d.fmt(c.totalMes)),
+          ]),
+          !c.cuadraMes && R('div', { key: 'e', style: { font: "400 12.5px/1.5 'DM Sans',sans-serif", color: '#7A4A1E', background: 'rgba(192,122,26,.11)', borderRadius: '12px', padding: '12px 14px', marginTop: '12px' } }, `Las tres líneas no suman el total: faltan S/ ${d.fmt(Math.abs(c.sumaCuotas + c.montoComun + c.totalCreditos - c.totalMes))}. Revisa antes de publicar.`),
+        ].filter(Boolean)),
+        (() => {
+          const exceso = Math.round((c.sumaMedida - c.rec.aguaM3) * 100) / 100;
+          const pct = (Math.abs(exceso) / c.rec.aguaM3) * 100;
+          const bloqueado = exceso > 0 && pct > 8;
+          const pctComun = (c.comunReal / c.rec.aguaM3) * 100;
+          const bloq2 = bloqueado || (!c.ajustado && pctComun > 10) || !c.cuadraMes;
+          return btn(!bloq2 ? 'Todo correcto, seguir' : bloqueado ? 'Revisa las lecturas para seguir' : !c.cuadraMes ? 'Los montos no cuadran' : 'Revisa la factura para seguir', () => this.setState({ paso: 7 }), !bloq2);
+        })(),
+      ])]);
+    }
+
+    // Paso 7 · publicar
+    if (paso === 7) {
+      const c = d.calcularMes(MES, ov);
+      const nk = { 'Qué pasó': 'n1', 'Qué cambió': 'n2', 'Qué queda pendiente': 'n3' };
+      const notas = this._notas || {};
+      const nota = (lbl, txt, alerta) => {
+        const valor = notas[nk[lbl]] !== undefined ? notas[nk[lbl]] : txt;
+        return R('div', { key: lbl, style: { background: '#fff', borderRadius: '20px', border: alerta ? '1.5px solid rgba(192,122,26,.4)' : '1px solid rgba(14,14,14,.07)', padding: '18px 20px', marginBottom: '12px' } }, [
+          R('div', { key: 1, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '11px' } }, [
+            R('span', { key: 'a', style: { font: "500 9px/1 'JetBrains Mono',monospace", letterSpacing: '.15em', textTransform: 'uppercase', color: alerta ? '#C07A1A' : '#7A7570', flex: 1, minWidth: 0 } }, lbl),
+            this.ico(['M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z'], '#C4BFB8', 13),
+          ]),
+          R('textarea', {
+            key: 2, value: valor, rows: Math.max(2, Math.ceil(valor.length / 42)),
+            onChange: (ev) => { this._notas = { ...(this._notas || {}), [nk[lbl]]: ev.target.value }; this.setState({ notas: this._notas }); },
+            style: { width: '100%', border: 'none', outline: 'none', resize: 'none', background: 'transparent', font: "300 13.5px/1.5 'DM Sans',sans-serif", color: '#0E0E0E', padding: 0, fontFamily: "'DM Sans',sans-serif" },
+          }),
+        ]);
+      };
+      return R('div', {}, [cab(7), cuerpo([
+        R('h2', { key: 'h', style: t.h }, 'La nota del mes'),
+        R('p', { key: 'p', style: { ...t.p, marginBottom: '22px' } }, 'Ya te la redacté con lo que ingresaste. Corrige lo que quieras — la leen los siete.'),
+        nota('Qué pasó', (() => {
+          const prev = d.calcularMes('2026-06');
+          const dif = Math.round((c.totalMes - prev.totalMes) * 100) / 100;
+          return `Julio cerró en S/ ${d.fmt(c.totalMes)}${dif > 0 ? `, S/ ${d.fmt(dif)} más que junio` : dif < 0 ? `, S/ ${d.fmt(Math.abs(dif))} menos que junio` : ', igual que junio'}. Se leyeron los siete medidores el 25${c.cuadra ? ' y el agua cuadró contra la factura' : ''}.`;
+        })()),
+        nota('Qué cambió', (() => {
+          const prev = d.calcularMes('2026-06');
+          const partes = [];
+          const luzAct = c.gastos.find(g => g.concepto === 'Recibo de luz común').monto;
+          const luzPrev = prev.gastos.find(g => g.concepto === 'Recibo de luz común').monto;
+          const dLuz = Math.round((luzAct - luzPrev) * 100) / 100;
+          if (Math.abs(dLuz) >= 5) partes.push(`El recibo de luz común ${dLuz > 0 ? 'subió' : 'bajó'} S/ ${d.fmt(Math.abs(dLuz))} respecto a junio, quedó en S/ ${d.fmt(luzAct)}`);
+          const dAgua = Math.round((c.facturaAgua - prev.facturaAgua) * 100) / 100;
+          if (Math.abs(dAgua) >= 5) partes.push(`la factura de agua ${dAgua > 0 ? 'subió' : 'bajó'} S/ ${d.fmt(Math.abs(dAgua))}`);
+          const cambios = d.DPTOS.map(x => ({ id: x.id, dif: Math.round((c.consumos[x.id] - prev.consumos[x.id]) * 100) / 100 })).sort((a2, b2) => Math.abs(b2.dif) - Math.abs(a2.dif));
+          if (Math.abs(cambios[0].dif) >= 3) partes.push(`el ${cambios[0].id} ${cambios[0].dif > 0 ? 'consumió' : 'bajó'} ${d.fmt(Math.abs(cambios[0].dif))} m³ ${cambios[0].dif > 0 ? 'más' : 'menos'} de agua que en junio`);
+          const extras = (this._extras || []);
+          extras.forEach(e => partes.push(e.tipo === 'gasto' ? `se añadió un gasto extraordinario de S/ ${d.fmt(e.monto)} (${e.concepto})` : `se aplicó un crédito de S/ ${d.fmt(e.monto)} al ${e.dpto}`));
+          if (c.lavado === 0) partes.push('este mes el lavado del 401 no se cobró');
+          if (!partes.length) return 'Nada fuera de lo esperado. Todos los gastos y consumos están dentro de su rango habitual.';
+          return partes.map((p, i2) => i2 === 0 ? p.charAt(0).toUpperCase() + p.slice(1) : p).join('; ') + '.';
+        })()),
+        (() => {
+          const prev = d.calcularMes('2026-06');
+          const pend = [];
+          c.gastos.filter(g => g.porConfirmar).forEach(g => pend.push(`${g.concepto.toLowerCase()} sigue sin cifra confirmada`));
+          const luzAct = c.gastos.find(g => g.concepto === 'Recibo de luz común').monto;
+          const luzPrev = prev.gastos.find(g => g.concepto === 'Recibo de luz común').monto;
+          if (luzAct - luzPrev > 30) pend.push('revisar el medidor de luz común, lleva varios meses en alza');
+          const cambios = d.DPTOS.map(x => ({ id: x.id, dif: Math.round((c.consumos[x.id] - prev.consumos[x.id]) * 100) / 100 })).sort((a2, b2) => b2.dif - a2.dif);
+          if (cambios[0].dif >= 8) pend.push(`conversar con el ${cambios[0].id} sobre su consumo de agua`);
+          const sinPagar = d.DPTOS.filter(x => { const p = this.pagosDe('2026-06')[x.id]; return !p || p.estado !== 'confirmado'; });
+          if (sinPagar.length) pend.push(`falta${sinPagar.length > 1 ? 'n' : ''} el pago de junio del ${sinPagar.map(x => x.id).join(' y el ')}`);
+          const txt = pend.length ? pend.map((p, i2) => i2 === 0 ? p.charAt(0).toUpperCase() + p.slice(1) : p).join('; ') + '.' : 'Nada pendiente para el mes que viene.';
+          return nota('Qué queda pendiente', txt, pend.length > 0);
+        })(),
+        R('div', { key: 'w', style: { ...t.lbl, marginTop: '24px' } }, 'Al publicar'),
+        ...['Los siete ven las cuotas de julio', 'A cada uno le llega un aviso con su monto', 'Si después se corrige algo, todos se enteran'].map((x, i) =>
+          R('div', { key: i, style: { display: 'flex', gap: '12px', alignItems: 'center', padding: '13px 0', borderBottom: i < 2 ? '1px solid rgba(14,14,14,.08)' : 'none' } }, [
+            this.ico(['M5 13l4 4L19 7'], '#2D7A4F', 16),
+            R('span', { key: 1, style: { font: "300 13.5px/1.4 'DM Sans',sans-serif" } }, x),
+          ])),
+        R('div', { key: 'b', onClick: () => this.setState({ paso: 8 }), style: { height: '56px', borderRadius: '999px', background: '#C9773A', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "500 15px/1.3 'DM Sans',sans-serif", color: '#fff', cursor: 'pointer', marginTop: '26px' } }, 'Publicar julio'),
+      ])]);
+    }
+
+    // Paso 8 · publicado
+    const c = d.calcularMes(MES, ov);
+    return R('div', { style: { padding: '40px 24px 40px' } }, [
+      R('div', { key: 'i', style: { width: '64px', height: '64px', borderRadius: '22px', background: 'rgba(192,122,26,.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 26px' } }, this.blob(44, '#C07A1A', '#F7F4EE', true)),
+      R('h2', { key: 'h', style: { font: "800 30px/1.14 Syne,sans-serif", margin: '0 0 12px', letterSpacing: '-.025em', textAlign: 'center' } }, 'Julio ya está publicado'),
+      R('p', { key: 'p', style: { font: "300 15px/1.5 'DM Sans',sans-serif", color: '#7A7570', margin: '0 0 32px', textAlign: 'center' } }, 'Los siete ya pueden ver sus cuotas y la nota del mes.'),
+      R('div', { key: 'n', style: { background: '#17172B', borderRadius: '24px', padding: '24px', color: '#F7F4EE' } }, [
+        R('div', { key: 1, style: { font: "500 10px/1 'JetBrains Mono',monospace", letterSpacing: '.16em', textTransform: 'uppercase', color: 'rgba(247,244,238,.5)', marginBottom: '14px' } }, 'Julio 2026'),
+        R('div', { key: 2, style: { display: 'flex', alignItems: 'baseline', gap: '6px' } }, [
+          R('span', { key: 'a', style: { font: "400 20px/1 'JetBrains Mono',monospace", color: 'rgba(247,244,238,.45)' } }, 'S/'),
+          R('span', { key: 'b', style: { font: "500 40px/1 'JetBrains Mono',monospace", letterSpacing: '-.03em' } }, d.fmt(c.totalMes)),
+        ]),
+        R('div', { key: 3, style: { font: "300 13px/1.4 'DM Sans',sans-serif", color: 'rgba(247,244,238,.55)', marginTop: '8px' } }, 'repartido entre los siete · el agua cuadró exacto'),
+      ]),
+      R('div', { key: 'b', onClick: () => { this._lec = null; this.setState({ hoja: null, paso: 0, lecturas: null, puntual: null }); }, style: { height: '54px', borderRadius: '999px', background: '#17172B', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "500 15px/1.3 'DM Sans',sans-serif", color: '#F7F4EE', cursor: 'pointer', marginTop: '26px' } }, 'Volver al panel'),
+    ]);
+  }
+
+  // ══════════ ADMIN ══════════
+  vistaAdmin(d, c, S, pagos) {
+    const R = React.createElement;
+    const t = {
+      lbl: { font: "500 10px/1 'JetBrains Mono',monospace", letterSpacing: '.16em', textTransform: 'uppercase', color: '#7A7570', marginBottom: '14px' },
+      h: { font: "800 26px/1.15 Syne,sans-serif", margin: '0 0 8px', letterSpacing: '-.02em' },
+      p: { font: "300 13.5px/1.45 'DM Sans',sans-serif", color: '#7A7570', margin: 0 },
+      card: { background: '#fff', borderRadius: '20px', border: '1px solid rgba(14,14,14,.06)', padding: '20px' },
+      btn: (bg, col) => ({ height: '56px', borderRadius: '999px', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', font: "500 15px/1.3 'DM Sans',sans-serif", color: col, cursor: 'pointer' }),
+    };
+    const back = (fn) => R('div', { onClick: fn, style: { width: '32px', height: '32px', borderRadius: '999px', background: 'rgba(14,14,14,.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' } }, this.ico(['M19 12H5', 'M11 18l-6-6 6-6'], '#0E0E0E', 14));
+
+    // ── PIN
+    if (!S.admin) {
+      const teclas = ['1','2','3','4','5','6','7','8','9','','0','←'];
+      return R('div', { style: { display: 'flex', flexDirection: 'column', minHeight: '806px' } }, [
+        R('div', { key: 'b', style: { padding: '22px 24px 0' } }, back(() => this.setState({ pantalla: 'midpto' }))),
+        R('div', { key: 'h', style: { padding: '46px 32px 0', textAlign: 'center' } }, [
+          R('div', { key: 1, style: { width: '52px', height: '52px', borderRadius: '18px', background: 'rgba(14,14,14,.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 22px' } },
+            R('svg', { width: 21, height: 21, viewBox: '0 0 24 24', fill: 'none', stroke: '#0E0E0E', strokeWidth: 1.6, strokeLinecap: 'round' }, [R('rect', { key: 1, x: 4, y: 10, width: 16, height: 11, rx: 2.5 }), R('path', { key: 2, d: 'M8 10V7a4 4 0 0 1 8 0v3' })])),
+          R('h2', { key: 2, style: t.h }, 'Administrar el edificio'),
+          R('p', { key: 3, style: t.p }, 'La clave la tiene quien administra. Para la demo es 2026.'),
+        ]),
+        R('div', { key: 'd', style: { display: 'flex', gap: '14px', justifyContent: 'center', padding: '38px 0 0' } },
+          [0, 1, 2, 3].map(i => R('div', { key: i, style: { width: '14px', height: '14px', borderRadius: '999px', background: i < S.pin.length ? '#17172B' : 'rgba(14,14,14,.14)', transition: 'background .15s' } }))),
+        S.pinErr && R('div', { key: 'e', style: { textAlign: 'center', font: "400 13px/1.3 'DM Sans',sans-serif", color: '#C07A1A', marginTop: '18px' } }, 'Esa no es. Intenta de nuevo.'),
+        R('div', { key: 'k', style: { marginTop: 'auto', padding: '30px 44px 42px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' } },
+          teclas.map((k, i) => k === '' ? R('div', { key: i }) : R('div', {
+            key: i,
+            onClick: () => {
+              const cur = this._pin != null ? this._pin : this.state.pin;
+              if (k === '←') { this._pin = cur.slice(0, -1); return this.setState({ pin: this._pin, pinErr: false }); }
+              const np = (cur + k).slice(0, 4);
+              if (np.length < 4) { this._pin = np; return this.setState({ pin: np, pinErr: false }); }
+              this._pin = '';
+              if (np === '2026') this.setState({ admin: true, pin: '', pinErr: false });
+              else this.setState({ pin: '', pinErr: true });
+            },
+            style: { height: '64px', borderRadius: '999px', background: k === '←' ? 'transparent' : '#fff', border: k === '←' ? 'none' : '1px solid rgba(14,14,14,.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "400 24px/1 'JetBrains Mono',monospace", cursor: 'pointer' },
+          }, k === '←' ? this.ico(['M21 5H9L3 12l6 7h12z', 'M17 9l-5 6', 'M12 9l5 6'], '#7A7570', 22) : k))),
+      ].filter(Boolean));
+    }
+
+    // ── Registrar pago
+    if (S.pagoDpto) {
+      const cu = c.cuotas[S.pagoDpto];
+      const p = pagos[S.pagoDpto];
+      return R('div', {}, [
+        R('div', { key: 'b', style: { padding: '22px 24px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, [
+          back(() => this.setState({ pagoDpto: null })),
+          R('span', { key: 's', style: { font: "500 10px/1 'JetBrains Mono',monospace", letterSpacing: '.16em', textTransform: 'uppercase', color: '#7A7570' } }, 'Confirmar pago'),
+          R('div', { key: 'x', style: { width: '32px' } }),
+        ]),
+        R('div', { key: 'h', style: { padding: '26px 24px 0' } }, [
+          R('div', { key: 1, style: { ...t.lbl, color: '#C9773A' } }, `${S.pagoDpto} · ${d.DPTOS.find(x => x.id === S.pagoDpto).nombre}`),
+          R('h2', { key: 2, style: t.h }, 'Los datos del pago'),
+        ]),
+        R('div', { key: 'f', style: { padding: '24px 20px 0', display: 'flex', flexDirection: 'column', gap: '12px' } }, [
+          R('div', { key: 1, style: { ...t.card, border: '1.5px solid #17172B' } }, [
+            R('div', { key: 'a', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } }, [
+              R('span', { key: 1, style: { ...t.lbl, marginBottom: 0, font: "500 9px/1 'JetBrains Mono',monospace", letterSpacing: '.14em' } }, 'Monto'),
+              R('span', { key: 2, style: { font: "500 9px/1 'JetBrains Mono',monospace", letterSpacing: '.08em', textTransform: 'uppercase', color: '#2D7A4F', background: 'rgba(45,122,79,.1)', padding: '5px 10px', borderRadius: '999px' } }, 'Coincide con su cuota'),
+            ]),
+            R('div', { key: 'b', style: { display: 'flex', alignItems: 'baseline', gap: '8px' } }, [
+              R('span', { key: 1, style: { font: "400 18px/1 'JetBrains Mono',monospace", color: '#7A7570' } }, 'S/'),
+              R('span', { key: 2, style: { font: "500 32px/1 'JetBrains Mono',monospace" } }, d.fmt(cu.total)),
+            ]),
+          ]),
+          R('div', { key: 2, style: t.card }, [
+            R('div', { key: 'a', style: { ...t.lbl, font: "500 9px/1 'JetBrains Mono',monospace", letterSpacing: '.14em', marginBottom: '12px' } }, 'Número de operación'),
+            R('div', { key: 'b', style: { font: "500 22px/1 'JetBrains Mono',monospace", color: p && p.op !== '—' ? '#0E0E0E' : '#C4BFB8' } }, p && p.op !== '—' ? p.op : '00_____'),
+          ]),
+        ]),
+        p && p.estado === 'aviso' && R('div', { key: 'n', style: { padding: '18px 20px 0' } },
+          R('div', { style: { background: 'rgba(62,147,184,.09)', borderRadius: '16px', padding: '14px 16px', display: 'flex', gap: '11px', alignItems: 'flex-start' } }, [
+            R('div', { key: 1, style: { flex: '0 0 auto', marginTop: '1px' } }, this.blob(20, '#3E93B8', '#F7F4EE')),
+            R('div', { key: 2, style: { font: "300 13px/1.5 'DM Sans',sans-serif", color: '#1E5A73' } }, `Llené los campos con lo que avisó: «${p.texto || 'ya transferí'}» Verifícalo contra el estado de cuenta antes de confirmar.`),
+          ])),
+        R('div', { key: 'btn', style: { padding: '26px 24px 40px' } },
+          R('div', { onClick: () => this.registrarPago(S.pagoDpto), style: t.btn('#17172B', '#F7F4EE') }, 'Confirmar el pago')),
+      ].filter(Boolean));
+    }
+
+    // ── Panel
+    const avisaron = d.DPTOS.filter(x => pagos[x.id] && pagos[x.id].estado === 'aviso');
+    const sinAviso = d.DPTOS.filter(x => !pagos[x.id]);
+    const conf = d.DPTOS.filter(x => pagos[x.id] && pagos[x.id].estado === 'confirmado');
+    const fila = (x, color, nota) => R('div', {
+      key: x.id, onClick: () => this.setState({ pagoDpto: x.id }),
+      style: { border: `1px solid ${color}55`, background: `${color}12`, borderRadius: '14px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', marginBottom: '8px' },
+    }, [
+      R('span', { key: 1, style: { font: "500 16px/1 'JetBrains Mono',monospace", width: '34px', flex: '0 0 auto' } }, x.id),
+      R('div', { key: 2, style: { flex: 1, minWidth: 0 } }, [
+        R('div', { key: 'a', style: { font: "400 13px/1.3 'DM Sans',sans-serif" } }, x.nombre),
+        R('div', { key: 'b', style: { font: "300 11px/1.3 'DM Sans',sans-serif", color: '#7A7570', marginTop: '6px' } }, nota),
+      ]),
+      R('span', { key: 3, style: { font: "400 13px/1 'JetBrains Mono',monospace" } }, d.fmt(c.cuotas[x.id].total)),
+    ]);
+
+    return R('div', {}, [
+      R('div', { key: 'h', style: { display: 'flex', alignItems: 'center', gap: '14px', padding: '22px 24px 0' } }, [
+        back(() => this.setState({ pantalla: 'midpto', admin: false })),
+        R('div', { key: 't', style: { flex: 1, minWidth: 0 } }, [
+          R('div', { key: 1, style: { font: "800 24px/1 Syne,sans-serif", letterSpacing: '-.02em' } }, 'Administración'),
+          R('div', { key: 2, style: { font: "300 12.5px/1.3 'DM Sans',sans-serif", color: '#7A7570', marginTop: '6px' } }, d.MESES.find(m => m.id === S.mes).label),
+        ]),
+      ]),
+      R('div', { key: 'bob', style: { padding: '22px 20px 0' } },
+        R('div', { style: { background: 'rgba(192,122,26,.11)', borderRadius: '20px', padding: '18px 20px', display: 'flex', gap: '11px', alignItems: 'flex-start' } }, [
+          R('div', { key: 1, style: { flex: '0 0 auto', marginTop: '1px' } }, this.blob(20, '#C07A1A', '#F7F4EE')),
+          R('div', { key: 2, style: { flex: 1, font: "400 13.5px/1.45 'DM Sans',sans-serif", color: '#7A4A1E' } },
+            avisaron.length ? `El ${avisaron[0].id} avisó que transfirió. Revisa el estado de cuenta y confírmalo.`
+              : sinAviso.length ? `Faltan ${sinAviso.length === 1 ? 'el ' + sinAviso[0].id : sinAviso.length + ' departamentos'} por avisar. Puedo mandarles el resumen.`
+              : 'Todos los pagos del mes están confirmados. No hay nada pendiente.'),
+        ])),
+      R('div', { key: 'p', style: { padding: '26px 20px 0' } }, [
+        avisaron.length > 0 && R('div', { key: 'a' }, [
+          R('div', { key: 't', style: { ...t.lbl, color: '#3E93B8', font: "500 9px/1 'JetBrains Mono',monospace", letterSpacing: '.14em', marginBottom: '10px', padding: '0 4px' } }, 'Avisaron · falta confirmar'),
+          ...avisaron.map(x => fila(x, '#3E93B8', `avisó el ${pagos[x.id].fecha}`)),
+        ]),
+        sinAviso.length > 0 && R('div', { key: 's', style: { marginTop: avisaron.length ? '18px' : 0 } }, [
+          R('div', { key: 't', style: { ...t.lbl, color: '#C07A1A', font: "500 9px/1 'JetBrains Mono',monospace", letterSpacing: '.14em', marginBottom: '10px', padding: '0 4px' } }, 'Sin aviso todavía'),
+          ...sinAviso.map(x => fila(x, '#C07A1A', 'toca para registrar el pago')),
+        ]),
+        conf.length > 0 && R('div', { key: 'c', style: { marginTop: '18px' } }, [
+          R('div', { key: 't', style: { ...t.lbl, font: "500 9px/1 'JetBrains Mono',monospace", letterSpacing: '.14em', marginBottom: '10px', padding: '0 4px' } }, `Confirmados · ${conf.length}`),
+          R('div', { key: 'l', style: { ...t.card, padding: 0, overflow: 'hidden' } },
+            conf.map((x, i) => R('div', { key: x.id, style: { display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', borderBottom: i < conf.length - 1 ? '1px solid rgba(14,14,14,.07)' : 'none' } }, [
+              R('span', { key: 1, style: { font: "500 14px/1 'JetBrains Mono',monospace", width: '38px', color: '#A8A29C' } }, x.id),
+              R('span', { key: 2, style: { flex: 1, font: "300 13px/1.3 'DM Sans',sans-serif", color: '#A8A29C' } }, x.nombre),
+              R('span', { key: 3, style: { font: "400 12px/1 'JetBrains Mono',monospace", color: '#A8A29C', marginRight: '10px' } }, pagos[x.id].fecha),
+              this.ico(['M5 13l4 4L19 7'], '#2D7A4F', 14),
+            ]))),
+        ]),
+      ].filter(Boolean)),
+      R('div', { key: 'w', style: { padding: '30px 20px 0' } }, [
+        R('div', { key: 't', style: { ...t.lbl, padding: '0 4px' } }, 'Cerrar el mes siguiente'),
+        R('div', { key: 'c', style: { ...t.card } }, [
+          R('div', { key: 1, style: { font: "300 13.5px/1.5 'DM Sans',sans-serif", color: '#7A7570', marginBottom: '16px' } }, 'Siete pasos: lecturas, SEDAPAL, luz, gastos fijos, lo puntual, revisión y publicar. Se guarda solo en cada uno.'),
+          R('div', { key: 2, onClick: () => this.setState({ hoja: 'wizard' }), style: { ...t.btn('#17172B', '#F7F4EE'), height: '48px', font: "500 14px/1.3 'DM Sans',sans-serif" } }, 'Empezar julio'),
+        ]),
+      ]),
+      R('div', { key: 'fj', style: { padding: '30px 20px 0' } }, [
+        R('div', { key: 't', style: { ...t.lbl, padding: '0 4px' } }, 'Gastos fijos del edificio'),
+        R('div', { key: 'l', style: { ...t.card, padding: 0, overflow: 'hidden' } },
+          d.FIJOS.map((g, i) => {
+            const ed = this._fijos || {};
+            const monto = ed[g.concepto] !== undefined ? ed[g.concepto] : g.monto;
+            const sinCifra = monto == null;
+            return R('div', {
+              key: i,
+              onClick: () => this.abrirNumpad('af' + i, g.concepto, monto, true, 'S/', (n) => { this._fijos = { ...(this._fijos || {}), [g.concepto]: n }; this.setState({ fijos: this._fijos }); }),
+              style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 18px', borderBottom: i < d.FIJOS.length - 1 ? '1px solid rgba(14,14,14,.07)' : 'none', background: sinCifra ? 'rgba(192,122,26,.07)' : 'transparent', cursor: 'pointer' },
+            }, [
+              R('span', { key: 1, style: { font: "300 13.5px/1.3 'DM Sans',sans-serif", display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0, color: sinCifra ? '#7A4A1E' : '#0E0E0E' } }, [
+                g.concepto,
+                g.anual && R('span', { key: 'a', style: { font: "500 8px/1 'JetBrains Mono',monospace", letterSpacing: '.1em', color: '#7A7570', background: 'rgba(14,14,14,.06)', padding: '3px 5px', borderRadius: '5px', flex: '0 0 auto', whiteSpace: 'nowrap' } }, 'ANUAL ÷ 12'),
+              ].filter(Boolean)),
+              R('span', { key: 2, style: sinCifra ? { font: "500 10px/1 'JetBrains Mono',monospace", letterSpacing: '.06em', textTransform: 'uppercase', color: '#C07A1A', flex: '0 0 auto', whiteSpace: 'nowrap' } : { font: "400 13.5px/1 'JetBrains Mono',monospace", flex: '0 0 auto' } }, sinCifra ? 'Escribir monto' : d.fmt(monto)),
+            ]);
+          })),
+        R('div', { key: 'n', style: { font: "300 12px/1.5 'DM Sans',sans-serif", color: '#7A7570', marginTop: '12px', padding: '0 4px' } }, 'Toca cualquiera para cambiar su monto, incluido el pozo a tierra.'),
+      ]),
+      R('div', { key: 'o', style: { padding: '30px 24px 40px' } }, [
+        R('div', { key: 't', style: { ...t.lbl, marginBottom: '6px' } }, 'Otras acciones'),
+        ...[
+          { txt: 'Consumo del lavado de vehículo · 401', on: () => this.abrirNumpad('lv', 'Consumo mensual del lavado · 401', (this._lavM3 != null ? this._lavM3 : d.LAVADO.m3), true, 'm³', (n) => { this._lavM3 = n; this.setState({ lavM3: n }); }) },
+          { txt: 'Cargos adicionales y créditos', on: () => this.setState({ hoja: 'cargos' }) },
+          { txt: 'Exportar el año en Excel', on: () => this.setState({ hoja: 'export' }) },
+        ].map((x, i) =>
+          R('div', { key: i, onClick: x.on, style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: i < 2 ? '1px solid rgba(14,14,14,.08)' : 'none', cursor: 'pointer' } }, [
+            R('span', { key: 1, style: { font: "400 14.5px/1.3 'DM Sans',sans-serif", flex: 1, minWidth: 0 } }, x.txt),
+            this.ico(['M9 6l6 6-6 6'], '#C4BFB8', 14),
+          ])),
+      ]),
+    ].filter(Boolean));
+  }
+}
+</script>
+</body>
+</html>
