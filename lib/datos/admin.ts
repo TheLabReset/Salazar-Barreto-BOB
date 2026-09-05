@@ -27,6 +27,15 @@ export interface FilaPago {
 export interface DatosAdmin {
   /** El último mes publicado: es el de los pagos que hay que verificar. */
   mesPublicado: MesId | null
+  /**
+   * **Todos** los meses publicados, del más reciente al más antiguo.
+   *
+   * La hoja de corregir los necesita para dejar elegir. Con solo el último, el
+   * botón decía «Corregir un mes publicado» —un artículo indefinido que promete
+   * escoger— y solo se podía corregir el último: mayo era inalcanzable, que es
+   * justo el mes que `04` usa de ejemplo.
+   */
+  publicados: { mes: MesId; etiqueta: string }[]
   etiquetaPublicado: string
   /** El mes que toca cerrar. */
   mesACerrar: MesId
@@ -37,7 +46,43 @@ export interface DatosAdmin {
   pagos: FilaPago[]
   gastosFijos: { concepto: string; monto: number | null; anual: boolean }[]
   lavado: { dpto: string; concepto: string; m3: number; desde: string } | null
-  anios: number[]
+  /**
+   * Los años que se pueden exportar, con **cuántos meses publicados** llevan.
+   *
+   * Solo años con algo publicado. Antes salía de `mesesConDatos()`, que son los
+   * recibos, así que la hoja ofrecía descargar 2025: un archivo con un solo mes
+   * —diciembre de 2025— que no se publica nunca y existe solo para darle a enero
+   * su lectura anterior. Y el año en curso incluía el mes que se está cerrando,
+   * mezclado con los publicados y sin ninguna marca.
+   */
+  anios: { anio: number; mesesPublicados: number; desde: string; hasta: string }[]
+}
+
+/**
+ * Los años con meses **publicados**, y el rango exacto de cada uno.
+ *
+ * La hoja de exportar lo enseña: «6 meses de 2026, desde enero». Sin ese dato,
+ * el archivo se lee como si trajera el año entero.
+ */
+function aniosExportables(
+  publicados: readonly string[],
+): { anio: number; mesesPublicados: number; desde: string; hasta: string }[] {
+  const porAnio = new Map<number, string[]>()
+  for (const mes of publicados) {
+    const anio = Number(mes.split('-')[0])
+    porAnio.set(anio, [...(porAnio.get(anio) ?? []), mes])
+  }
+  return [...porAnio.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([anio, meses]) => {
+      const ordenados = [...meses].sort()
+      return {
+        anio,
+        mesesPublicados: ordenados.length,
+        desde: nombreMes(ordenados[0] as MesId),
+        hasta: nombreMes(ordenados[ordenados.length - 1] as MesId),
+      }
+    })
 }
 
 export async function panelDeAdmin(): Promise<DatosAdmin> {
@@ -70,6 +115,9 @@ export async function panelDeAdmin(): Promise<DatosAdmin> {
 
   return {
     mesPublicado,
+    publicados: [...publicados]
+      .sort((a, b) => b.localeCompare(a))
+      .map((m) => ({ mes: m as MesId, etiqueta: etiquetaMes(m as MesId) })),
     etiquetaPublicado: mesPublicado ? etiquetaMes(mesPublicado) : '',
     mesACerrar,
     etiquetaACerrar: etiquetaMes(mesACerrar),
@@ -102,6 +150,6 @@ export async function panelDeAdmin(): Promise<DatosAdmin> {
           desde: reasignacion.desde,
         }
       : null,
-    anios: [...new Set(conDatos.map((m) => Number(m.split('-')[0])))].sort(),
+    anios: aniosExportables(publicados),
   }
 }

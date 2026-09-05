@@ -60,6 +60,56 @@ test.describe('el panel de administración', () => {
     expect(textoAvisos).toContain('Se había tecleado mal')
   })
 
+  /**
+   * Se puede corregir **cualquier** mes publicado, no solo el último.
+   *
+   * El botón decía «Corregir un mes publicado» —un artículo indefinido que
+   * promete escoger— y la hoja abría siempre sobre el último. Mayo, que es el
+   * mes que `04` usa de ejemplo («se corrigió la lectura del 202 en mayo»), era
+   * inalcanzable.
+   */
+  test('se puede corregir un mes anterior al último publicado', async ({ page }) => {
+    const antes = await (await page.request.get('/api/meses/2026-05')).json()
+    const cuotaAntes = antes.resultado.cuotas['202'].total as number
+
+    await page.goto('/admin')
+    await page.getByRole('button', { name: /Corregir/ }).click()
+    const hoja = page.getByRole('dialog')
+    await expect(hoja).toBeVisible()
+
+    // Se abre por el más reciente y se elige mayo.
+    await expect(hoja.getByText('Corregir Junio 2026')).toBeVisible()
+    await hoja.getByRole('button', { name: 'Mayo 2026' }).click()
+    await expect(hoja.getByText('Corregir Mayo 2026')).toBeVisible()
+
+    // La lectura del 202 en mayo es 27.264. Se baja a 27.200: el 202 consume
+    // menos y el área común crece, que es el sentido seguro — subirla la mete en
+    // negativo y el propio guardián de la corrección lo rechaza, con razón.
+    await hoja.getByRole('button', { name: /^202\b/ }).click()
+    for (let i = 0; i < 12; i++) {
+      await page.getByRole('button', { name: 'Borrar', exact: true }).click()
+    }
+    for (const d of '27.200') {
+      await page.getByRole('button', { name: d === '.' ? 'Punto decimal' : d, exact: true }).click()
+    }
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+
+    await hoja.getByRole('textbox').fill('Se leyó mal el medidor del 202 en mayo.')
+    await hoja.getByRole('button', { name: 'Guardar la corrección y avisar' }).click()
+
+    await expect
+      .poll(
+        async () =>
+          (await (await page.request.get('/api/meses/2026-05')).json()).resultado.cuotas['202']
+            .total,
+      )
+      .not.toBe(cuotaAntes)
+
+    // Y junio, que no se tocó, sigue igual.
+    const junio = await (await page.request.get('/api/meses/2026-06')).json()
+    expect(junio.resultado.valido).toBe(true)
+  })
+
   test('el Excel se descarga de verdad y sus cifras son las de la app', async ({ page }) => {
     await page.goto('/admin')
     await page.getByRole('button', { name: 'Exportar el año en Excel' }).click()
@@ -110,5 +160,37 @@ test.describe('el panel de administración', () => {
         2,
       )
     }
+
+    /**
+     * Y trae **lo que la hoja de la app promete que trae**.
+     *
+     * Decía «las lecturas de medidor y los consumos» y no había ni una lectura,
+     * y «las 7 cuotas con su desglose» sobre una pestaña que solo tenía totales.
+     * Este archivo es lo que alguien abre para recalcular a mano.
+     */
+    const agua = libro.getWorksheet('Agua')
+    expect(agua, 'la pestaña de Agua').toBeTruthy()
+    const cabeceraAgua = Array.from(agua!.getRow(1).values as unknown[], (v) => String(v ?? ''))
+    for (const dpto of DPTOS) {
+      expect(cabeceraAgua, `las lecturas del ${dpto}`).toContain(`${dpto} lectura anterior`)
+      expect(cabeceraAgua, `las lecturas del ${dpto}`).toContain(`${dpto} lectura actual`)
+      expect(cabecera, `el desglose del ${dpto}`).toContain(`${dpto} mantenimiento`)
+      expect(cabecera, `el desglose del ${dpto}`).toContain(`${dpto} agua`)
+    }
+
+    // Y la lectura que hay en la celda es la que sirve la app, no otra.
+    const filaAguaJunio = (() => {
+      for (let i = 2; i <= agua!.rowCount; i++) {
+        const fila = agua!.getRow(i)
+        if (String(fila.getCell(1).value ?? '').toLowerCase().includes('junio')) return fila
+      }
+      return null
+    })()
+    expect(filaAguaJunio).not.toBeNull()
+    const col = cabeceraAgua.indexOf('401 lectura actual')
+    expect(filaAguaJunio!.getCell(col).value).toBeCloseTo(
+      junio.resultado.cuotas['401'].lecturaActual as number,
+      3,
+    )
   })
 })

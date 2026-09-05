@@ -2419,3 +2419,39 @@
 .sin-conexion-texto {
   min-width: 0;
 }
+
+/* ── Elegir qué mes publicado se corrige ──────────────────────────────────
+   Una tira de meses que scrollea a lo ancho, como el carrusel de P2. Lleva
+   `data-scroll-x` para que el chequeo de desbordes sepa que es a propósito. */
+.correccion-meses {
+  display: flex;
+  gap: var(--spacing-fila-x);
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-bottom: var(--spacing-seccion-corta);
+}
+
+.correccion-meses::-webkit-scrollbar {
+  display: none;
+}
+
+.correccion-mes {
+  flex: none;
+  padding: var(--spacing-pildora-y) var(--spacing-pildora-x);
+  border-radius: var(--radius-pildora);
+  background: var(--color-neutro-suave);
+  color: var(--color-gris);
+  min-height: var(--spacing-toque);
+}
+
+.correccion-mes-activo {
+  background: var(--color-noche);
+  color: var(--color-crema);
+}
+
+/* El alcance real de lo que baja el Excel, bajo su botón. */
+.export-alcance {
+  margin-top: var(--spacing-fila-x);
+  margin-bottom: var(--spacing-seccion-corta);
+  text-align: center;
+}

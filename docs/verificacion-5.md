@@ -1,9 +1,15 @@
 # Verificación · Fase 5 · El cierre del mes y el resto del panel
 
-> Estado al cerrar: **10 de 10 puntos del verificador pasan.** Dos defectos
-> encontrados por el propio verificador y arreglados aquí; uno de ellos —la
-> corrección de tecleo— estaba **muerto en producción con el motor en verde**.
-> Al final, §7, lo que queda declarado y no arreglado.
+> Estado al cerrar: **10 de 10 puntos del verificador pasan**, y después de eso
+> tres verificadores adversarios encontraron **veintitantos defectos más**, la
+> mitad de ellos en los propios chequeos. Está todo en §13, y no es un apéndice:
+> es la parte de esta fase donde más se aprendió.
+>
+> El más caro: cambiar los m³ del lavado desde el panel movía las cuotas de los
+> **meses ya publicados** —S/ 6.25 en la de junio del 401— mientras el aviso a
+> los siete decía que los meses cerrados no se tocan.
+>
+> Al final, §11, lo que queda declarado y no arreglado.
 
 ---
 
@@ -338,3 +344,137 @@ de verdad. Lo medido es una sola cosa y conviene no estirarla: **en julio de
 2026, cinco de los siete departamentos** (101, 201, 401, 501 y 502) tienen al
 menos una transposición de dígitos adyacentes que la regla detecta y corrige
 sola; el 301 y el 202, ninguna. Es un mes, no una tasa.
+
+---
+
+## 13. Lo que encontraron los verificadores adversarios, después de dar la fase por buena
+
+Con los diez puntos en verde se soltaron tres verificadores de solo lectura, con
+ángulos que se solapan poco: **los textos que ve el usuario**, **las rutas que
+escriben**, y —el que más rindió— **si los propios chequeos mienten sobre lo que
+cubren**. Cada hallazgo se volvió a confirmar aquí antes de tocar nada; los que
+no se sostuvieron, se descartaron.
+
+### 13.1 · Dinero que se movía solo, en meses ya publicados
+
+| Qué | Medido | Arreglo |
+|---|---|---|
+| Los m³ del lavado vivían en un campo **global** y `lavadoM3En` lo leía para cualquier mes | subir 1.50 → 3.00 movía la cuota de junio del 401 en **S/ 6.25**, mes publicado y avisado | publicar **congela** el valor del mes (`ReasignacionActivaEnMes.m3`) |
+| `PUT /api/meses/[mes]/gastos-fijos` no comprobaba si el mes estaba publicado | con junio publicado, un PUT sobre junio subió la cuota del 101 de **S/ 373.82 a S/ 1,355.25**, y el vecino veía la nueva | `exigirNoPublicado` en el servicio |
+| **Dos calculadoras del mes**: `recalcularEnTransaccion` era una copia de `entradasDeMes` y se habían separado | el aviso de corrección citaba «el 401 pasó de X a Y» con una Y que la app no cobraba | borrada; los lectores aceptan el cliente de la transacción |
+| Publicar era leer-comparar-escribir | dos publicaciones simultáneas salían las dos: dos avisos a los siete, versión 2→4 | `updateMany` condicional con `publicado: false` |
+| `POST /api/pruebas/resembrar` borraba la base **sin PIN** | `curl -X POST` sin cookie → `200 {"ok":true}`, base vacía | `exigirAdmin()`, además del guardia de entorno |
+| `version` era `.optional()` y `tomarVersion` no comprueba nada con `undefined` | cuatro rutas se saltaban el bloqueo entero | obligatoria en la puerta HTTP, opcional para quien llama al servicio |
+| El paso 4 avisaba a los siete en **cada tanteo del numpad** | un aviso por toque, sobre un mes que para ellos no existe | el cierre no avisa; el panel sí |
+| `guardarPaso` escribía sin auditar | contra la regla «toda escritura deja rastro», declarada no negociable | audita el cambio de paso |
+
+Y uno mío, encontrado al comprobar el arreglo del primero: la **migración**
+insertaba `activa = TRUE` a ciegas para los meses publicados, así que encendía el
+lavado en un mes que lo tenía apagado por herencia. Se replicó la migración sobre
+una base aparte con ese caso montado a mano: con la versión vieja, junio pasaba
+de apagado a `t / 1.50`; con la corregida, se queda apagado.
+
+### 13.2 · Chequeos que no comprobaban lo que decían
+
+Este es el ángulo que más rindió, y el más incómodo, porque los chequeos eran
+míos y estaban en verde.
+
+1. **El test de «con dos sospechosos me callo» era una tautología** —
+   `if (p !== null) expect(p.dpto).toBe('401') else expect(p).toBe(null)`— y
+   encima su escena no producía **ningún** sospechoso. Cambiar
+   `encontradas.length === 1` por `>= 1` dejaba los tres tests que la nombran
+   igual de verdes. Se buscó por fuerza bruta una escena que sí produce dos
+   (46.769 combinaciones), y resultó enseñar por qué la regla importa: **uno de
+   los dos señalados está bien tecleado**. Con dos lecturas malas, la suma de los
+   otros medidores se descoloca para todos y la regla acusa a un inocente.
+2. **La lista blanca de `verificar-tokens` eximía la línea entera** de las siete
+   reglas. De diez defectos plantados atrapaba uno: un `className="bg-red-500"`
+   con un `#ff0000` al lado pasaba limpio si compartía línea con un `viewBox`. Y
+   **33 líneas reales del repo** estaban fuera de todo. Ahora cada excepción
+   nombra la regla que perdona, y el meta-test planta los defectos **en la misma
+   línea** que el patrón perdonado.
+3. **`scripts/` se recorría, se contaba en el resumen y ninguna regla se le
+   aplicaba**: los ocho ficheros son `.mjs` y `aplicaA` solo listaba `.ts`,
+   `.tsx` y `.css`. El resumen decía `scripts:8` como si los hubiera mirado.
+4. **El chequeo salía en verde habiendo revisado un archivo**: un árbol con solo
+   `app/globals.css` daba `✓ cero valores huérfanos · 1 archivos`, salida 0. Un
+   `--raiz` equivocado pasaba por verde. Ahora hay un piso por carpeta y los
+   fixtures declaran su alcance con `--espera N`.
+5. **Los 14 tests de responsive de «Administración» medían la pantalla del PIN.**
+   La sesión de admin no viaja en el `storageState`, así que el servidor devolvía
+   `<PedirPin/>` y el chequeo medía un teclado de cuatro dígitos. El panel y sus
+   cuatro hojas —las pantallas más densas de la app— **no tenían ni una medida de
+   desborde**. Ahora cada pantalla lleva un centinela: si lo que se mide no es lo
+   que se dice medir, el test falla.
+6. **`baseURL` y el puerto del servidor eran independientes**: con `BASE_URL`
+   puesta, Playwright construía en el 3200 —un minuto— y visitaba otro sitio, en
+   verde. El comentario que decía haber cerrado esa clase de fallo mentía.
+7. **El cerrojo de la base se quedaba puesto** si el proceso moría, y a partir de
+   ahí todas las corridas fallaban con un mensaje que no decía por qué; su propio
+   mensaje de diagnóstico era código muerto, porque esperaba 180 s con un límite
+   de test de 30. Ahora lleva PID, se recoge si está huérfano, y lo comparte la
+   suite de integración.
+8. **Cuatro tests decían probar un CHECK y solo probaban que algo saltó.**
+   `rejects.toThrow()` pasa igual con un «record not found». Ahora se exige el
+   nombre de la restricción.
+9. **`mode: 'serial'` escondía huecos**: una corrida dio `93 passed / 1 failed /
+   2 did not run`, y los dos saltados incluían la única cobertura de la
+   reasignación de agua. Se quitó: un worker, en orden, y nadie arrastra a nadie.
+10. **Los scripts de prueba negativa** dejaban el defecto puesto si los
+    interrumpían.
+11. **La rama de propuesta del paso 1 no la ejercía nadie**, y tenía un
+    comportamiento propio: enseñaba la propuesta y **no guardaba** lo tecleado
+    hasta que el administrador pulsara un botón. Cerrar la hoja ahí perdía la
+    lectura, en el paso cuya promesa es que se guarda solo. Ahora se guarda
+    primero y se pregunta después.
+
+### 13.3 · Textos
+
+- Bob, en el paso 2, repetía el número recién tecleado —que no dice nada que la
+  cifra de al lado no diga— y metía el identificador crudo en la frase: *«el
+  recibo de 2026-07»*. `04` pide que **compare**; ahora compara con los dos meses
+  anteriores, y si no hay ninguno lo dice en vez de inventar la comparación.
+- La propuesta de corrección decía *«el consumo sería -82.60 m³»* cuando el
+  medidor retrocede. Un consumo negativo no es un dato: es el síntoma de que la
+  resta se hizo al revés.
+- Contaba dos problemas distintos con las mismas cuatro palabras: *«muy por
+  debajo de tu promedio, y … muy por debajo de lo que facturó SEDAPAL»*.
+- `Math.round` en el múltiplo del promedio anunciaba 2.4 veces como *«el doble»*.
+  El redondeo se queda —`04` llama «cuatro veces» a 3.67 y el copy es literal—;
+  lo que cambia es el texto: *«más del doble»*, cierto por construcción.
+- El aviso de corrección encadenaba *«la lectura del 202 y la lectura del 301 y
+  la lectura del 401»*. Con dos se leía bien, por eso pasó desapercibido.
+- **Dos hojas del panel se quedaban en «Cargando…» para siempre** al fallar la
+  consulta: en TanStack Query v5, agotado el reintento, `isLoading` vuelve a
+  `false` y `data` sigue `undefined`, así que `isLoading || !data` caía siempre
+  en la rama de carga. *Cargando*, *error* y *vacío* son tres cosas distintas.
+- **El Excel prometía lo que no llevaba**: *«las lecturas de medidor»* sin ni una
+  lectura, y *«las 7 cuotas con su desglose»* sobre una pestaña de totales. Se
+  arregló el archivo, no el texto: es lo que alguien abre para recalcular a mano.
+- **Ofrecía descargar 2025**, que es un solo mes que no se publica nunca y existe
+  para darle a enero su lectura anterior; e incluía el mes en curso sin decirlo.
+  Ahora solo años con meses publicados, y bajo cada botón la línea que el
+  prototipo tenía y se cayó al portar: *«6 meses de 2026, de enero a junio.»*
+- **«Corregir un mes publicado» solo corregía el último.** El artículo indefinido
+  promete escoger y el botón no dejaba: mayo —el mes del ejemplo de `04`— era
+  inalcanzable. Ahora la hoja lista los meses publicados y se elige.
+
+### 13.4 · Lo que los verificadores señalaron y no se sostuvo
+
+- Que el bloqueo optimista no fuera atómico: lo es. El problema era **quién no lo
+  llamaba**, no cómo estaba escrito.
+- Que `/api/export/[anio]` sin PIN fuera una fuga: no lleva nada que no esté ya
+  en `/api/meses`, que es pública por diseño.
+- Que hubiera escrituras fuera de transacción: no se encontró ninguna. El dato y
+  su apunte de auditoría van siempre dentro del mismo `$transaction`.
+- Que la frase de la propuesta no fuera literal: lo es, carácter a carácter, y el
+  test que lo dice existe y es cierto.
+
+### 13.5 · La lección, que no es «faltaban tests»
+
+De los once defectos de §13.2, **nueve estaban en chequeos que ya existían y
+estaban en verde**. Ninguno se habría encontrado escribiendo más tests: se
+encontraron rompiendo el código a propósito y mirando si el chequeo se enteraba.
+
+La prueba negativa no es una ceremonia. Es el único momento en que un chequeo
+demuestra que sirve.

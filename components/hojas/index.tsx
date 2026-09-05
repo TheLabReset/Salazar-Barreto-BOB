@@ -7,7 +7,6 @@ import { HojaHistorial } from './HojaHistorial'
 import { HojaPagarConDatos } from './HojaPagarConDatos'
 import { HojaWizard } from './HojaWizard'
 import { HojaAdminDatos } from './HojaAdminDatos'
-import { HojaCorregir } from './HojaCorregir'
 import { useContexto } from './Contexto'
 
 /**
@@ -38,7 +37,9 @@ export function Hojas() {
     case 'cargos':
       return <HojaAdminDatos modo="cargos" />
     case 'corregir':
-      return mes ? <HojaCorregir mes={mes} /> : null
+      // La lista de meses publicados la trae la misma consulta del panel: la
+      // hoja deja elegir cuál se corrige, no solo el último.
+      return <HojaAdminDatos modo="corregir" />
     default:
       return null
   }

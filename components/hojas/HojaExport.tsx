@@ -10,7 +10,11 @@ import { Hoja } from './Hoja'
  * `/api/export/[anio]`, que genera un `.xlsx` con el mismo motor que la app: si
  * el Excel y la pantalla no coincidieran, uno de los dos mentiría.
  */
-export function HojaExport({ anios }: { anios: readonly number[] }) {
+export function HojaExport({
+  anios,
+}: {
+  anios: readonly { anio: number; mesesPublicados: number; desde: string; hasta: string }[]
+}) {
   const [bajando, setBajando] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,6 +49,19 @@ export function HojaExport({ anios }: { anios: readonly number[] }) {
     'La cuenta: recibido, gastado y saldo',
   ]
 
+  /**
+   * Qué va dentro de verdad, en una línea.
+   *
+   * El prototipo la tenía —«6 meses de 2026, desde enero»— y se cayó al portar.
+   * Sin ella, el botón «Descargar 2026 en Excel» se lee como el año entero, y lo
+   * que baja son los meses **publicados**: el que se está cerrando no entra,
+   * porque todavía no existe para los vecinos.
+   */
+  const alcance = (a: { mesesPublicados: number; anio: number; desde: string; hasta: string }) =>
+    a.mesesPublicados === 1
+      ? `1 mes de ${a.anio}: ${a.desde}.`
+      : `${a.mesesPublicados} meses de ${a.anio}, de ${a.desde} a ${a.hasta}.`
+
   return (
     <Hoja titulo="Exportar el año">
       <div className="hoja-cuerpo">
@@ -70,18 +87,22 @@ export function HojaExport({ anios }: { anios: readonly number[] }) {
         {error && <p className="tipo-cuerpo-menor text-ambar pagar-error">{error}</p>}
 
         {anios.length === 0 && (
-          <p className="tipo-cuerpo-menor text-gris pagar-error">Todavía no hay ningún mes cargado.</p>
+          <p className="tipo-cuerpo-menor text-gris pagar-error">
+            Todavía no hay ningún mes publicado que exportar.
+          </p>
         )}
-        {anios.map((anio) => (
-          <button
-            key={anio}
-            type="button"
-            onClick={() => void descargar(anio)}
-            aria-disabled={bajando === anio}
-            className="cierre-boton"
-          >
-            {bajando === anio ? 'Generando…' : `Descargar ${anio} en Excel`}
-          </button>
+        {anios.map((a) => (
+          <div key={a.anio}>
+            <button
+              type="button"
+              onClick={() => void descargar(a.anio)}
+              aria-disabled={bajando === a.anio}
+              className="cierre-boton"
+            >
+              {bajando === a.anio ? 'Generando…' : `Descargar ${a.anio} en Excel`}
+            </button>
+            <p className="tipo-contexto text-gris export-alcance">{alcance(a)}</p>
+          </div>
         ))}
       </div>
     </Hoja>

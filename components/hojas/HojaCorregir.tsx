@@ -20,11 +20,21 @@ import { useHoja } from './Hojas'
  * qué cambió y de cuánto a cuánto, y queda en el registro de auditoría.
  *
  * Por eso el motivo es obligatorio: lo van a leer los siete.
+ *
+ * Y se puede corregir **cualquier** mes publicado, no solo el último: el ejemplo
+ * del documento es una lectura de mayo, y con el último únicamente ese caso era
+ * inalcanzable.
  */
-export function HojaCorregir({ mes }: { mes: MesId }) {
+export function HojaCorregir({
+  publicados,
+}: {
+  publicados: readonly { mes: MesId; etiqueta: string }[]
+}) {
   const { cerrar } = useHoja()
   const { abrir } = useNumpad()
   const router = useRouter()
+  // Se abre por el más reciente, que es el que casi siempre se corrige.
+  const [mes, setMes] = useState<MesId>(publicados[0]?.mes ?? ('2026-01' as MesId))
   const [cambios, setCambios] = useState<Partial<Record<DptoId, number>>>({})
   const [motivo, setMotivo] = useState('')
   const [hecho, setHecho] = useState<string | null>(null)
@@ -116,6 +126,28 @@ export function HojaCorregir({ mes }: { mes: MesId }) {
       <div className="hoja-cuerpo">
         <h2 className="tipo-titulo-hoja cierre-titulo">{COPYS.correccion.titulo(etiquetaMes(mes))}</h2>
         <p className="tipo-cuerpo-chico text-gris cierre-intro">{COPYS.correccion.intro}</p>
+
+        {publicados.length > 1 && (
+          <div className="correccion-meses" data-scroll-x>
+            {publicados.map((p) => (
+              <button
+                key={p.mes}
+                type="button"
+                aria-pressed={p.mes === mes}
+                onClick={() => {
+                  // Cambiar de mes limpia lo escrito: mezclar una lectura de
+                  // mayo con un motivo de junio es exactamente la corrección
+                  // equivocada.
+                  setMes(p.mes)
+                  setCambios({})
+                }}
+                className={`tipo-contexto ${p.mes === mes ? 'correccion-mes correccion-mes-activo' : 'correccion-mes'}`}
+              >
+                {p.etiqueta}
+              </button>
+            ))}
+          </div>
+        )}
 
         <p className="tipo-etiqueta-seccion text-gris revision-etiqueta">{COPYS.correccion.lecturas}</p>
         {isPending && <p className="tipo-cuerpo-menor text-gris">Cargando…</p>}

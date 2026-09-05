@@ -6,6 +6,7 @@ import type { DatosAdmin } from '@/lib/datos/admin'
 import { Hoja } from './Hoja'
 import { HojaCargos } from './HojaCargos'
 import { HojaExport } from './HojaExport'
+import { HojaCorregir } from './HojaCorregir'
 
 /**
  * Carga lo que necesitan las dos hojas del panel que dependen de la base.
@@ -17,8 +18,13 @@ import { HojaExport } from './HojaExport'
  * igual en la rama de carga. Un PIN caducado o un 500 se veían como un giro sin
  * fin y sin una palabra.
  */
-export function HojaAdminDatos({ modo }: { modo: 'export' | 'cargos' }) {
-  const titulo = modo === 'export' ? 'Exportar el año' : 'Cargos y créditos'
+export function HojaAdminDatos({ modo }: { modo: 'export' | 'cargos' | 'corregir' }) {
+  const titulo =
+    modo === 'export'
+      ? 'Exportar el año'
+      : modo === 'cargos'
+        ? 'Cargos y créditos'
+        : 'Corregir un mes publicado'
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['admin'],
     queryFn: async (): Promise<DatosAdmin> => {
@@ -56,5 +62,7 @@ export function HojaAdminDatos({ modo }: { modo: 'export' | 'cargos' }) {
     )
   }
 
-  return modo === 'export' ? <HojaExport anios={data.anios} /> : <HojaCargos lavado={data.lavado} />
+  if (modo === 'export') return <HojaExport anios={data.anios} />
+  if (modo === 'cargos') return <HojaCargos lavado={data.lavado} />
+  return <HojaCorregir publicados={data.publicados} />
 }
