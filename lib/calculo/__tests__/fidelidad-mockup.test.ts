@@ -93,6 +93,7 @@ describe('fidelidad · los ocho meses de la semilla', () => {
 })
 
 describe('fidelidad · las variantes con overrides', () => {
+  const junio = calcularMesSemilla('2026-06')
   const overrides = {
     'lavado-0': { lavadoM3: 0 },
     'lavado-999': { lavadoM3: 999 },
@@ -125,11 +126,23 @@ describe('fidelidad · las variantes con overrides', () => {
       expect(c.totalCreditos).toBe(e.totalCreditos)
       expect(c.cuadraAgua).toBe(e.cuadraAgua)
       expect(c.cuadraMes).toBe(e.cuadraMes)
+      // Las variantes comparan los mismos campos que los meses: comparar menos
+      // dejaba pasar defectos que solo se ven por una de las dos vías. Ninguna
+      // variante toca las lecturas, así que consumos, factura y suma medida
+      // tienen que seguir siendo los de junio.
+      expect(c.consumos).toEqual(junio.consumos)
+      expect(c.sumaMedida).toBe(junio.sumaMedida)
+      if (!('recibo' in ov)) expect(c.facturaAgua).toBe(junio.facturaAgua)
       for (const id of DPTO_IDS) {
         const q = c.cuotas[id]
         const eq = e.cuotas[id as keyof typeof e.cuotas]
         expect({ id, ...{ mantenimiento: q.mantenimiento, agua: q.agua, credito: q.credito, total: q.total, m3: q.m3 } })
           .toEqual({ id, ...eq })
+        // Estos tres no están en el fixture de variantes: ninguna variante toca
+        // las lecturas, así que tienen que ser los de junio en todos los casos.
+        expect(q.m3medidos).toBe(junio.consumos[id])
+        expect(q.lecturaAnterior).toBe(junio.cuotas[id].lecturaAnterior)
+        expect(q.lecturaActual).toBe(junio.cuotas[id].lecturaActual)
       }
     })
   }

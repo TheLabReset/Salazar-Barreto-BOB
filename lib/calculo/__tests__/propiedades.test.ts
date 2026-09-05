@@ -13,6 +13,7 @@ import { DPTOS, GASTOS_FIJOS, TOLERANCIA_AGUA, TOLERANCIA_MES } from '../constan
 import { round2 } from '../redondeo'
 import type { DptoId, EntradasMes, Extra, GastoFijo, Lecturas } from '../tipos'
 import { calcularMesSemilla } from './ayuda'
+import { MESES_SEMILLA } from '../../semilla'
 
 const SEMILLA = 20260701
 const CORRIDAS = 200
@@ -246,8 +247,13 @@ describe('borde · SEDAPAL facturó 0 m³', () => {
       c.sumaAgua, c.sumaCuotas, c.totalCreditos,
       ...DPTOS.flatMap((d) => Object.values(c.cuotas[d.id])),
     ]
-    for (const n of numeros) expect(Number.isNaN(n)).toBe(false)
-    expect(JSON.stringify(c)).not.toContain('null,null')
+    for (const n of numeros) expect(Number.isFinite(n)).toBe(true)
+    // Y ningún `null` donde el tipo promete un número.
+    for (const d of DPTOS) {
+      for (const [campo, valor] of Object.entries(c.cuotas[d.id])) {
+        expect(typeof valor, `cuotas.${d.id}.${campo}`).toBe('number')
+      }
+    }
   })
 
   it('no cuadra, así que el paso 6 del cierre bloquea', () => {
@@ -314,18 +320,26 @@ describe('borde · el mes es anterior a la fecha desde la que aplica el lavado',
 describe('limitación · el cuadre del agua puede fallar por puro redondeo', () => {
   /**
    * No es un bug del port: es una propiedad de las reglas tal como están
-   * escritas. `Σ agua(d) + montoComun` acumula ocho redondeos a céntimo, así
-   * que el error llega hasta 0.04, por encima de la tolerancia de 0.03 de
-   * `01` §5.1. En el reparto ajustado es mucho peor, porque además se redondean
-   * los m³ de cada departamento antes de multiplicarlos por el precio.
+   * escritas. `Σ agua(d) + montoComun` acumula ocho redondeos a céntimo —siete
+   * cuotas más el área común—, así que el error llega hasta 0.04, por encima de
+   * la tolerancia de 0.03 de `01` §5.1. En reparto ajustado es mucho peor,
+   * porque además se redondean los m³ de cada departamento antes de
+   * multiplicarlos por el precio.
    *
-   * Medido sobre 500 000 meses aleatorios:
-   *   reparto normal   → falla el 0.028 % de las veces, peor error 0.03
-   *   reparto ajustado → falla el 26.4 % de las veces, peor error 0.16
+   * Los números salen de `scripts/medir-tolerancia.mjs`, que trae los dos
+   * generadores a la vista y se puede volver a correr:
    *
-   * Estos dos casos lo dejan fijado. Si alguien cambia un redondeo de sitio y
-   * estos tests cambian de resultado, es una señal, no un fallo espurio.
-   * Ver `docs/verificacion-1.md`.
+   *   npx tsx scripts/medir-tolerancia.mjs 300000
+   *
+   * Con 300 000 meses por rama:
+   *
+   *   NORMAL    0 fallos de 300 000   peor error 0.029999999999972
+   *   AJUSTADO  137 146 fallos (45.7 %)  peor error 0.11
+   *
+   * O sea: con datos como los del edificio el cuadre nunca falla, **pero el
+   * peor caso observado se queda a 3 × 10⁻¹⁴ de la tolerancia**. No hay margen.
+   * En reparto ajustado falla casi la mitad de las veces. Ver
+   * `docs/verificacion-1.md`.
    */
   const caso = (ant: Record<string, number>, act: Record<string, number>, aguaM3: number, aguaMonto: number) =>
     calcularMes(entradasBase({
@@ -360,5 +374,20 @@ describe('limitación · el cuadre del agua puede fallar por puro redondeo', () 
   it('las tolerancias siguen siendo las de 01 §5', () => {
     expect(TOLERANCIA_AGUA).toBe(0.03)
     expect(TOLERANCIA_MES).toBe(0.05)
+  })
+
+  /**
+   * Fija el **margen real** de los ocho meses de la semilla, no solo el
+   * booleano. Aflojar la tolerancia de 0.03 a 3 dejaba `cuadraAgua` en `true`
+   * en todas partes y solo encendía dos tests; con esto, cualquier cambio en
+   * dónde cae un redondeo mueve estos márgenes y se ve.
+   */
+  it('el margen del cuadre de cada mes de la semilla es el que es', () => {
+    const margenes = MESES_SEMILLA
+      .map((m) => calcularMesSemilla(m))
+      .filter((c) => c.valido)
+      .map((c) => Number(Math.abs(c.sumaAgua + c.montoComun - c.facturaAgua).toFixed(4)))
+    expect(margenes).toEqual([0.01, 0, 0.01, 0.02, 0.01, 0.01, 0])
+    for (const margen of margenes) expect(margen).toBeLessThan(TOLERANCIA_AGUA)
   })
 })

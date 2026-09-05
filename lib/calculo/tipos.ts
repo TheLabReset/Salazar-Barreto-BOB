@@ -130,6 +130,11 @@ export interface ResultadoMes {
   readonly valido: boolean
   /** Qué falta, cuando `valido` es `false`. `null` si el mes es válido. */
   readonly motivoInvalido: string | null
+  /**
+   * Los departamentos cuya lectura falta, cuando `valido` es `false` por eso.
+   * La interfaz los usa para señalar exactamente qué filas hay que completar.
+   */
+  readonly dptosSinLectura: readonly DptoId[]
 
   /** Recibo efectivo tras aplicar los overrides. */
   readonly rec: Recibo
@@ -167,6 +172,16 @@ export interface ResultadoMes {
   readonly cuadraAgua: boolean
   /** `Σ cuota + montoComun + Σ créditos ≈ totalMes`, tolerancia 0.05. */
   readonly cuadraMes: boolean
+  /**
+   * El tercer cuadre: ninguna cifra imposible por construcción.
+   *
+   * Los dos de arriba son identidades algebraicas y se cumplen igual con
+   * números absurdos. Ver `sanidad.ts`.
+   */
+  readonly cuadraSanidad: boolean
+  /** Qué está mal, en el idioma del vecino. Vacío si `cuadraSanidad`. */
+  readonly motivosSanidad: readonly string[]
+  /** Los tres a la vez. Es lo que el paso 6 del cierre exige para publicar. */
   readonly cuadra: boolean
   /** El descuento aplicado, 0 si no hubo. */
   readonly descuento: number

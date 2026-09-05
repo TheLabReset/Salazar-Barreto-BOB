@@ -1,0 +1,450 @@
+@import 'tailwindcss';
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Tokens · transcritos de mockup/02-sistema-de-diseno.md §1–§3.
+   Este archivo es el ÚNICO sitio del proyecto donde puede aparecer un color,
+   un radio, una sombra o una medida literal. scripts/verificar-tokens.mjs
+   falla el build si aparece uno fuera de aquí.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* ── §1 · Paleta · los 18 colores ────────────────────────────────────── */
+  --color-crema: #f7f4ee;          /* Fondo de la app. El único fondo. */
+  --color-papel: #ffffff;          /* Tarjetas elevadas */
+  --color-noche: #17172b;          /* El protagonista. Un bloque por pantalla. */
+  --color-terra: #c9773a;          /* Acento de marca, dato activo, barra destacada */
+  --color-terra-oscuro: #a85f2a;   /* Texto terracota sobre fondo claro */
+  --color-terra-texto: #7a4a1e;    /* Texto de aviso sobre fondo ámbar suave */
+  --color-verde: #2d7a4f;          /* Resuelto, al día, cuadra */
+  --color-verde-oscuro: #1e5637;   /* Texto verde sobre fondo verde suave */
+  --color-ambar: #c07a1a;          /* Pendiente, atención. Nunca rojo. */
+  --color-agua: #3e93b8;           /* TODO lo relacionado con agua */
+  --color-agua-claro: #8ecbe4;     /* Agua sobre fondo noche */
+  --color-tinta: #0e0e0e;          /* Texto principal */
+  --color-gris: #7a7570;           /* Texto de contexto */
+  --color-gris-claro: #a8a29c;     /* Texto terciario */
+  --color-apagado: #c4bfb8;        /* Deshabilitado */
+  --color-linea: rgb(14 14 14 / 0.08);         /* Divisorias */
+  --color-borde-tarjeta: rgb(14 14 14 / 0.06); /* Borde sutil de tarjeta blanca */
+  --color-escritorio: #e9e5dd;     /* Fondo fuera del marco (solo escritorio) */
+
+  /* ── §4.2 · La "versión clara" de los estados sobre fondo noche ───────
+     02 §4.2 dice que sobre noche el texto usa la versión clara, sin dar el
+     valor. Estos son los del prototipo. Ver docs/PLAN.md §5. */
+  --color-verde-claro: #7bd3a0;
+  --color-ambar-claro: #e8a94a;
+
+  /* ── §1 · Fondos suaves ──────────────────────────────────────────────── */
+  --color-verde-suave: rgb(45 122 79 / 0.1);
+  --color-ambar-suave: rgb(192 122 26 / 0.12);
+  --color-agua-suave: rgb(62 147 184 / 0.12);
+  --color-terra-suave: rgb(201 119 58 / 0.12);
+  --color-neutro-suave: rgb(14 14 14 / 0.06);
+
+  /* Variantes de opacidad que el prototipo usa en barras, iconos y realces. */
+  --color-terra-tenue: rgb(201 119 58 / 0.09);
+  --color-terra-apenas: rgb(201 119 58 / 0.07);
+  --color-terra-media: rgb(201 119 58 / 0.5);
+  --color-ambar-punto: rgb(192 122 26 / 0.3);
+  --color-neutro-barra: rgb(14 14 14 / 0.12);
+  --color-neutro-pista: rgb(14 14 14 / 0.07);
+  --color-neutro-vacio: rgb(14 14 14 / 0.05);
+  --color-neutro-apenas: rgb(14 14 14 / 0.03);
+  --color-verde-tira: rgb(45 122 79 / 0.18);
+  --color-ambar-tira: rgb(192 122 26 / 0.25);
+  --color-velo: rgb(14 14 14 / 0.34);
+
+  /* ── §1 · Sobre fondo noche ──────────────────────────────────────────── */
+  --color-sobre-noche: #f7f4ee;
+  --color-sobre-noche-etiqueta: rgb(247 244 238 / 0.5);
+  --color-sobre-noche-contexto: rgb(247 244 238 / 0.55);
+  --color-sobre-noche-terciario: rgb(247 244 238 / 0.45);
+  --color-sobre-noche-cuerpo: rgb(247 244 238 / 0.75);
+  --color-sobre-noche-divisoria: rgb(247 244 238 / 0.12);
+  --color-sobre-noche-divisoria-sutil: rgb(247 244 238 / 0.08);
+  --color-sobre-noche-boton: rgb(247 244 238 / 0.1);
+  --color-sobre-noche-activo: rgb(247 244 238 / 0.12);
+
+  /* Píldoras de estado sobre noche · §4.2 */
+  --color-pildora-dia: rgb(123 211 160 / 0.14);
+  --color-pildora-sin: rgb(232 169 74 / 0.15);
+  --color-pildora-verificacion: rgb(142 203 228 / 0.15);
+
+  /* ── §2 · Tipografía ─────────────────────────────────────────────────── */
+  --font-titulo: var(--fuente-syne), sans-serif;
+  --font-cuerpo: var(--fuente-dm-sans), sans-serif;
+  --font-mono: var(--fuente-jetbrains-mono), monospace;
+
+  /* ── §3 · Radios · los nueve ─────────────────────────────────────────── */
+  --radius-marco: 38px;          /* Marco del dispositivo y esquina inferior de las hojas */
+  --radius-hoja: 32px;           /* Esquina superior de las hojas */
+  --radius-noche: 24px;          /* Tarjeta noche */
+  --radius-tarjeta-grande: 22px; /* Tarjeta blanca grande */
+  --radius-tarjeta: 20px;        /* Tarjeta blanca mediana */
+  --radius-bloque: 18px;         /* Bloque interno */
+  --radius-icono: 14px;          /* Contenedor de icono */
+  --radius-chico: 12px;          /* Iconos pequeños */
+  --radius-mini: 8px;            /* Casillas */
+  --radius-pildora: 999px;       /* Píldoras, botones, navegación, avatares */
+
+  /* ── §3 · Sombras · casi ninguna ─────────────────────────────────────── */
+  --shadow-marco: 0 24px 60px rgb(14 14 14 / 0.13);
+  --shadow-hoja: 0 -8px 40px rgb(14 14 14 / 0.2);
+  --shadow-bob: 0 4px 14px rgb(192 122 26 / 0.32);
+
+  /* ── §3 · Espaciado ──────────────────────────────────────────────────── */
+  --spacing-pantalla: 24px;         /* Margen lateral de contenido */
+  --spacing-tarjetas: 20px;         /* Margen lateral de tarjetas */
+  --spacing-onboarding: 32px;       /* Margen lateral del onboarding */
+  --spacing-seccion: 30px;          /* Entre secciones */
+  --spacing-seccion-corta: 26px;
+  --spacing-seccion-media: 28px;
+  --spacing-interior-grande: 24px;  /* Interior de tarjeta grande */
+  --spacing-interior: 18px;         /* Interior de tarjeta mediana */
+  --spacing-interior-chico: 16px;
+  --spacing-fila: 13px;             /* Fila de lista, vertical */
+  --spacing-fila-alta: 14px;
+  --spacing-fila-x: 12px;           /* Separación entre las celdas de una fila */
+  --spacing-pildora-x: 11px;        /* Píldora de estado · §4.2 */
+  --spacing-pildora-y: 6px;
+  --spacing-bajo-nav: calc(88px + var(--bot)); /* Espacio bajo el contenido */
+
+  /* Geometría de componentes · §4 */
+  --spacing-nav: 62px;              /* Alto de la píldora de navegación y del botón de Bob */
+  --spacing-toque: 44px;            /* Área táctil mínima */
+  --spacing-boton: 54px;            /* Alto del botón principal */
+  --spacing-boton-x: 20px;          /* Relleno lateral de un botón que no es de ancho completo */
+  --spacing-boton-medio: 46px;
+  --spacing-campo: 50px;            /* Alto del campo de Bob */
+  --spacing-grafico-mes: 132px;     /* Alto del gráfico de barras en El mes */
+  --spacing-grafico-edificio: 100px;
+  --spacing-grafico-tira: 56px;
+  --spacing-segmento: 5px;          /* Alto de la barra segmentada */
+  --spacing-barra-gasto: 4px;
+  --spacing-asa: 4px;               /* Alto del asa de arrastre */
+  --spacing-asa-ancho: 40px;
+  --spacing-avatar-nav: 38px;
+  --spacing-avatar-cabecera: 42px;
+  --spacing-avatar-tarjeta: 24px;
+  --spacing-avatar-linea: 20px;
+  --spacing-icono-aviso: 34px;
+  --spacing-circulo: 32px;          /* Círculo de flecha atrás y de enlace */
+  --spacing-punto: 7px;             /* Punto de estado */
+  --spacing-cifra: 6px;             /* Entre el símbolo S/ y la cifra */
+  --spacing-cifra-chica: 5px;
+  --spacing-columna-dpto: 34px;     /* Ancho de la columna del número de dpto */
+  --spacing-app: 390px;             /* Ancho del marco en escritorio */
+  --spacing-app-alto: 844px;
+  --spacing-app-ancha: 430px;       /* Columna en pantalla baja */
+
+  /* ── §6 · Movimiento ─────────────────────────────────────────────────── */
+  --ease-entrada: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --ease-hoja: cubic-bezier(0.2, 0.85, 0.3, 1);
+  --duracion-entrada: 0.34s;
+  --duracion-hoja: 0.32s;
+  --duracion-mes: 0.2s;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §7 · Las tres variables del dispositivo.
+   El marco de 390×844 del prototipo existía para poder verse en un navegador
+   de escritorio. En producción solo sobrevive en tablet y escritorio.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Teléfono vertical: la app ocupa la pantalla. Es el caso por defecto. */
+  --top: calc(30px + env(safe-area-inset-top));
+  --bot: calc(18px + env(safe-area-inset-bottom));
+  --rad: 0px;
+  color-scheme: light;
+}
+
+/* Pantalla baja (teléfono horizontal, ventana chica): columna a altura completa. */
+@media (max-height: 560px) {
+  :root {
+    --top: calc(22px + env(safe-area-inset-top));
+    --bot: calc(14px + env(safe-area-inset-bottom));
+    --rad: 0px;
+  }
+}
+
+/* Tablet y escritorio: marco centrado. */
+@media (min-width: 541px) and (min-height: 561px) {
+  :root {
+    --top: 38px;
+    --bot: 20px;
+    --rad: var(--radius-marco);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §2 · La escala tipográfica, como utilidades componibles.
+   Cada rol con su tamaño, peso, interlineado y letter-spacing exactos.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@utility tipo-titulo-pantalla {
+  font: 800 27px/1 var(--font-titulo);
+  letter-spacing: -0.02em;
+}
+@utility tipo-titulo-grande {
+  font: 800 30px/1.14 var(--font-titulo);
+  letter-spacing: -0.02em;
+}
+@utility tipo-titulo-hoja {
+  font: 800 26px/1.15 var(--font-titulo);
+  letter-spacing: -0.02em;
+}
+@utility tipo-titulo-bob {
+  font: 700 17px/1.2 var(--font-titulo);
+}
+@utility tipo-cifra-protagonista {
+  font: 500 46px/1 var(--font-mono);
+  letter-spacing: -0.03em;
+}
+@utility tipo-cifra-secundaria {
+  font: 500 42px/1 var(--font-mono);
+  letter-spacing: -0.03em;
+}
+@utility tipo-cifra-secundaria-menor {
+  font: 500 40px/1 var(--font-mono);
+  letter-spacing: -0.03em;
+}
+@utility tipo-cifra-tarjeta {
+  font: 500 32px/1 var(--font-mono);
+  letter-spacing: -0.02em;
+}
+@utility tipo-cifra-tarjeta-media {
+  font: 500 28px/1 var(--font-mono);
+}
+@utility tipo-cifra-tarjeta-chica {
+  font: 500 27px/1 var(--font-mono);
+}
+@utility tipo-cifra-bloque {
+  font: 500 20px/1 var(--font-mono);
+}
+@utility tipo-simbolo-grande {
+  font: 400 22px/1 var(--font-mono);
+}
+@utility tipo-simbolo {
+  font: 400 20px/1 var(--font-mono);
+}
+@utility tipo-simbolo-chico {
+  font: 400 16px/1 var(--font-mono);
+}
+@utility tipo-simbolo-mini {
+  font: 400 15px/1 var(--font-mono);
+}
+/* El sello visual de la app. Encabeza casi todas las secciones. */
+@utility tipo-etiqueta-seccion {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+@utility tipo-etiqueta-pequena {
+  font: 500 9px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+@utility tipo-etiqueta-anual {
+  font: 500 8px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+}
+@utility tipo-pildora {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+@utility tipo-cuerpo {
+  font: 300 15px/1.5 var(--font-cuerpo);
+}
+@utility tipo-cuerpo-medio {
+  font: 300 14px/1.45 var(--font-cuerpo);
+}
+@utility tipo-cuerpo-chico {
+  font: 300 13.5px/1.35 var(--font-cuerpo);
+}
+@utility tipo-cuerpo-menor {
+  font: 300 13px/1.45 var(--font-cuerpo);
+}
+@utility tipo-cuerpo-destacado {
+  font: 400 14px/1.3 var(--font-cuerpo);
+}
+@utility tipo-cuerpo-destacado-medio {
+  font: 500 14px/1.25 var(--font-cuerpo);
+}
+@utility tipo-cuerpo-lista {
+  font: 400 14.5px/1.3 var(--font-cuerpo);
+}
+@utility tipo-cuerpo-enlace {
+  font: 400 13px/1.3 var(--font-cuerpo);
+}
+@utility tipo-contexto {
+  font: 300 12.5px/1.4 var(--font-cuerpo);
+}
+@utility tipo-contexto-chico {
+  font: 300 12px/1.4 var(--font-cuerpo);
+}
+@utility tipo-contexto-mini {
+  font: 300 11.5px/1.3 var(--font-cuerpo);
+}
+@utility tipo-subtitulo-grupo {
+  font: 400 11px/1.3 var(--font-cuerpo);
+}
+@utility tipo-monto-lista {
+  font: 400 14px/1 var(--font-mono);
+}
+@utility tipo-monto-lista-chico {
+  font: 400 13.5px/1 var(--font-mono);
+}
+@utility tipo-monto-destacado {
+  font: 500 18px/1 var(--font-mono);
+}
+@utility tipo-monto-columna {
+  font: 500 17px/1 var(--font-mono);
+}
+@utility tipo-monto-fila {
+  font: 500 15px/1 var(--font-mono);
+}
+@utility tipo-numero-dpto {
+  font: 500 14px/1 var(--font-mono);
+}
+@utility tipo-lectura {
+  font: 500 19px/1 var(--font-mono);
+}
+@utility tipo-mono-chico {
+  font: 500 13px/1 var(--font-mono);
+}
+@utility tipo-mono-mini {
+  font: 500 12px/1 var(--font-mono);
+}
+@utility tipo-mono-etiqueta {
+  font: 400 11px/1 var(--font-mono);
+}
+@utility tipo-mono-marca {
+  font: 400 10px/1 var(--font-mono);
+}
+@utility tipo-mono-eje {
+  font: 400 9px/1 var(--font-mono);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Base
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    background: var(--color-crema);
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-crema);
+    color: var(--color-tinta);
+    font-family: var(--font-cuerpo);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* En escritorio el fondo de fuera del marco es distinto. */
+  @media (min-width: 541px) and (min-height: 561px) {
+    html,
+    body {
+      background: var(--color-escritorio);
+    }
+  }
+
+  /* §8 · el foco tiene que verse siempre. */
+  :focus-visible {
+    outline: 2px solid var(--color-terra);
+    outline-offset: 2px;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-align: inherit;
+  }
+
+  a {
+    color: var(--color-terra);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-terra-oscuro);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Utilidades de composición
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Scroll sin barra visible. */
+@utility scroll-limpio {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+}
+
+/* El degradado terracota. Aparece SOLO detrás de la cabecera de Inicio. */
+@utility degradado-cabecera {
+  background: linear-gradient(#eedfcf, var(--color-crema) 78%);
+}
+
+/* Realce de la fila del propio usuario en la lista de los siete. */
+@utility realce-propio {
+  background: linear-gradient(90deg, var(--color-terra-apenas), transparent);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §6 · Movimiento. Todo tiene motivo, nada decora, nada va en bucle.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes subir {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hoja-sube {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@utility animar-entrada {
+  animation: subir var(--duracion-entrada) var(--ease-entrada) both;
+}
+
+@utility animar-hoja {
+  animation: hoja-sube var(--duracion-hoja) var(--ease-hoja) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

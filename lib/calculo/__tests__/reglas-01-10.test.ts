@@ -1,8 +1,10 @@
 /**
- * Los catorce casos de `01-reglas-de-negocio.md` §10, tal como están escritos.
+ * Los casos de `01-reglas-de-negocio.md` §10, tal como están escritos.
  *
- * Cada `it` lleva encima la aserción literal del documento. Si uno falla, el
- * port tiene un bug: se arregla el port, no el test.
+ * El prompt los llama "los 14 casos" y el documento tiene en realidad **25
+ * `assert()` repartidos en 9 escenarios**. Están los 25, uno por `it`, y cada
+ * uno lleva encima la aserción literal del documento. Si uno falla, el port
+ * tiene un bug: se arregla el port, no el test.
  */
 
 import { describe, expect, it } from 'vitest'

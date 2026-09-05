@@ -19,7 +19,9 @@ import {
   TOLERANCIA_AGUA,
   TOLERANCIA_MES,
 } from './constantes'
+import { esMesId } from './mes'
 import { round2 } from './redondeo'
+import { revisarEntradas, revisarResultado, sumarMontos } from './sanidad'
 import type {
   CuotaDpto,
   DptoId,
@@ -34,7 +36,12 @@ import type {
 const RECIBO_VACIO: Recibo = { aguaM3: 0, aguaMonto: 0, luz: 0, descuento: null }
 
 /** Resultado marcado como inválido. Nunca `null`, nunca `NaN`. */
-function invalido(mesId: ResultadoMes['mesId'], rec: Recibo, motivo: string): ResultadoMes {
+function invalido(
+  mesId: ResultadoMes['mesId'],
+  rec: Recibo,
+  motivo: string,
+  dptosSinLectura: readonly DptoId[] = [],
+): ResultadoMes {
   // `as`: `Object.fromEntries` devuelve `{[k: string]: T}`; aquí las claves son
   // exactamente los siete ids de `DPTOS`, que es lo que `PorDpto` afirma.
   const cero = <T>(v: T): PorDpto<T> =>
@@ -47,6 +54,7 @@ function invalido(mesId: ResultadoMes['mesId'], rec: Recibo, motivo: string): Re
     mesId,
     valido: false,
     motivoInvalido: motivo,
+    dptosSinLectura,
     rec,
     consumos: cero(0),
     sumaMedida: 0,
@@ -70,6 +78,8 @@ function invalido(mesId: ResultadoMes['mesId'], rec: Recibo, motivo: string): Re
     totalCreditos: 0,
     cuadraAgua: false,
     cuadraMes: false,
+    cuadraSanidad: false,
+    motivosSanidad: [motivo],
     cuadra: false,
     descuento: 0,
   }
@@ -83,17 +93,47 @@ function invalido(mesId: ResultadoMes['mesId'], rec: Recibo, motivo: string): Re
  * @param ov       Lo que el administrador está escribiendo y aún no guardó.
  *                 Cada campo pisa la entrada guardada individualmente.
  */
-export function calcularMes(entradas: EntradasMes, ov: Overrides = {}): ResultadoMes {
+export function calcularMes(entradasCrudas: EntradasMes, ovCruda: Overrides = {}): ResultadoMes {
+  // Normalización defensiva. Zod corta esto en el borde de la API, pero el
+  // motor también corre en el navegador y recibe lo que devuelve la base: un
+  // `findMany` sin filas dejaba `fijos` en `null` y `calcularMes` lanzaba un
+  // TypeError en medio del cierre del mes.
+  const entradas: EntradasMes = {
+    ...entradasCrudas,
+    lecturas: entradasCrudas?.lecturas ?? {},
+    lecturasAnteriores: entradasCrudas?.lecturasAnteriores ?? {},
+    fijos: entradasCrudas?.fijos ?? [],
+    extras: entradasCrudas?.extras ?? [],
+  }
+  const ov: Overrides = ovCruda ?? {}
   const { mesId } = entradas
+
+  if (!esMesId(mesId)) {
+    return invalido(mesId, RECIBO_VACIO, `El mes "${String(mesId)}" no tiene la forma AAAA-MM.`)
+  }
 
   // ── Recibo efectivo: lo escrito pisa lo guardado, campo por campo
   const base = entradas.recibo
+  /**
+   * `01` §11: "cada campo pisa la semilla individualmente".
+   *
+   * `undefined` significa "no lo estoy tocando" y cae a lo guardado; `null`
+   * significa "este mes no hay" y lo borra. Con `??` encadenado los dos se
+   * comportaban igual, así que un mes sin descuento heredaba el del mes
+   * guardado: S/ 17.33 que el edificio dejaba de cobrar, con los dos cuadres
+   * en verde.
+   */
+  const pisa = <T,>(escrito: T | undefined, guardado: T | undefined, porDefecto: T): T =>
+    escrito !== undefined ? escrito : (guardado ?? porDefecto)
   const rec: Recibo = {
-    aguaM3: ov.recibo?.aguaM3 ?? base?.aguaM3 ?? 0,
-    aguaMonto: ov.recibo?.aguaMonto ?? base?.aguaMonto ?? 0,
-    luz: ov.recibo?.luz ?? base?.luz ?? 0,
-    descuento: ov.recibo?.descuento ?? base?.descuento ?? null,
+    aguaM3: pisa(ov.recibo?.aguaM3, base?.aguaM3, 0),
+    aguaMonto: pisa(ov.recibo?.aguaMonto, base?.aguaMonto, 0),
+    luz: pisa(ov.recibo?.luz, base?.luz, 0),
+    descuento: pisa(ov.recibo?.descuento, base?.descuento, null),
   }
+
+  const problema = revisarEntradas(entradas, ov)
+  if (problema) return invalido(mesId, rec, problema)
 
   if (!base && !ov.recibo) {
     return invalido(mesId, rec, 'Todavía no se registró el recibo de este mes.')
@@ -108,11 +148,14 @@ export function calcularMes(entradas: EntradasMes, ov: Overrides = {}): Resultad
       mesId,
       rec,
       `Faltan las lecturas del mes anterior de ${faltantesAnteriores.join(', ')}.`,
+      faltantesAnteriores,
     )
   }
 
   // Dividir entre los m³ facturados: sin ellos no hay precio por m³.
-  if (!(rec.aguaM3 > 0)) {
+  // `Number.isFinite` además de `> 0`: `Infinity > 0` es verdadero y se colaba,
+  // dejando `montoComun` en NaN dentro de un resultado marcado como válido.
+  if (!(Number.isFinite(rec.aguaM3) && rec.aguaM3 > 0)) {
     return invalido(
       mesId,
       rec,
@@ -120,20 +163,30 @@ export function calcularMes(entradas: EntradasMes, ov: Overrides = {}): Resultad
     )
   }
 
-  // ── Lecturas efectivas. Si no hay lectura del mes, se arrastra la anterior
-  //    (consumo 0: el medidor no se movió o todavía no se tecleó).
+  // ── Lecturas efectivas del mes.
+  //
+  // Si falta alguna, el mes **no se puede calcular**. Arrastrar la lectura del
+  // mes anterior daría consumo 0 para ese departamento, su agua saldría en
+  // S/ 0.00, esos m³ se irían al área común —que la pagan los siete desde el
+  // saldo— y los dos cuadres seguirían dando verdadero, porque se comparan
+  // contra su propia `sumaMedida` y no pueden ver una lectura que no está.
+  // El paso 6 del cierre dejaría publicar un mes mal cobrado con luz verde.
+  // Medido: sin la lectura del 502 en junio, el 502 dejaba de pagar S/ 70.25 y
+  // el área común pasaba de S/ 6.75 a S/ 77.00.
+  //
   // `as`: el tipo declarado es parcial, pero justo arriba se comprobó que los
-  // siete departamentos tienen lectura anterior; si faltara alguna ya se
-  // habría devuelto un resultado inválido.
+  // siete departamentos tienen lectura anterior.
   const lecAnt = entradas.lecturasAnteriores as Record<DptoId, number>
-  // `as`: se recorre `DPTOS`, así que las siete claves están presentes, y el
-  // valor nunca es `undefined` porque `lecAnt` ya está completo.
+  const faltanLecturas = DPTOS.filter(
+    (d) => (ov.lecturas?.[d.id] ?? entradas.lecturas[d.id]) == null,
+  ).map((d) => d.id)
+  if (faltanLecturas.length > 0) {
+    return invalido(mesId, rec, `Faltan las lecturas de ${faltanLecturas.join(', ')}.`, faltanLecturas)
+  }
+  // `as`: se recorre `DPTOS` y justo arriba se comprobó que los siete tienen
+  // lectura, así que las siete claves están y ninguna es `undefined`.
   const lecAct: PorDpto<number> = Object.fromEntries(
-    DPTOS.map((d) => {
-      const escrito = ov.lecturas?.[d.id]
-      const guardado = entradas.lecturas[d.id]
-      return [d.id, escrito ?? guardado ?? lecAnt[d.id]]
-    }),
+    DPTOS.map((d) => [d.id, (ov.lecturas?.[d.id] ?? entradas.lecturas[d.id])!]),
   ) as PorDpto<number>
 
   // ── Consumo medido · §3.1
@@ -159,7 +212,10 @@ export function calcularMes(entradas: EntradasMes, ov: Overrides = {}): Resultad
   const factor = ajustado ? rec.aguaM3 / sumaMedida : 1
 
   // ── El lavado sale del caño común: se reasigna, no se suma · §3.3
-  const lavM3 = ov.lavadoM3 ?? entradas.lavadoM3
+  // `?? LAVADO.m3`: un `null` que se cuele desde la base no puede desactivar el
+  // lavado en silencio. Un 0 explícito sí lo desactiva, que es lo que hace la
+  // casilla del paso 5.
+  const lavM3 = ov.lavadoM3 ?? entradas.lavadoM3 ?? LAVADO.m3
   const lavado =
     !ajustado && lavM3 > 0 && brutoComun >= lavM3 && mesId >= LAVADO.desde ? lavM3 : 0
   const comunReal = round2(brutoComun - lavado)
@@ -177,54 +233,81 @@ export function calcularMes(entradas: EntradasMes, ov: Overrides = {}): Resultad
   const montoComun = ajustado ? 0 : round2(comunReal * precioM3)
 
   // ── Los gastos del mes · §4
-  // Se recorre el orden documentado e insertando el agua y la luz en su sitio.
+  //
+  // La lista sale de los conceptos que **de verdad existen** —los vigentes que
+  // llegan en `entradas.fijos` más los que el administrador esté escribiendo en
+  // `ov.fijos`—, ordenados según `ORDEN_GASTOS`, con el agua y la luz insertadas
+  // en su sitio.
+  //
+  // No se inventan líneas para conceptos ausentes: si la tabla de gastos fijos
+  // llegara vacía, el mes sale con dos líneas y el problema se ve. Antes salía
+  // con diez líneas "por confirmar" que sumaban 0, con un total de S/ 643.40 en
+  // vez de S/ 3 317.98, y los dos cuadres en verde.
   const porConcepto = new Map(entradas.fijos.map((g) => [g.concepto, g]))
+
+  /**
+   * El monto efectivo de un concepto.
+   *
+   * `undefined` en el override significa "no lo estoy tocando" y cae al monto
+   * guardado; `null` significa "por confirmar" y es una decisión explícita. Son
+   * cosas distintas: confundirlas borraba los S/ 680 del ascensor del total sin
+   * que nada se pusiera rojo.
+   */
   const montoDe = (concepto: string): number | null => {
-    if (ov.fijos && Object.prototype.hasOwnProperty.call(ov.fijos, concepto)) {
-      return ov.fijos[concepto] ?? null
-    }
+    const escrito = ov.fijos?.[concepto]
+    if (escrito !== undefined) return escrito
     return porConcepto.get(concepto)?.monto ?? null
   }
 
-  const gastos: LineaGasto[] = []
-  for (const concepto of ORDEN_GASTOS) {
-    if (concepto === CONCEPTO_AGUA) {
-      gastos.push({ concepto, monto: facturaAgua, esAgua: true })
-      continue
-    }
-    if (concepto === CONCEPTO_LUZ) {
-      gastos.push({ concepto, monto: rec.luz })
-      continue
-    }
+  // `as`: `ORDEN_GASTOS` es una tupla literal; se ensancha a string para poder
+  // buscar en ella un concepto que viene de la base de datos.
+  const posicion = (c: string) => {
+    const i = (ORDEN_GASTOS as readonly string[]).indexOf(c)
+    return i === -1 ? ORDEN_GASTOS.length : i
+  }
+  const conceptosFijos = [
+    ...entradas.fijos.map((g) => g.concepto),
+    ...Object.keys(ov.fijos ?? {}),
+  ].filter((c) => c !== CONCEPTO_AGUA && c !== CONCEPTO_LUZ)
+  const ordenados = [...new Set(conceptosFijos)].sort((a, b) => posicion(a) - posicion(b))
+
+  const lineaFija = (concepto: string): LineaGasto => {
     const fijo = porConcepto.get(concepto)
     const monto = montoDe(concepto)
-    gastos.push({
+    return {
       concepto,
       monto,
       ...(fijo?.anual ? { anual: true } : {}),
       // `null` es "por confirmar", no "cuesta cero". La interfaz lo muestra distinto.
       ...(monto == null ? { porConfirmar: true } : {}),
-    })
+    }
   }
-  // Conceptos fijos que el administrador añadió y no están en el orden documentado.
-  for (const fijo of entradas.fijos) {
-    // `as`: `ORDEN_GASTOS` es una tupla literal; se ensancha a string para
-    // poder buscar en ella un concepto que viene de la base de datos.
-    if ((ORDEN_GASTOS as readonly string[]).includes(fijo.concepto)) continue
-    const monto = montoDe(fijo.concepto)
-    gastos.push({
-      concepto: fijo.concepto,
-      monto,
-      ...(fijo.anual ? { anual: true } : {}),
-      ...(monto == null ? { porConfirmar: true } : {}),
-    })
+
+  const posAgua = (ORDEN_GASTOS as readonly string[]).indexOf(CONCEPTO_AGUA)
+  const posLuz = (ORDEN_GASTOS as readonly string[]).indexOf(CONCEPTO_LUZ)
+  const gastos: LineaGasto[] = []
+  let insertadaAgua = false
+  let insertadaLuz = false
+  for (const concepto of ordenados) {
+    if (!insertadaAgua && posicion(concepto) > posAgua) {
+      gastos.push({ concepto: CONCEPTO_AGUA, monto: facturaAgua, esAgua: true })
+      insertadaAgua = true
+    }
+    if (!insertadaLuz && posicion(concepto) > posLuz) {
+      gastos.push({ concepto: CONCEPTO_LUZ, monto: rec.luz })
+      insertadaLuz = true
+    }
+    gastos.push(lineaFija(concepto))
   }
+  if (!insertadaAgua) gastos.push({ concepto: CONCEPTO_AGUA, monto: facturaAgua, esAgua: true })
+  if (!insertadaLuz) gastos.push({ concepto: CONCEPTO_LUZ, monto: rec.luz })
+
   // Gastos extraordinarios del paso 5: se suman al total y los pagan los siete.
   for (const e of ov.extras ?? entradas.extras) {
     if (e.tipo === 'gasto') gastos.push({ concepto: e.concepto, monto: e.monto, extra: true })
   }
 
-  const totalMes = round2(gastos.reduce((s, g) => s + (g.monto || 0), 0))
+  const totalMes = sumarMontos(gastos)
   // El agua se saca de la base porque no se reparte por flat sino por consumo.
   const baseMant = round2(totalMes - facturaAgua)
 
@@ -239,9 +322,12 @@ export function calcularMes(entradas: EntradasMes, ov: Overrides = {}): Resultad
   // `as`: lo rellena el bucle de abajo, uno por departamento.
   const cuotas = {} as PorDpto<CuotaDpto>
   for (const d of DPTOS) {
-    // `round(baseMant * flat) / 100` es exactamente `round2(baseMant * flat / 100)`.
-    // Se conserva la forma escrita del original para que la comparación línea a
-    // línea con `datos-edificio.js` sea trivial.
+    // OJO: `Math.round(baseMant * flat) / 100` **no** es siempre igual a
+    // `round2(baseMant * flat / 100)`. Difieren en un céntimo cuando el producto
+    // cae justo en el medio: con baseMant 2925.00 y flat 20.22 dan 591.44 y
+    // 591.43. Por eso se conserva la forma escrita del original y no se
+    // "simplifica" a `round2`: `01` §9 dice que no se mueve ningún redondeo de
+    // sitio, y aquí eso mueve dinero de verdad.
     const mant = Math.round(baseMant * d.flat) / 100
     const cred = creditos[d.id] ?? 0
     cuotas[d.id] = {
@@ -266,10 +352,17 @@ export function calcularMes(entradas: EntradasMes, ov: Overrides = {}): Resultad
   const cuadraMes =
     Math.abs(sumaCuotas + montoComun + totalCreditos - totalMes) < TOLERANCIA_MES
 
+  // El tercer cuadre. Los dos de `01` §5 son identidades algebraicas: se
+  // cumplen igual con cifras imposibles. Ver `sanidad.ts`.
+  const sanidad = revisarResultado({
+    consumos, cuotas, precioM3, facturaAgua, comunReal, montoComun, factor, totalMes, gastos,
+  })
+
   return {
     mesId,
     valido: true,
     motivoInvalido: null,
+    dptosSinLectura: [],
     rec,
     consumos,
     sumaMedida,
@@ -290,7 +383,9 @@ export function calcularMes(entradas: EntradasMes, ov: Overrides = {}): Resultad
     totalCreditos,
     cuadraAgua,
     cuadraMes,
-    cuadra: cuadraAgua && cuadraMes,
+    cuadraSanidad: sanidad.cuadra,
+    motivosSanidad: sanidad.motivos,
+    cuadra: cuadraAgua && cuadraMes && sanidad.cuadra,
     descuento: rec.descuento ?? 0,
   }
 }

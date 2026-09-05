@@ -28,7 +28,18 @@ export function proponerCorreccion(
   objetivoM3: number,
   otrosM3: number,
 ): Correccion | null {
-  const s = String(valorTecleado).replace('.', '')
+  /**
+   * La forma de cadena tiene que tener **exactamente tres decimales**, que es
+   * como viene una lectura del medidor.
+   *
+   * `String(438.03)` da `"438.03"` y al quitarle el punto quedan cinco dígitos:
+   * el algoritmo mete el punto tres antes del final y sale `43.803`, diez veces
+   * menos. Un `Number` de JS no conserva ceros a la derecha, así que una de cada
+   * diez lecturas reales (`174.700`) llegaba deformada y la corrección quedaba
+   * muerta sin que nada avisara.
+   */
+  const s = (typeof valorTecleado === 'number' ? valorTecleado.toFixed(3) : String(valorTecleado))
+    .replace('.', '')
   const candidatas = new Set<string>()
 
   // Transposiciones de dígitos adyacentes
