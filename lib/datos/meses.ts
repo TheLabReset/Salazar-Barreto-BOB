@@ -97,12 +97,22 @@ export interface Borrador {
   notaQuePendiente: string | null
   /** Lo guardado, ya calculado. */
   resultado: ResultadoMes
+  /**
+   * Las lecturas **de este mes** que ya están guardadas.
+   *
+   * Van aparte del `resultado` a propósito: el paso 1 tiene que saber cuántas
+   * hay aunque el mes todavía no se pueda calcular. Al principio del cierre no
+   * hay recibo, así que `calcularMes` devuelve inválido por eso y ni siquiera
+   * llega a mirar las lecturas: derivarlas de ahí hacía que el contador abriera
+   * en "7 / 7" con el mes vacío.
+   */
+  lecturas: Record<string, number>
   /** Las lecturas del mes anterior, para mostrarlas al lado. */
   lecturasAnteriores: Record<string, number>
   /** Promedio histórico de consumo por departamento, para avisar de lo raro. */
   promedios: Record<string, number>
   /** Los m³ del lavado configurados y si está activo este mes. */
-  lavado: { m3: number; activo: boolean; dpto: string } | null
+  lavado: { m3: number; activo: boolean; dpto: string; concepto: string } | null
 }
 
 /** Todo lo que el cierre del mes necesita para pintarse. */
@@ -126,6 +136,7 @@ export async function borradorDeMes(mes: MesId): Promise<Borrador> {
     notaQueCambio: cierre?.notaQueCambio ?? null,
     notaQuePendiente: cierre?.notaQuePendiente ?? null,
     resultado,
+    lecturas: entradas.lecturas as Record<string, number>,
     lecturasAnteriores: entradas.lecturasAnteriores as Record<string, number>,
     promedios: await promediosDeConsumo(mes),
     lavado: reasignacion
@@ -133,6 +144,7 @@ export async function borradorDeMes(mes: MesId): Promise<Borrador> {
           m3: aNumeroObligatorio(reasignacion.m3),
           activo: entradas.lavadoM3 > 0,
           dpto: reasignacion.dptoId,
+          concepto: reasignacion.concepto,
         }
       : null,
   }

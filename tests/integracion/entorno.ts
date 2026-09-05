@@ -42,4 +42,26 @@ export async function resembrar(): Promise<void> {
   })
 }
 
+/**
+ * Escribe en el mes en curso lo que el administrador teclearía en el cierre.
+ *
+ * La semilla lo deja vacío a propósito —sus lecturas y su recibo son justo lo
+ * que se va a teclear—, así que los tests que necesitan un mes completo lo
+ * llenan aquí, por los mismos endpoints que usa la interfaz.
+ */
+export async function cargarMesEnCurso(mes = '2026-07'): Promise<void> {
+  const { guardarLecturas, guardarRecibo } = await import('@/lib/servicios/cierre')
+  const { LECTURAS, RECIBOS } = await import('@/lib/semilla')
+  const lecturas = LECTURAS[mes]
+  const recibo = RECIBOS[mes]
+  if (!lecturas || !recibo) throw new Error(`La semilla no tiene datos de ${mes}`)
+  await guardarLecturas(mes, { lecturas: lecturas as Record<string, number> })
+  await guardarRecibo(mes, {
+    aguaM3: recibo.aguaM3,
+    aguaMonto: recibo.aguaMonto,
+    luz: recibo.luz,
+    descuento: recibo.descuento ?? null,
+  })
+}
+
 export { prisma }

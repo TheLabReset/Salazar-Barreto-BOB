@@ -16,7 +16,7 @@ import {
 import { guardarGastosFijos } from '@/lib/servicios/gastosFijos'
 import { avisarPago, confirmarPago } from '@/lib/servicios/pagos'
 import { resultadoDeMes } from '@/lib/datos/mes'
-import { prisma, resembrar } from './entorno'
+import { cargarMesEnCurso, prisma, resembrar } from './entorno'
 
 const EN_CURSO = '2026-07'
 const PUBLICADO = '2026-06'
@@ -38,6 +38,15 @@ const contarAuditoria = () => prisma.auditoria.count()
 
 describe('toda escritura deja su rastro', () => {
   it('guardar una lectura registra el valor anterior y el nuevo', async () => {
+    // La primera vez es 'crear' con valorAnterior null; la segunda, 'editar'.
+    await guardarLecturas(EN_CURSO, { lecturas: { '401': 438.038 } })
+    const primero = await prisma.auditoria.findFirst({
+      where: { entidad: 'lectura', entidadId: `${EN_CURSO}/401` },
+      orderBy: { momento: 'desc' },
+    })
+    expect(primero!.accion).toBe('crear')
+    expect(primero!.valorAnterior).toBeNull()
+
     const antes = await prisma.lectura.findUnique({
       where: { mes_dptoId: { mes: EN_CURSO, dptoId: '401' } },
     })
@@ -57,6 +66,7 @@ describe('toda escritura deja su rastro', () => {
   })
 
   it('guardar el recibo registra un apunte por campo que cambió, y solo por esos', async () => {
+    await cargarMesEnCurso(EN_CURSO)
     const antes = await contarAuditoria()
     await guardarRecibo(EN_CURSO, { luz: 400 })
     const apuntes = await prisma.auditoria.findMany({
@@ -70,6 +80,7 @@ describe('toda escritura deja su rastro', () => {
   })
 
   it('guardar el mismo valor no inventa un apunte', async () => {
+    await cargarMesEnCurso(EN_CURSO)
     await guardarRecibo(EN_CURSO, { luz: 400 })
     const antes = await contarAuditoria()
     await guardarRecibo(EN_CURSO, { luz: 400 })
@@ -124,7 +135,7 @@ describe('toda escritura deja su rastro', () => {
   })
 
   it('publicar deja rastro', async () => {
-    await guardarRecibo(EN_CURSO, { aguaM3: 81, aguaMonto: 338.6, luz: 361.2 })
+    await cargarMesEnCurso(EN_CURSO)
     await publicarMes(EN_CURSO, { notaQuePaso: 'Normal', notaQueCambio: 'Nada', notaQuePendiente: 'Nada' })
     const apunte = await prisma.auditoria.findFirst({
       where: { entidad: 'cierre', entidadId: EN_CURSO, accion: 'publicar' },
@@ -135,6 +146,7 @@ describe('toda escritura deja su rastro', () => {
   })
 
   it('si una escritura falla, no deja ni rastro ni dato: la transacción se deshace', async () => {
+    await cargarMesEnCurso(EN_CURSO)
     const auditoriaAntes = await contarAuditoria()
     const luzAntes = await prisma.recibo.findUnique({ where: { mes: EN_CURSO } })
     await expect(guardarRecibo(EN_CURSO, { aguaMonto: 100, descuento: 350 })).rejects.toThrow()
@@ -160,8 +172,8 @@ describe('los avisos solo salen de meses publicados', () => {
   })
 
   it('publicar un mes genera exactamente UN aviso', async () => {
+    await cargarMesEnCurso(EN_CURSO)
     const antes = await contarAvisos()
-    await guardarRecibo(EN_CURSO, { aguaM3: 81, aguaMonto: 338.6, luz: 361.2 })
     await publicarMes(EN_CURSO, { notaQuePaso: 'a', notaQueCambio: 'b', notaQuePendiente: 'c' })
     expect(await contarAvisos()).toBe(antes + 1)
     const aviso = await prisma.aviso.findFirst({ orderBy: { creadoEn: 'desc' } })

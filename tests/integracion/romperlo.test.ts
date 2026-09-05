@@ -20,7 +20,7 @@ import { avisarPago, confirmarPago } from '@/lib/servicios/pagos'
 import { validarPin } from '@/lib/servicios/admin'
 import { ErrorDeApi } from '@/lib/servicios/errores'
 import { resultadoDeMes } from '@/lib/datos/mes'
-import { prisma, resembrar } from './entorno'
+import { cargarMesEnCurso, prisma, resembrar } from './entorno'
 
 const EN_CURSO = '2026-07'
 const PUBLICADO = '2026-06'
@@ -62,6 +62,7 @@ describe('una lectura menor que la del mes anterior', () => {
     // Guardarla está permitido: el medidor pudo cambiarse. Lo que no puede pasar
     // es que se publique un mes con un consumo negativo, que es lo que producía
     // una cuota de S/ -375.05 con los dos cuadres en verde.
+    await cargarMesEnCurso(EN_CURSO)
     const antes = await resultadoDeMes(EN_CURSO)
     expect(antes.cuadra).toBe(true)
 

@@ -7,6 +7,7 @@ import { fechaCorta } from '@/lib/formato'
 import type { DatosAdmin } from '@/lib/datos/admin'
 import { Etiqueta } from '@/components/ui/Etiqueta'
 import { useHoja } from '@/components/hojas/Hojas'
+import { FijarContexto } from '@/components/hojas/Contexto'
 import { RegistrarPago } from './RegistrarPago'
 
 /**
@@ -24,6 +25,8 @@ export function PanelAdmin({ datos }: { datos: DatosAdmin }) {
 
   return (
     <div className="pantalla scroll-limpio admin-pantalla">
+      {/* El mes que toca cerrar lo decide el servidor; la hoja lo lee de aquí. */}
+      <FijarContexto mes={datos.mesACerrar} dpto={null} />
       <div className="admin-barra">
         <Link href="/" className="circulo-atras" aria-label="Volver a Inicio">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

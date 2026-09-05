@@ -8,6 +8,8 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './tests/e2e',
+  // Los tests de responsive son de solo lectura y pueden ir en paralelo; los del
+  // cierre escriben en la misma base y se declaran en serie en su propio archivo.
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

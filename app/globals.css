@@ -1944,3 +1944,440 @@
   margin-top: 22px;
   height: var(--spacing-toque);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   El cierre del mes · 04-cierre-del-mes.md
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.cierre-cabecera {
+  padding: var(--spacing-interior-chico) var(--spacing-pantalla) 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cierre-hueco {
+  width: var(--spacing-circulo);
+  flex: 0 0 auto;
+}
+.cierre-progreso {
+  display: flex;
+  gap: 4px;
+  padding: var(--spacing-interior-chico) var(--spacing-pantalla) 0;
+}
+.cierre-tramo {
+  flex: 1;
+  height: 3px;
+  border-radius: var(--radius-pildora);
+  background: var(--color-neutro-barra);
+  transition: background 0.3s;
+}
+.cierre-tramo-hecho {
+  background: var(--color-verde);
+}
+.cierre-tramo-actual {
+  background: var(--color-noche);
+}
+.cierre-cuerpo {
+  padding: 22px var(--spacing-pantalla) 34px;
+}
+.cierre-titulo {
+  margin: 0 0 8px;
+}
+.cierre-intro {
+  margin: 0 0 22px;
+}
+.cierre-titulo-fila {
+  margin-bottom: 22px;
+}
+.cierre-contador {
+  font: 500 12px/1 var(--font-mono);
+  color: var(--color-agua);
+  background: var(--color-agua-suave);
+  padding: 7px 11px;
+  border-radius: var(--radius-pildora);
+  flex: 0 0 auto;
+}
+.cierre-etiqueta {
+  margin: 0 0 11px;
+}
+.cierre-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--color-papel);
+  border-radius: var(--radius-tarjeta);
+  border: 1px solid var(--color-neutro-pista);
+  overflow: hidden;
+}
+.cierre-necesita {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: var(--spacing-interior-chico) 18px;
+}
+.cierre-necesita-linea {
+  border-bottom: 1px solid var(--color-neutro-pista);
+}
+.cierre-marca {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pildora);
+  flex: 0 0 auto;
+}
+.cierre-marca-0 {
+  background: var(--color-agua);
+}
+.cierre-marca-1 {
+  background: var(--color-terra);
+}
+.cierre-marca-2 {
+  background: var(--color-ambar);
+}
+.cierre-necesita-nota {
+  margin-top: 4px;
+}
+.cierre-fijos-nota {
+  margin: var(--spacing-interior-chico) 0 0;
+}
+.cierre-error {
+  margin: 14px 0 0;
+}
+.cierre-boton {
+  margin-top: 22px;
+  width: 100%;
+  height: var(--spacing-boton);
+  border-radius: var(--radius-pildora);
+  background: var(--color-noche);
+  color: var(--color-sobre-noche);
+  font: 500 15px/1.3 var(--font-cuerpo);
+}
+.cierre-boton-bloqueado {
+  background: var(--color-neutro-suave);
+  color: var(--color-gris);
+}
+
+/* Paso 1 · las lecturas */
+.lectura-fila {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-fila-x);
+  padding: var(--spacing-fila-alta) 0;
+  border-bottom: 1px solid var(--color-linea);
+}
+.lectura-anterior {
+  margin-top: 5px;
+}
+.lectura-consumo {
+  margin-top: 6px;
+}
+.cierre-correccion {
+  margin-bottom: 18px;
+}
+.cierre-correccion-botones {
+  margin-top: 12px;
+}
+.cierre-correccion-si {
+  flex: 1;
+  height: var(--spacing-toque);
+  border-radius: var(--radius-pildora);
+  background: var(--color-noche);
+  color: var(--color-sobre-noche);
+  font: 500 13.5px/1.3 var(--font-cuerpo);
+}
+.cierre-correccion-no {
+  flex: 1;
+  height: var(--spacing-toque);
+  border-radius: var(--radius-pildora);
+  background: var(--color-neutro-suave);
+  font: 400 13.5px/1.3 var(--font-cuerpo);
+}
+
+/* Bob dentro del cierre */
+.bob-nota {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  background: var(--color-ambar-suave);
+  border-radius: var(--radius-icono);
+  padding: 14px var(--spacing-interior-chico);
+  margin-top: var(--spacing-interior-chico);
+}
+.bob-nota-agua {
+  background: var(--color-agua-suave);
+}
+.bob-nota-avatar {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+.bob-nota-texto {
+  margin: 0;
+  min-width: 0;
+}
+
+/* Campos numéricos */
+.campo {
+  width: 100%;
+  text-align: left;
+  background: var(--color-papel);
+  border: 1px solid var(--color-neutro-pista);
+  border-radius: var(--radius-tarjeta);
+  padding: var(--spacing-interior);
+  margin-bottom: 12px;
+}
+.campo-etiqueta {
+  margin-bottom: 12px;
+}
+.campo-valor {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-cifra);
+}
+.campo-cifra {
+  font: 500 28px/1 var(--font-mono);
+}
+
+/* Paso 4 · gastos fijos */
+.fijo-fila {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-fila-x);
+  padding: var(--spacing-fila-alta) 0;
+  border-bottom: 1px solid var(--color-linea);
+  text-align: left;
+}
+.fijo-fila-pendiente {
+  background: var(--color-ambar-suave);
+  margin: 0 -10px;
+  padding-left: 10px;
+  padding-right: 10px;
+  border-radius: var(--radius-mini);
+  border-bottom-color: transparent;
+}
+.fijos-suman {
+  margin-top: 18px;
+  background: var(--color-noche);
+  color: var(--color-sobre-noche);
+  border-radius: var(--radius-bloque);
+  padding: var(--spacing-interior);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Paso 5 · lo puntual */
+.puntual-boton {
+  width: 100%;
+  height: var(--spacing-boton-medio);
+  border-radius: var(--radius-pildora);
+  background: var(--color-papel);
+  border: 1px solid var(--color-neutro-pista);
+  font: 400 14px/1.3 var(--font-cuerpo);
+  margin-bottom: 10px;
+}
+.puntual-etiqueta {
+  margin: 22px 0 11px;
+}
+.puntual-anadido {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-fila-x);
+  padding: var(--spacing-fila) 0;
+  border-bottom: 1px solid var(--color-linea);
+}
+.puntual-quien {
+  margin-top: 5px;
+}
+.puntual-quitar {
+  width: var(--spacing-circulo);
+  height: var(--spacing-circulo);
+  border-radius: var(--radius-pildora);
+  background: var(--color-neutro-suave);
+  color: var(--color-gris);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.puntual-elegir {
+  margin-top: var(--spacing-interior-chico);
+  background: var(--color-papel);
+  border: 1px solid var(--color-neutro-pista);
+  border-radius: var(--radius-tarjeta);
+  padding: var(--spacing-interior);
+}
+.puntual-elegir-titulo {
+  margin: 0 0 12px;
+}
+.puntual-dptos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.puntual-dpto {
+  font: 500 13px/1 var(--font-mono);
+  padding: 11px 14px;
+  border-radius: var(--radius-pildora);
+  background: var(--color-neutro-suave);
+}
+.casilla-fila {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: var(--spacing-fila-alta) 0;
+  border-bottom: 1px solid var(--color-linea);
+}
+.casilla {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-mini);
+  accent-color: var(--color-verde);
+  flex: 0 0 auto;
+}
+
+/* Paso 6 · la revisión */
+.cuadre {
+  background: var(--color-verde-suave);
+  color: var(--color-verde-oscuro);
+  border-radius: var(--radius-tarjeta);
+  padding: var(--spacing-tarjetas);
+  margin-bottom: 12px;
+}
+.cuadre-falla {
+  background: var(--color-ambar-suave);
+  color: var(--color-terra-texto);
+}
+.cuadre-titulo {
+  margin: 0 0 8px;
+}
+.cuadre-texto {
+  margin: 0;
+}
+.cuadre-motivos {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+.atencion {
+  background: var(--color-ambar-suave);
+  color: var(--color-terra-texto);
+  border-radius: var(--radius-icono);
+  padding: 14px var(--spacing-interior-chico);
+  margin-bottom: 12px;
+}
+.atencion p {
+  margin: 0;
+}
+.atencion-nota {
+  margin-top: 9px !important;
+}
+.revision-etiqueta {
+  margin: 22px 0 6px;
+}
+.revision-fila {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-fila-x);
+  padding: var(--spacing-fila) 0;
+  border-bottom: 1px solid var(--color-linea);
+}
+.revision-cuadre {
+  margin-top: 22px;
+}
+.revision-cuadre-fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+}
+.revision-creditos-nota {
+  margin: 0 0 6px;
+}
+.revision-cuadre-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding-top: 13px;
+  border-top: 1px solid var(--color-neutro-barra);
+  margin-top: 5px;
+}
+
+/* Paso 7 · publicar */
+.nota-campo {
+  margin-bottom: var(--spacing-interior-chico);
+}
+.nota-etiqueta {
+  display: block;
+  margin-bottom: 9px;
+}
+.nota-texto {
+  width: 100%;
+  border-radius: var(--radius-icono);
+  border: 1px solid var(--color-neutro-pista);
+  background: var(--color-papel);
+  padding: 13px 14px;
+  resize: vertical;
+  font-family: var(--font-cuerpo);
+  color: var(--color-tinta);
+}
+.publicar-que-pasa {
+  margin-top: 22px;
+  background: var(--color-papel);
+  border: 1px solid var(--color-neutro-pista);
+  border-radius: var(--radius-tarjeta);
+  padding: var(--spacing-tarjetas);
+}
+.publicar-etiqueta {
+  margin: 0 0 12px;
+}
+.publicar-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.publicar-punto {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  padding: 8px 0;
+}
+.publicar-check {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+/* Confirmación */
+.publicado {
+  text-align: center;
+}
+.publicado-icono {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-bloque);
+  background: var(--color-verde-suave);
+  color: var(--color-verde);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20px 0 22px;
+}
+.publicado-titulo {
+  margin: 0 0 var(--spacing-interior-chico);
+}
+.publicado-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--spacing-cifra);
+  margin: 0;
+}
+.publicado-texto {
+  margin: 10px 0 0;
+}
+.publicado-nota {
+  margin: 22px 0 0;
+}

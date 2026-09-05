@@ -92,8 +92,15 @@ async function main() {
   }
 
   // ── EJEMPLO — lecturas realistas pero inventadas.
+  //
+  // **El mes en curso se carga vacío.** Sus lecturas y su recibo son justo lo
+  // que el administrador va a teclear en el cierre: dejarlos precargados haría
+  // que el paso 1 abriera en "7 / 7" y el cierre no tendría nada que hacer.
+  // `lib/semilla.ts` sí los trae, para poder usarlos en los tests.
+  const enCursoSemilla = MESES_SEMILLA[MESES_SEMILLA.length - 1]!
   let nLecturas = 0
   for (const [mes, lecturas] of Object.entries(LECTURAS)) {
+    if (mes === enCursoSemilla) continue
     for (const [dptoId, valor] of Object.entries(lecturas)) {
       if (valor === undefined) continue
       await prisma.lectura.upsert({
@@ -106,8 +113,10 @@ async function main() {
   }
   console.log(`  ${nLecturas} lecturas · EJEMPLO, hay que reemplazarlas`)
 
-  // ── EJEMPLO — recibos realistas pero inventados.
+  // ── EJEMPLO — recibos realistas pero inventados. El del mes en curso, no:
+  // es el papel que el administrador tiene delante en los pasos 2 y 3.
   for (const [mes, r] of Object.entries(RECIBOS)) {
+    if (mes === enCursoSemilla) continue
     await prisma.recibo.upsert({
       where: { mes },
       create: {
@@ -126,7 +135,8 @@ async function main() {
       },
     })
   }
-  console.log(`  ${Object.keys(RECIBOS).length} recibos · EJEMPLO, hay que reemplazarlos`)
+  const nRecibos = Object.keys(RECIBOS).filter((m) => m !== enCursoSemilla).length
+  console.log(`  ${nRecibos} recibos · EJEMPLO, hay que reemplazarlos`)
 
   // ── EJEMPLO — pagos realistas pero inventados.
   let nPagos = 0
@@ -179,7 +189,7 @@ async function main() {
     })
   }
   // El mes en curso: existe, sin publicar, en el paso 0.
-  const enCurso = MESES_SEMILLA[MESES_SEMILLA.length - 1]!
+  const enCurso = enCursoSemilla
   if (!MESES_PUBLICADOS.includes(enCurso)) {
     await prisma.cierre.upsert({
       where: { mes: enCurso },

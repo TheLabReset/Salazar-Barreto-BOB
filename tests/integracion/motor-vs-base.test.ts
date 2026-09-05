@@ -38,14 +38,30 @@ afterAll(async () => {
   await prisma.$disconnect()
 })
 
-describe('los ocho meses de la semilla, desde la base', () => {
-  for (const mes of MESES_SEMILLA) {
+/**
+ * El mes en curso se carga **vacío** a propósito: sus lecturas y su recibo son
+ * lo que el administrador va a teclear en el cierre. Los que se comparan son
+ * los meses ya cerrados.
+ */
+const MESES_CERRADOS = MESES_SEMILLA.slice(0, -1)
+const EN_CURSO = MESES_SEMILLA[MESES_SEMILLA.length - 1]!
+
+describe('los meses cerrados de la semilla, desde la base', () => {
+  for (const mes of MESES_CERRADOS) {
     it(`${mes} da lo mismo desde la base que desde el motor local`, async () => {
       const deLaBase = await resultadoDeMes(mes)
       const local = calcularMes(desdeLaSemilla(mes))
       expect(deLaBase).toEqual(local)
     })
   }
+
+  it(`${EN_CURSO} está vacío: es el que se va a cerrar`, async () => {
+    const r = await resultadoDeMes(EN_CURSO)
+    expect(r.valido).toBe(false)
+    expect(r.motivoInvalido).toContain('recibo')
+    // Y no revienta ni devuelve NaN: devuelve un resultado marcado como inválido.
+    expect(Number.isFinite(r.totalMes)).toBe(true)
+  })
 
   it('las entradas leídas de la base son las de la semilla', async () => {
     const entradas = await entradasDeMes('2026-06')

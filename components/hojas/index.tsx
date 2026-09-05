@@ -5,6 +5,7 @@ import { HojaAvisoOk } from './HojaAvisoOk'
 import { HojaCalculo } from './HojaCalculo'
 import { HojaHistorial } from './HojaHistorial'
 import { HojaPagarConDatos } from './HojaPagarConDatos'
+import { HojaWizard } from './HojaWizard'
 import { useContexto } from './Contexto'
 
 /**
@@ -28,6 +29,8 @@ export function Hojas() {
       return dpto ? <HojaHistorial dpto={dpto} modo="agua" /> : null
     case 'pagar':
       return mes && dpto ? <HojaPagarConDatos mes={mes} dpto={dpto} /> : null
+    case 'wizard':
+      return <HojaWizard />
     default:
       return null
   }

@@ -44,8 +44,13 @@ export async function panelDeAdmin(): Promise<DatosAdmin> {
   const [publicados, conDatos] = await Promise.all([mesesPublicados(), mesesConDatos()])
   const mesPublicado = (publicados[publicados.length - 1] ?? null) as MesId | null
 
-  // El mes a cerrar es el siguiente al último publicado; si ya hay datos de un
-  // mes posterior, ese.
+  // El mes a cerrar es el primero con datos **posterior** al último publicado.
+  // Si no hay ninguno, el siguiente del calendario: el administrador va a
+  // teclear sus lecturas desde cero.
+  //
+  // El "posterior" no es un detalle: el mes base de la semilla —diciembre de
+  // 2025— tiene recibo y no se publica nunca, porque existe solo para darle a
+  // enero su lectura anterior. Sin esa condición, el cierre se abría sobre él.
   const siguiente = mesPublicado ? mesSiguiente(mesPublicado) : (conDatos[0] ?? '2026-01')
   const mesACerrar = (conDatos.find((m) => m > (mesPublicado ?? '')) ?? siguiente) as MesId
 
