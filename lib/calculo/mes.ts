@@ -70,6 +70,24 @@ export function etiquetaMes(id: MesId): string {
   return `${NOMBRES[mes - 1]} ${anio}`
 }
 
+/**
+ * Etiquetas cortas para un eje de meses en orden, con el año **solo cuando
+ * cambia** —el primero, y cada enero o salto de año—: `JUL … DIC · ENE '26 …`.
+ *
+ * Así una serie que cruza de 2025 a 2026 no confunde dos «ENE»: el año aparece
+ * donde hace falta y no satura el resto del eje.
+ */
+export function cortosConAnio(ids: readonly MesId[]): string[] {
+  let anioPrevio: number | null = null
+  return ids.map((id) => {
+    const [anio, mes] = exigirMes(id)
+    const corto = CORTOS[mes - 1]!
+    const etiqueta = anio !== anioPrevio ? `${corto} '${String(anio).slice(2)}` : corto
+    anioPrevio = anio
+    return etiqueta
+  })
+}
+
 /** `'2026-07'` → `'julio'`. En minúscula, como aparece dentro de una frase. */
 export function nombreMes(id: MesId): string {
   const [, mes] = exigirMes(id)

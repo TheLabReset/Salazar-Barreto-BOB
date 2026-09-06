@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { fmt } from '@/lib/calculo/redondeo'
-import { nombreMes } from '@/lib/calculo/mes'
+import { etiquetaMes } from '@/lib/calculo/mes'
 import type { DptoId, MesId } from '@/lib/calculo/tipos'
 import { COPYS } from '@/lib/copys'
 import { useAnuncio } from '@/components/Anuncio'
@@ -51,7 +51,7 @@ export function HojaPagar({
       // El aviso a lector de pantalla va **antes** de abrir la hoja: la hoja
       // mueve el foco y anuncia su propio título, y si el estado se dijera
       // después, los dos anuncios se pisarían.
-      anunciar(COPYS.anuncios.pagoAvisado(nombreMes(mes)))
+      anunciar(COPYS.anuncios.pagoAvisado(etiquetaMes(mes)))
       router.refresh()
       abrir('aviso-ok')
     },
@@ -69,9 +69,9 @@ export function HojaPagar({
   }
 
   return (
-    <Hoja titulo={`Cómo pagar ${nombreMes(mes)}`}>
+    <Hoja titulo={`Cómo pagar ${etiquetaMes(mes)}`}>
       <div className="hoja-cuerpo">
-        <h2 className="tipo-titulo-hoja pagar-titulo">Cómo pagar {nombreMes(mes)}</h2>
+        <h2 className="tipo-titulo-hoja pagar-titulo">Cómo pagar {etiquetaMes(mes)}</h2>
         <p className="tipo-cuerpo-chico text-gris pagar-intro">
           Transferencia a la cuenta conjunta del edificio.
         </p>
