@@ -76,10 +76,16 @@ export function Paso5Puntual({ borrador, guardar, guardando, errorGuardar, avanz
       <p className="tipo-cuerpo-chico text-gris cierre-intro">{COPYS.cierre.puntualIntro}</p>
 
       <button type="button" onClick={anadirGasto} className="puntual-boton">
-        + {COPYS.cierre.anadirGasto}
+        <span className="tipo-cuerpo-lista block">+ {COPYS.cierre.anadirGasto}</span>
+        <span className="tipo-contexto-chico block text-gris puntual-boton-ejemplo">
+          {COPYS.cierre.anadirGastoEjemplo}
+        </span>
       </button>
       <button type="button" onClick={anadirCredito} className="puntual-boton">
-        + {COPYS.cierre.anadirCredito}
+        <span className="tipo-cuerpo-lista block">+ {COPYS.cierre.anadirCredito}</span>
+        <span className="tipo-contexto-chico block text-gris puntual-boton-ejemplo">
+          {COPYS.cierre.anadirCreditoEjemplo}
+        </span>
       </button>
 
       {extras.length > 0 && (

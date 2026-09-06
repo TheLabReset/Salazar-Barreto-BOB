@@ -106,8 +106,15 @@ export function PanelAdmin({ datos }: { datos: DatosAdmin }) {
         <Etiqueta className="block admin-seccion-titulo">Otras acciones</Etiqueta>
         {datos.lavado && (
           <button type="button" onClick={() => abrir('cargos')} className="admin-accion">
-            <span className="tipo-cuerpo-destacado">
-              Consumo del {datos.lavado.concepto} · {datos.lavado.dpto}
+            {/* `04` lista esto como «Cargos adicionales y créditos». La fila abre
+                la hoja de cargos y créditos activos; el lavado del 401 es hoy el
+                único activo, y sus m³ van de indicador. Antes la fila se llamaba
+                solo por el lavado, así que la función del panel quedaba oculta. */}
+            <span className="min-w-0 flex-1">
+              <span className="tipo-cuerpo-destacado block">Cargos y créditos</span>
+              <span className="tipo-contexto-chico block text-gris">
+                {datos.lavado.concepto} · {datos.lavado.dpto}
+              </span>
             </span>
             <span className="tipo-monto-lista">{fmt(datos.lavado.m3)} m³</span>
           </button>

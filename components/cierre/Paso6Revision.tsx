@@ -119,12 +119,24 @@ export function Paso6Revision({ borrador, guardando, avanzar, nombreMes }: Props
       <p className="tipo-etiqueta-seccion text-gris revision-etiqueta">Las 7 cuotas</p>
       {DPTOS.map((d) => {
         const q = c.cuotas[d.id]
+        const antes = borrador.cuotasAnteriores?.[d.id]
+        const dif = antes != null ? Math.round((q.total - antes) * 100) / 100 : null
         return (
           <div key={d.id} className="revision-fila">
             <span className="tipo-numero-dpto w-columna-dpto">{d.id}</span>
             <span className="tipo-contexto-chico min-w-0 flex-1 truncate text-gris">
               {COPYS.mes.desglose(q.mantenimiento, q.agua)}
             </span>
+            {/* La diferencia con el mes anterior. `04` §Paso 6: ámbar si sube,
+                verde si baja. Es el dato que deja ver que una cuota se movió más
+                de lo esperado antes de publicarla. Solo si hay mes con que
+                comparar; el cambio de un céntimo no se pinta. */}
+            {dif != null && Math.abs(dif) >= 0.01 && (
+              <span className={`tipo-mono-etiqueta revision-dif ${dif > 0 ? 'text-ambar' : 'text-verde'}`}>
+                {dif > 0 ? '+' : '−'}
+                {fmt(Math.abs(dif))}
+              </span>
+            )}
             <span className="tipo-monto-lista">{fmt(q.total)}</span>
           </div>
         )

@@ -7,7 +7,7 @@
  */
 
 import { serieSaldo, type MesConPagos } from '@/lib/calculo/saldo'
-import { etiquetaMes, mesCorto, nombreMes } from '@/lib/calculo/mes'
+import { etiquetaMes, mesAnterior, mesCorto, nombreMes } from '@/lib/calculo/mes'
 import { DPTO_IDS } from '@/lib/calculo/constantes'
 import type { FilaSaldo, MesId, ResultadoMes } from '@/lib/calculo/tipos'
 import { aNumeroObligatorio } from './decimal'
@@ -147,6 +147,8 @@ export interface Borrador {
   m3Anteriores: { mes: string; m3: number }[]
   /** El monto de luz de los meses anteriores, para que Bob compare en el paso 3. */
   luzAnteriores: { mes: string; luz: number }[]
+  /** La cuota de cada dpto en el mes anterior publicado, para el paso 6. `null` si no hay. */
+  cuotasAnteriores: Record<string, number> | null
   /** Los m³ del lavado configurados y si está activo este mes. */
   lavado: { m3: number; activo: boolean; aplicado: boolean; dpto: string; concepto: string } | null
 }
@@ -156,6 +158,22 @@ export async function borradorDeMes(mes: MesId): Promise<Borrador> {
   const cierre = await prisma.cierre.findUnique({ where: { mes } })
   const entradas = await entradasDeMes(mes)
   const resultado = calcularMes(entradas)
+
+  /**
+   * La cuota de cada dpto el mes anterior, para que el paso 6 muestre cuánto se
+   * movió cada una antes de publicar a siete hogares. `04` §Paso 6 la pinta como
+   * cuarta columna, ámbar si sube y verde si baja. Solo si el mes anterior está
+   * publicado: comparar contra un borrador a medias no dice nada.
+   */
+  const anterior = mesAnterior(mes)
+  const cierreAnterior = await prisma.cierre.findUnique({ where: { mes: anterior } })
+  let cuotasAnteriores: Record<string, number> | null = null
+  if (cierreAnterior?.publicado) {
+    const rAnt = await resultadoDeMes(anterior)
+    if (rAnt.valido) {
+      cuotasAnteriores = Object.fromEntries(DPTO_IDS.map((d) => [d, rAnt.cuotas[d].total]))
+    }
+  }
 
   const reasignacion = await prisma.reasignacionAgua.findFirst({
     where: { desde: { lte: mes } },
@@ -177,6 +195,7 @@ export async function borradorDeMes(mes: MesId): Promise<Borrador> {
     promedios: await promediosDeConsumo(mes),
     m3Anteriores: await m3DeLosMesesAnteriores(mes),
     luzAnteriores: await luzDeLosMesesAnteriores(mes),
+    cuotasAnteriores,
     lavado: reasignacion
       ? {
           m3: aNumeroObligatorio(reasignacion.m3),
