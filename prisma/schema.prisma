@@ -364,3 +364,22 @@ model ConsultaBob {
   @@index([dpto, momento])
   @@map("consulta_bob")
 }
+
+/// Una suscripción de push del navegador, por dispositivo.
+///
+/// La crea el vecino al activar los avisos en su teléfono. `endpoint` es único:
+/// el mismo navegador reusa su suscripción. `dptoId` es opcional —el aviso de
+/// «se publicó el mes» va a todos—, pero permite en el futuro mandar solo a un
+/// departamento. Una suscripción muerta (el navegador la revocó) se borra sola
+/// cuando el envío devuelve 404/410.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  dptoId    String?  @db.VarChar(8)
+  creadoEn  DateTime @default(now())
+
+  @@index([dptoId])
+  @@map("push_subscription")
+}

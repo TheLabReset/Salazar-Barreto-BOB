@@ -163,15 +163,14 @@ Con honestidad, que es lo que se pidió.
    Todo esto está acotado y ninguno deja pasar un error de dinero; son mejoras de
    la red, no agujeros en el producto.
 
-6. **No hay notificaciones: ni push, ni enlace de WhatsApp** (§9.6.7 del
-   encargo pide una de las dos, además de la campana). Hoy solo está la campana
-   dentro de la app. No lo añadí porque necesita una decisión tuya: **push**
-   quiere infraestructura (claves VAPID, service worker de push, backend) y solo
-   se prueba desplegado; **un enlace de WhatsApp** —`wa.me` con un mensaje
-   prellenado al publicar un mes— es ligero, pero el texto del mensaje y dónde va
-   el botón son decisiones de producto que no me toca inventar. Recomiendo el
-   enlace de WhatsApp como primer paso: es lo que un edificio de siete vecinos
-   con un grupo ya usa.
+6. **Notificaciones: HECHO** (§9.6.7). Se construyeron las dos, tras confirmarlo
+   contigo. **Push**: claves VAPID, `push`/`notificationclick` en el service
+   worker, modelo `PushSubscription`, rutas de suscribir/desuscribir, botón
+   «Activar avisos» en Mi Departamento (navegador y PWA), y disparo al publicar y
+   al corregir. La lógica del servidor está probada con `web-push` simulado; la
+   **entrega real solo se verifica desplegada** (HTTPS + claves reales). **Enlace
+   de WhatsApp**: popover «avísales a los demás» al publicar y corregir, con el
+   mensaje listo para copiar y un botón `wa.me`. Ver `docs/CAMBIOS-DATOS-REALES.md`.
 
 7. **Toda la tipografía va en `px`, no en `rem`.** El ajuste de «tamaño de letra»
    del sistema operativo no la agranda (el zoom del navegador sí funciona, y está

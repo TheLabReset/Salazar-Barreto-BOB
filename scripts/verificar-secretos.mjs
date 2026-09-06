@@ -66,6 +66,9 @@ const SECRETAS = [
   'DIRECT_URL',
   'DEEPSEEK_API_KEY',
   'PERMITIR_RESEMBRADO',
+  // La clave privada de VAPID firma los push desde el servidor. La pública sí
+  // va al navegador (`NEXT_PUBLIC_…`) y no es secreta; la privada, jamás.
+  'VAPID_PRIVATE_KEY',
 ]
 
 /** Valores demasiado cortos o comunes para buscarlos sin ahogarse en ruido. */

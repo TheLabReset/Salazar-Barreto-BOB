@@ -336,3 +336,44 @@ self.addEventListener('fetch', (ev) => {
     )
   }
 })
+
+// ── Push · avisos del edificio · `06` §9.6.7 ────────────────────────────────
+// El servidor manda { titulo, cuerpo, url }. Se muestra la notificación; al
+// tocarla, se enfoca una pestaña abierta de la app o se abre una nueva en la url.
+self.addEventListener('push', (ev) => {
+  let datos = { titulo: 'Salazar Barreto', cuerpo: 'Hay novedades del edificio.', url: '/' }
+  try {
+    if (ev.data) datos = { ...datos, ...ev.data.json() }
+  } catch {
+    // Carga no-JSON: se queda el aviso por defecto.
+  }
+  ev.waitUntil(
+    self.registration.showNotification(datos.titulo, {
+      body: datos.cuerpo,
+      icon: '/iconos/icono-192.png',
+      badge: '/iconos/icono-192.png',
+      data: { url: datos.url || '/' },
+      tag: 'salazar-barreto',
+    }),
+  )
+})
+
+self.addEventListener('notificationclick', (ev) => {
+  ev.notification.close()
+  const destino = new URL(ev.notification.data?.url || '/', self.location.origin).href
+  ev.waitUntil(
+    (async () => {
+      const abiertas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const cliente of abiertas) {
+        if (cliente.url === destino && 'focus' in cliente) return cliente.focus()
+      }
+      const uno = abiertas[0]
+      if (uno && 'focus' in uno) {
+        await uno.focus()
+        if ('navigate' in uno) await uno.navigate(destino).catch(() => {})
+        return
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(destino)
+    })(),
+  )
+})

@@ -15,6 +15,7 @@ import { AccionesPago } from './AccionesPago'
 import { AbrirHoja } from './AbrirHoja'
 import { CambiarDpto } from './CambiarDpto'
 import { EnlaceAdmin } from './EnlaceAdmin'
+import { ActivarAvisos } from '@/components/ActivarAvisos'
 
 /**
  * P3 · Mi departamento. `03-pantallas.md`.
@@ -90,6 +91,8 @@ export function MiDepartamento({
           {estado === 'sin-registrar' && <AccionesPago mes={mes} dpto={dpto} />}
         </TarjetaNoche>
       </div>
+
+      <ActivarAvisos />
 
       {/* El balance que arrastra: a favor si pagó de más o por adelantado, o lo
           que le falta poner. En suave, sin rojo ni la palabra deuda. Al día no

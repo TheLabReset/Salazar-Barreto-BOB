@@ -147,6 +147,19 @@ export const zMarcarLeidos = z.object({
   avisos: z.array(z.string().min(1).max(40)).max(200).optional(),
 })
 
+/** `POST /api/push/suscribir` · guardar la suscripción de un dispositivo. */
+export const zSuscribirPush = z.object({
+  endpoint: z.string().url().max(2000),
+  p256dh: z.string().min(1).max(500),
+  auth: z.string().min(1).max(500),
+  dpto: zDpto.optional(),
+})
+
+/** `POST /api/push/desuscribir` */
+export const zDesuscribirPush = z.object({
+  endpoint: z.string().url().max(2000),
+})
+
 /** `POST /api/admin/pin` */
 export const zValidarPin = z.object({ pin: zPin })
 

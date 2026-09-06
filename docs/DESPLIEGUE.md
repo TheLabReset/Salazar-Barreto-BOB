@@ -86,6 +86,15 @@ ADMIN_SECRETO="<lo que salga del comando de arriba>"
 
 BOB_MODO="determinista"
 DEEPSEEK_API_KEY=""
+
+# Notificaciones push (opcional). Genera las dos claves una sola vez con:
+#   npx web-push generate-vapid-keys
+# La pública va con NEXT_PUBLIC_; la privada nunca. Vacías, no hay push y la app
+# funciona igual (el aviso de WhatsApp lo cubre).
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=""
+VAPID_PRIVATE_KEY=""
+VAPID_SUBJECT="mailto:tu-correo@ejemplo.pe"
+
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 PERMITIR_RESEMBRADO=""
 ```

@@ -22,6 +22,7 @@ import type { GuardarGastos, GuardarLecturas, GuardarRecibo, Publicar } from '@/
 import { auditar } from './auditoria'
 import { cierreDe, exigirNoPublicado, tomarVersion } from './bloqueo'
 import { conflicto, peticionMala } from './errores'
+import { enviarPushATodos } from '@/lib/push'
 
 const ADMIN = 'admin'
 
@@ -247,7 +248,7 @@ export async function publicarMes(mes: MesId, datos: Publicar) {
     })
   }
 
-  return prisma.$transaction(async (tx) => {
+  const publicado = await prisma.$transaction(async (tx) => {
     const cierre = await cierreDe(tx, mes)
 
     /**
@@ -350,6 +351,17 @@ export async function publicarMes(mes: MesId, datos: Publicar) {
     })
     return { publicado: true, totalMes: resultado.totalMes }
   })
+
+  // Push a los dispositivos suscritos, **después** de confirmar la transacción:
+  // un fallo de push no puede tumbar una publicación. Fire-and-forget; sin claves
+  // VAPID es un no-op.
+  void enviarPushATodos({
+    titulo: `Ya está el cierre de ${nombreMes(mes)}`,
+    cuerpo: `El mes cerró en S/ ${fmt(publicado.totalMes)}, repartido entre los siete.`,
+    url: '/',
+  }).catch(() => {})
+
+  return publicado
 }
 
 /**
@@ -368,7 +380,7 @@ export async function corregirMes(
     version?: number
   },
 ) {
-  return prisma.$transaction(async (tx) => {
+  const corregido = await prisma.$transaction(async (tx) => {
     const cierre = await tx.cierre.findUnique({ where: { mes } })
     if (!cierre?.publicado) {
       throw conflicto('Este mes no está publicado: se edita desde el cierre, sin avisar a nadie.')
@@ -496,6 +508,18 @@ export async function corregirMes(
 
     return { cambios, cuotasQueCambiaron: cambiaron.length, totalMes: despues.totalMes }
   })
+
+  // Push tras confirmar la transacción. Solo si de verdad cambió alguna cuota:
+  // una corrección que no mueve dinero no merece pinchar siete teléfonos.
+  if (corregido.cuotasQueCambiaron > 0) {
+    void enviarPushATodos({
+      titulo: `Se corrigió ${nombreMes(mes)}`,
+      cuerpo: 'Tu cuota pudo cambiar. Míralo en la app.',
+      url: '/mi-departamento',
+    }).catch(() => {})
+  }
+
+  return corregido
 }
 
 /**

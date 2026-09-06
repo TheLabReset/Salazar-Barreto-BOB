@@ -2808,3 +2808,27 @@
 .bob-enviar-listo {
   background: var(--color-terra);
 }
+
+/* Activar avisos push en este dispositivo (Mi Departamento). */
+.avisos-push {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px var(--spacing-tarjetas) 0;
+  padding: 12px 16px;
+  border-radius: var(--radius-tarjeta);
+  background: var(--color-neutro-suave);
+}
+.avisos-push-boton {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  border-radius: var(--radius-pildora);
+  background: var(--color-verde);
+  color: var(--color-sobre-noche);
+  font: 500 13px/1 var(--font-cuerpo);
+}
+.avisos-push-off {
+  background: var(--color-papel);
+  color: var(--color-tinta);
+  border: 1px solid var(--color-linea);
+}

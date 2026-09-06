@@ -476,6 +476,14 @@ export const COPYS = {
     otroMonto: 'Entró otro monto',
     otroMontoEtiqueta: (dpto: string) => `¿Cuánto entró del ${dpto}?`,
   },
+  push: {
+    titulo: 'Avisos en este teléfono',
+    explica: 'Te avisamos cuando se publique o corrija un mes.',
+    bloqueado: 'Los avisos están bloqueados en los ajustes del navegador.',
+    activar: 'Activar',
+    activando: 'Activando…',
+    desactivar: 'Desactivar',
+  },
   avisar: {
     titulo: 'Avísales a los demás',
     copiar: 'Copiar el mensaje',
