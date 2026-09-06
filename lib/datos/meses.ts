@@ -145,6 +145,8 @@ export interface Borrador {
    * número que acababa de teclear.
    */
   m3Anteriores: { mes: string; m3: number }[]
+  /** El monto de luz de los meses anteriores, para que Bob compare en el paso 3. */
+  luzAnteriores: { mes: string; luz: number }[]
   /** Los m³ del lavado configurados y si está activo este mes. */
   lavado: { m3: number; activo: boolean; aplicado: boolean; dpto: string; concepto: string } | null
 }
@@ -174,6 +176,7 @@ export async function borradorDeMes(mes: MesId): Promise<Borrador> {
     lecturasAnteriores: entradas.lecturasAnteriores as Record<string, number>,
     promedios: await promediosDeConsumo(mes),
     m3Anteriores: await m3DeLosMesesAnteriores(mes),
+    luzAnteriores: await luzDeLosMesesAnteriores(mes),
     lavado: reasignacion
       ? {
           m3: aNumeroObligatorio(reasignacion.m3),
@@ -209,6 +212,22 @@ export async function m3DeLosMesesAnteriores(
     select: { mes: true, aguaM3: true },
   })
   return filas.map((f) => ({ mes: nombreMes(f.mes as MesId), m3: f.aguaM3 }))
+}
+
+/**
+ * El monto del recibo de luz de los dos meses anteriores, para que Bob compare
+ * en el paso 3. `04` §Paso 3: «Bob compara con el mes anterior».
+ */
+export async function luzDeLosMesesAnteriores(
+  hasta: MesId,
+): Promise<{ mes: string; luz: number }[]> {
+  const filas = await prisma.recibo.findMany({
+    where: { mes: { lt: hasta } },
+    orderBy: { mes: 'desc' },
+    take: 2,
+    select: { mes: true, luz: true },
+  })
+  return filas.map((f) => ({ mes: nombreMes(f.mes as MesId), luz: aNumeroObligatorio(f.luz) }))
 }
 
 /**

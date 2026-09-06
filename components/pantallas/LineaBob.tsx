@@ -12,12 +12,10 @@ import type { MesId } from '@/lib/calculo/tipos'
  * no es una lista de pendientes.
  */
 export function LineaBob({
-  confirmados,
   avisados,
   sinRegistrar,
   mes,
 }: {
-  confirmados: number
   avisados: readonly string[]
   sinRegistrar: readonly string[]
   mes: MesId
@@ -44,7 +42,6 @@ export function LineaBob({
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
-      <span className="sr-only">{confirmados} de 7 al día.</span>
     </div>
   )
 }

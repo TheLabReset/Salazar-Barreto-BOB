@@ -575,7 +575,22 @@
   width: 100%;
   height: var(--alto-barra);
   border-radius: var(--radius-mini);
-  transition: height 0.4s var(--ease-entrada);
+  /* `02` §6: «crecen desde abajo, escalonadas 30ms. Una vez.» Se anima el
+     transform, no la altura: animar `height` es layout y va a tirones en un
+     móvil de gama media; `scaleY` desde el borde de abajo es GPU y va a 60fps.
+     El escalonado sale de `--i`, el índice de la barra, que pone el componente. */
+  transform-origin: bottom;
+  animation: crecer 0.34s var(--ease-entrada) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+@keyframes crecer {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
 }
 
 .segmento {
@@ -622,7 +637,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .barra {
-    transition: none;
+    animation: none;
   }
 }
 
@@ -2396,15 +2411,21 @@
 .publicado-total {
   display: flex;
   align-items: baseline;
-  justify-content: center;
   gap: var(--spacing-cifra);
   margin: 0;
 }
-.publicado-texto {
-  margin: 10px 0 0;
-}
 .publicado-nota {
-  margin: 22px 0 0;
+  margin: 0 0 var(--spacing-interior);
+}
+.publicado-noche {
+  text-align: left;
+  margin-top: var(--spacing-interior-chico);
+}
+.publicado-noche-mes {
+  margin: 0 0 var(--spacing-fila-alta);
+}
+.publicado-noche-nota {
+  margin: var(--spacing-etiqueta) 0 0;
 }
 
 .cargos-nota {

@@ -18,6 +18,21 @@ import { BotonAvanzar } from './BotonAvanzar'
  *  - **Los avisos de atención** —exceso de m³, área común anormal, una lectura
  *    rara—, que **no bloquean**: se muestran y el administrador decide.
  */
+/**
+ * El botón que bloquea dice **qué** falta, no siempre «las lecturas».
+ *
+ * `04` principio 5: «El botón de avanzar dice qué falta». La versión anterior
+ * ponía «Revisa las lecturas» fijo, así que cuando lo que faltaba era el recibo
+ * —el caso más común al entrar al paso 6 por primera vez— el bloque decía
+ * «Todavía no se registró el recibo» y el botón mandaba a las lecturas.
+ */
+function botonSegunFalta(motivo: string | null): string {
+  const m = (motivo ?? '').toLowerCase()
+  if (m.includes('recibo') || m.includes('m³') || m.includes('factura')) return COPYS.cierre.revisaFactura
+  if (m.includes('lectura')) return COPYS.cierre.revisaLecturas
+  return COPYS.cierre.completaLoQueFalta
+}
+
 export function Paso6Revision({ borrador, guardando, avanzar, nombreMes }: PropsPaso) {
   const c = borrador.resultado
 
@@ -29,7 +44,7 @@ export function Paso6Revision({ borrador, guardando, avanzar, nombreMes }: Props
           <p className="tipo-cuerpo-destacado-medio cuadre-titulo">Todavía falta un dato</p>
           <p className="tipo-cuerpo-menor cuadre-texto">{c.motivoInvalido}</p>
         </div>
-        <BotonAvanzar onClick={avanzar} bloqueadoPor={COPYS.cierre.revisaLecturas}>
+        <BotonAvanzar onClick={avanzar} bloqueadoPor={botonSegunFalta(c.motivoInvalido)}>
           Continuar
         </BotonAvanzar>
       </div>

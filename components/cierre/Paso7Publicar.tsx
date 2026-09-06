@@ -32,6 +32,11 @@ export function Paso7Publicar({
     queCambio: borrador.notaQueCambio ?? redactarQueCambio(borrador),
     quePendiente: borrador.notaQuePendiente ?? redactarQuePendiente(borrador),
   })
+  // Si los tres salieron vacíos —un mes sin cerrar—, la intro no puede decir «ya
+  // te la redacté»: no hay nada redactado. `01`/`04`: un rótulo tiene que ser
+  // verdad en todos los estados, y el mes vacío es justo el estado en que se
+  // entra al paso 7 por primera vez.
+  const hayBorrador = !!(notas.quePaso || notas.queCambio || notas.quePendiente)
 
   const publicar = useMutation({
     mutationFn: async () => {
@@ -64,7 +69,7 @@ export function Paso7Publicar({
   return (
     <div className="cierre-cuerpo">
       <h2 className="tipo-titulo-hoja cierre-titulo">{COPYS.cierre.notaTitulo}</h2>
-      <p className="tipo-cuerpo-chico text-gris cierre-intro">{COPYS.cierre.notaIntro}</p>
+      <p className="tipo-cuerpo-chico text-gris cierre-intro">{hayBorrador ? COPYS.cierre.notaIntro : COPYS.cierre.notaIntroVacia}</p>
 
       {campos.map((campo) => (
         <div key={campo.clave} className="nota-campo">
@@ -142,7 +147,7 @@ function redactarQueCambio(b: PropsPaso['borrador']): string {
   if (c.totalCreditos > 0) partes.push(`se aplicaron créditos por S/ ${fmt(c.totalCreditos)}`)
   return partes.length > 0
     ? `${partes.join('; ')}.`
-    : 'Nada fuera de lo esperado. Todos los gastos y consumos están dentro de su rango habitual.'
+    : 'Este mes no hubo ajuste de agua, ni gasto extraordinario, ni créditos: el reparto fue el de siempre.'
 }
 
 function redactarQuePendiente(b: PropsPaso['borrador']): string {

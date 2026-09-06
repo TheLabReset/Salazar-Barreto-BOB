@@ -51,6 +51,9 @@ export default function GlobalError({
             La app no pudo cargar. No se ha perdido nada: todo lo que estaba guardado sigue
             guardado.
           </p>
+          <p style={{ fontSize: '14px', color: COLOR_GRIS, margin: '0 0 20px', maxWidth: '320px' }}>
+            Vuelve a intentarlo en un momento. Si sigue igual, avisa a quien administra.
+          </p>
           <button
             type="button"
             onClick={reset}

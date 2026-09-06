@@ -145,10 +145,10 @@ export const COPYS = {
       `El agua sale del caño común, así que esos ${fmt(m3)} m³ se restan del área común y se suman a los tuyos. No es un cobro aparte: el total sigue siendo lo que factura SEDAPAL.`,
     tuHistoria: 'Tu historia en el edificio',
     historialPagos: 'Historial de pagos',
-    resumenAnual: (alDia: number, meses: number, enVerificacion: number) =>
+    resumenAnual: (anio: number, alDia: number, meses: number, enVerificacion: number) =>
       enVerificacion
-        ? `pagado en 2026 · ${alDia} al día, ${enVerificacion} en verificación`
-        : `pagado en 2026 · ${alDia} de ${meses} meses al día`,
+        ? `pagado en ${anio} · ${alDia} al día, ${enVerificacion} en verificación`
+        : `pagado en ${anio} · ${alDia} de ${meses} meses al día`,
     tuConsumo: 'Tu consumo de agua',
     notaConsumo: (mes: string, promedio: number) =>
       `en ${mes} · tu promedio del año es ${fmt(promedio)}`,
@@ -420,16 +420,19 @@ export const COPYS = {
     todoCorrecto: 'Todo correcto, seguir',
     revisaLecturas: 'Revisa las lecturas para seguir',
     revisaFactura: 'Revisa la factura para seguir',
+    completaLoQueFalta: 'Completa lo que falta para seguir',
     // Paso 7
     notaTitulo: 'La nota del mes',
     notaIntro: 'Ya te la redacté con lo que ingresaste. Corrige lo que quieras — la leen los siete.',
+    // Cuando el mes está vacío no hay nada que redactar; no se finge que sí.
+    notaIntroVacia: 'Escribe la nota del mes. La leen los siete, así que cuéntales qué pasó, qué cambió y qué queda pendiente.',
     quePaso: 'Qué pasó',
     queCambio: 'Qué cambió',
     quePendiente: 'Qué queda pendiente',
     alPublicar: 'Al publicar',
     alPublicarPuntos: [
       'Los siete ven las cuotas del mes',
-      'A cada uno le llega un aviso con su monto',
+      'Les llega un aviso de que el mes ya está cerrado',
       'Si después se corrige algo, todos se enteran',
     ],
     publicar: (mes: string) => `Publicar ${mes}`,

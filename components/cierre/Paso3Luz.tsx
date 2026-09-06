@@ -36,11 +36,7 @@ export function Paso3Luz({ borrador, guardar, guardando, errorGuardar, avanzar }
         }
       />
 
-      {tiene && (
-        <AvisoBob>
-          {`S/ ${fmt(luz)} es lo que llegó en el recibo de luz común. Si no coincide con el papel, cámbialo antes de seguir.`}
-        </AvisoBob>
-      )}
+      {tiene && <AvisoBob>{compararLuz(luz, borrador.luzAnteriores)}</AvisoBob>}
       {errorGuardar && <Fallo>{errorGuardar}</Fallo>}
 
       <BotonAvanzar onClick={avanzar} bloqueadoPor={tiene ? null : COPYS.cierre.faltaMonto} cargando={guardando}>
@@ -48,4 +44,21 @@ export function Paso3Luz({ borrador, guardar, guardando, errorGuardar, avanzar }
       </BotonAvanzar>
     </div>
   )
+}
+
+/**
+ * Lo que Bob dice del recibo de luz. `04-cierre-del-mes.md` §Paso 3: «Bob
+ * compara con el mes anterior». La versión anterior repetía el número que el
+ * administrador acababa de teclear y le pedía revisarlo, que es justo lo que el
+ * paso 2 arregló y su comentario documenta. Sin meses con que comparar, se calla.
+ */
+function compararLuz(luz: number, anteriores: { mes: string; luz: number }[]): string {
+  if (anteriores.length === 0) {
+    return `S/ ${fmt(luz)} de luz común este mes. Es el primero, así que todavía no hay con qué compararlo.`
+  }
+  const lista = anteriores.map((a) => `${a.mes} S/ ${fmt(a.luz)}`).join(' y ')
+  const media = anteriores.reduce((s, a) => s + a.luz, 0) / anteriores.length
+  return luz > media * 1.15
+    ? `S/ ${fmt(luz)} es bastante más que los últimos meses (${lista}). ¿Lo confirmas?`
+    : `S/ ${fmt(luz)} está en línea con los últimos meses: ${lista}.`
 }

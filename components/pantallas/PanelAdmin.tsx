@@ -93,7 +93,7 @@ export function PanelAdmin({ datos }: { datos: DatosAdmin }) {
               {g.anual && <span className="tipo-etiqueta-anual etiqueta-anual">{COPYS.mes.anual}</span>}
             </span>
             <span className={g.monto === null ? 'tipo-cuerpo-enlace text-ambar' : 'tipo-monto-lista'}>
-              {g.monto === null ? 'ESCRIBIR MONTO' : fmt(g.monto)}
+              {g.monto === null ? 'por confirmar' : fmt(g.monto)}
             </span>
           </div>
         ))}

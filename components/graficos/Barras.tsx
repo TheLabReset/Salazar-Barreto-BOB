@@ -50,7 +50,7 @@ export function Barras({
   return (
     <div className="relative" role="group" aria-label={titulo}>
       <div className={`flex items-end gap-barras ${alto === 'mes' ? 'h-grafico-mes' : 'h-grafico-edificio'}`}>
-        {barras.map((b) => {
+        {barras.map((b, i) => {
           const activa = b.id === destacado
           return (
             <button
@@ -65,6 +65,7 @@ export function Barras({
                 className={`barra ${
                   activa ? (color === 'agua' ? 'bg-agua' : 'bg-terra') : 'bg-neutro-barra'
                 }`}
+                style={{ ['--i' as string]: i }}
               />
             </button>
           )

@@ -4,7 +4,7 @@ import { etiquetaMes, nombreMes } from '@/lib/calculo/mes'
 import { fechaCorta } from '@/lib/formato'
 import { estadoCuota } from '@/lib/estados'
 import type { DptoId, MesId, PagosMes, ResultadoMes } from '@/lib/calculo/tipos'
-import type { HistorialDpto } from '@/lib/datos/historial'
+import { vistaAnual, type HistorialDpto } from '@/lib/datos/historial'
 import { FijarContexto } from '@/components/hojas/Contexto'
 import { Etiqueta } from '@/components/ui/Etiqueta'
 import { Cifra } from '@/components/ui/Cifra'
@@ -45,12 +45,16 @@ export function MiDepartamento({
         ? COPYS.inicio.detalleEnVerificacion(fechaCorta(miPago!.fecha))
         : COPYS.inicio.detalleAlDia(fechaCorta(miPago!.fecha), miPago!.op ?? '—')
 
-  const consumos = historial.filas.map((f) => f.m3)
-  const maximo = Math.max(...consumos, 0) || 1
-  const promedio = historial.promedioM3
+  // La tira ENE→DIC y los agregados «del año» se toman del año de calendario que
+  // se está mirando, no de una ventana móvil de doce meses. Ver `vistaAnual`.
+  const anio = Number(mes.slice(0, 4))
+  const anual = vistaAnual(historial.filas, anio)
+  const maximo = anual.maximoM3 || 1
+  const promedio = anual.promedioM3
 
+  const mesesConConsumo = anual.slots.filter((f) => f && f.cuota !== null).length
   const bobConsumo =
-    consumos.length < 3
+    mesesConConsumo < 3
       ? 'Todavía no tengo suficientes meses para ver un patrón.'
       : mia.m3 > promedio * 1.2
         ? `Es tu mes más alto del año, ${fmt(mia.m3 - promedio)} m³ sobre tu promedio.`
@@ -109,12 +113,13 @@ export function MiDepartamento({
               <Etiqueta tamano="pequena" className="block midpto-tarjeta-etiqueta">
                 {COPYS.miDpto.historialPagos}
               </Etiqueta>
-              <Cifra valor={historial.totalPagado} tamano="tarjeta-media" simbolo />
+              <Cifra valor={anual.totalPagado} tamano="tarjeta-media" simbolo />
               <p className="tipo-contexto text-gris midpto-tarjeta-nota">
                 {COPYS.miDpto.resumenAnual(
-                  historial.mesesAlDia,
-                  historial.filas.length,
-                  historial.mesesEnVerificacion,
+                  anio,
+                  anual.mesesAlDia,
+                  anual.slots.filter((f) => f && f.cuota !== null).length,
+                  anual.mesesEnVerificacion,
                 )}
               </p>
             </div>
@@ -125,12 +130,14 @@ export function MiDepartamento({
             </span>
           </div>
           <div className="flex gap-tira">
-            {Array.from({ length: 12 }, (_, i) => {
-              const fila = historial.filas[i]
+            {anual.slots.map((fila, i) => {
+              // El mes en curso (el que se está mirando) se pinta pleno; los
+              // demás confirmados, en el tono tenue. `i` es el mes del calendario.
+              const esActual = fila?.mes === mes
               const clase = !fila
                 ? 'bg-neutro-suave'
                 : fila.estado === 'confirmado'
-                  ? i === historial.filas.length - 1
+                  ? esActual
                     ? 'bg-verde'
                     : 'bg-verde-tira'
                   : fila.estado === 'aviso'
@@ -163,15 +170,16 @@ export function MiDepartamento({
             </span>
           </div>
           <div className="flex items-end gap-tira midpto-tira-agua">
-            {Array.from({ length: 12 }, (_, i) => {
-              const fila = historial.filas[i]
+            {anual.slots.map((fila, i) => {
+              const esActual = fila?.mes === mes
+              const tieneM3 = fila !== null && fila.cuota !== null
               return (
                 <span
                   key={i}
-                  className={`tira-agua ${fila ? (i === historial.filas.length - 1 ? 'bg-agua' : 'bg-neutro-barra') : 'bg-neutro-suave'}`}
+                  className={`tira-agua ${tieneM3 ? (esActual ? 'bg-agua' : 'bg-neutro-barra') : 'bg-neutro-suave'}`}
                   style={{
-                    ['--alto-tira' as string]: fila
-                      ? `${Math.max(11, (fila.m3 / maximo) * 100)}%`
+                    ['--alto-tira' as string]: tieneM3
+                      ? `${Math.max(11, (fila!.m3 / maximo) * 100)}%`
                       : '9%',
                   }}
                 />

@@ -9,6 +9,7 @@ import type { DptoId, FilaSaldo, MesId, PagosMes, ResultadoMes } from '@/lib/cal
 import { FijarContexto } from '@/components/hojas/Contexto'
 import { Etiqueta } from '@/components/ui/Etiqueta'
 import { Cifra } from '@/components/ui/Cifra'
+import { CifraContada } from '@/components/ui/CifraContada'
 import { PildoraEstado } from '@/components/ui/PildoraEstado'
 import { TarjetaNoche } from '@/components/ui/TarjetaNoche'
 import { TarjetaBlanca } from '@/components/ui/TarjetaBlanca'
@@ -95,7 +96,7 @@ export function Inicio({
             </Etiqueta>
             <PildoraEstado estado={estado} sobreNoche />
           </div>
-          <Cifra valor={mia.total} tamano="protagonista" simbolo sobreNoche className="inicio-cuota-monto" />
+          <CifraContada valor={mia.total} tamano="protagonista" simbolo sobreNoche className="inicio-cuota-monto" />
           <p className="tipo-cuerpo-menor text-sobre-noche-contexto inicio-cuota-detalle">{detalle}</p>
           <div className="inicio-desglose">
             <div className="flex justify-between inicio-desglose-fila inicio-desglose-linea">
@@ -120,7 +121,6 @@ export function Inicio({
       </div>
 
       <LineaBob
-        confirmados={confirmados.length}
         avisados={avisados.map((d) => d.id)}
         sinRegistrar={sinRegistrar.map((d) => d.id)}
         mes={mes}
