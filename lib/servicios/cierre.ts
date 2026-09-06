@@ -133,8 +133,6 @@ export async function guardarGastos(mes: MesId, datos: GuardarGastos) {
           concepto: e.concepto,
           monto: aDecimal2(e.monto),
           dptoId: e.tipo === 'credito' ? e.dpto : null,
-          reparto: e.tipo === 'gasto' ? (e.reparto ?? 'flat') : 'flat',
-          participantes: e.tipo === 'gasto' ? (e.participantes ?? []) : [],
         },
       })
     }

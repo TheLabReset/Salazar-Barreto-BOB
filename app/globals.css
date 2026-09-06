@@ -2273,45 +2273,6 @@
   padding: 11px 14px;
   border-radius: var(--radius-pildora);
   background: var(--color-neutro-suave);
-  border: 1px solid transparent;
-}
-/* Chip elegido: paga este gasto. Sin elegir: se queda fuera del reparto. */
-.puntual-dpto[aria-pressed='true'] {
-  background: var(--color-verde-suave);
-  color: var(--color-verde-oscuro);
-  border-color: var(--color-verde);
-}
-.puntual-dpto[aria-pressed='false'] {
-  opacity: 0.55;
-}
-.puntual-modos {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.puntual-modo {
-  flex: 1;
-  font: 500 14px/1 var(--font-cuerpo);
-  padding: 12px 14px;
-  border-radius: var(--radius-chico);
-  background: var(--color-neutro-suave);
-  border: 1px solid transparent;
-}
-.puntual-modo[aria-pressed='true'] {
-  background: var(--color-verde-suave);
-  color: var(--color-verde-oscuro);
-  border-color: var(--color-verde);
-}
-.puntual-listo {
-  flex: none;
-  width: 100%;
-  margin-top: 12px;
-}
-.puntual-cambiar-reparto {
-  display: inline-block;
-  margin-top: 4px;
-  color: var(--color-verde-oscuro);
-  text-decoration: underline;
 }
 .casilla-fila {
   display: flex;

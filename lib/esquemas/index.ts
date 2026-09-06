@@ -50,11 +50,6 @@ export const zGuardarGastos = z.object({
           tipo: z.literal('gasto'),
           concepto: zTexto(80).min(1, 'El gasto necesita un concepto'),
           monto: zMonto,
-          // Cómo se reparte. `flat` (por metraje) si no se dice.
-          reparto: z.enum(['flat', 'igual']).optional(),
-          // Los deptos que lo pagan. Vacío u omitido = los siete. Duplicados no
-          // importan: el motor los trata como conjunto.
-          participantes: z.array(zDpto).max(7).optional(),
         }),
         z.object({
           tipo: z.literal('credito'),

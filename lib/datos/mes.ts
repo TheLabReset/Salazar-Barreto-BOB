@@ -87,16 +87,7 @@ export async function extrasDe(mes: MesId, db: Lector = prisma): Promise<Extra[]
   return filas.map((f): Extra =>
     f.tipo === 'credito'
       ? { tipo: 'credito', concepto: f.concepto, monto: aNumeroObligatorio(f.monto), dpto: f.dptoId as DptoId }
-      : {
-          tipo: 'gasto',
-          concepto: f.concepto,
-          monto: aNumeroObligatorio(f.monto),
-          reparto: f.reparto,
-          // `?? []`: la columna de lista puede volver `null` desde un insert que
-          // la omitió. `as`: los ids vienen de la base y el motor solo usa los
-          // que son de los siete, descartando el resto.
-          participantes: (f.participantes ?? []) as DptoId[],
-        },
+      : { tipo: 'gasto', concepto: f.concepto, monto: aNumeroObligatorio(f.monto) },
   )
 }
 
