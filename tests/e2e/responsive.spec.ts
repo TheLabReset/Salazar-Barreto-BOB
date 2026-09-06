@@ -232,7 +232,8 @@ test.describe('las hojas de administración tampoco se desbordan', () => {
           medidas.cliente,
         )
 
-        const culpables = await culpablesDeDesborde(page)
+        const { culpables, examinados } = await culpablesDeDesborde(page)
+        expect(examinados, `el barrido no miró nada con la hoja a ${ancho}px`).toBeGreaterThan(5)
         expect(culpables, `elementos fuera del marco con la hoja abierta a ${ancho}px`).toEqual([])
       })
     }
