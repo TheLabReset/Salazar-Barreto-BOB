@@ -55,10 +55,10 @@ const PANTALLAS = [
  * carrusel en nueve tamaños. Un chequeo que grita donde no hay nada es un
  * chequeo que alguien acaba desactivando.
  */
-async function culpablesDeDesborde(pagina: Page): Promise<string[]> {
+async function culpablesDeDesborde(pagina: Page): Promise<{ culpables: string[]; examinados: number }> {
   return pagina.evaluate(() => {
     const marco = document.querySelector('.marco-app')
-    if (!marco) return ['no se encontró .marco-app']
+    if (!marco) return { culpables: ['no se encontró .marco-app'], examinados: 0 }
     const limite = marco.getBoundingClientRect()
 
     /**
@@ -84,9 +84,11 @@ async function culpablesDeDesborde(pagina: Page): Promise<string[]> {
       el.closest('[data-scroll-x]') !== null
 
     const culpables: string[] = []
+    let examinados = 0
     for (const el of Array.from(document.querySelectorAll<HTMLElement>('.marco-app *'))) {
       const caja = el.getBoundingClientRect()
       if (caja.width === 0) continue
+      examinados++
       if (dentroDeUnScrollHorizontal(el)) continue
       // Un píxel de antialiasing no es un desborde.
       if (caja.right > limite.right + 1 || caja.left < limite.left - 1) {
@@ -95,7 +97,10 @@ async function culpablesDeDesborde(pagina: Page): Promise<string[]> {
       }
       if (culpables.length >= 5) break
     }
-    return culpables
+    // Cuántos miró de verdad, para no pasar sobre cero: si el selector dejara de
+    // encontrar nada —una clase renombrada, un marco que no montó— el barrido
+    // daría «sin culpables» sin haber mirado un solo elemento.
+    return { culpables, examinados }
   })
 }
 
@@ -129,7 +134,11 @@ test.describe('sin desbordes horizontales', () => {
           }))
           expect(medidas.scroll, `${nombre} se desborda a ${ancho}px`).toBeLessThanOrEqual(medidas.cliente)
 
-          const culpables = await culpablesDeDesborde(page)
+          const { culpables, examinados } = await culpablesDeDesborde(page)
+          expect(
+            examinados,
+            `el barrido no miró ni un elemento en ${nombre} a ${ancho}px: no probó nada`,
+          ).toBeGreaterThan(20)
           expect(culpables, `elementos fuera del marco en ${nombre} a ${ancho}px`).toEqual([])
 
           // Y el documento tampoco: una barra horizontal en el body es igual de mala.

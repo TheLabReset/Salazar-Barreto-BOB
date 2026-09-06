@@ -30,7 +30,7 @@ const { calcularMes } = await import(
   process.exit(2)
 })
 
-const { DPTOS, GASTOS_FIJOS, TOLERANCIA_AGUA } = await import(
+const { DPTOS, GASTOS_FIJOS, TOLERANCIA_AGUA, toleranciaAgua } = await import(
   pathToFileURL(path.resolve(import.meta.dirname, '../lib/calculo/constantes.ts')).href
 )
 const { round2 } = await import(
@@ -99,15 +99,34 @@ function base(azar, ajustado) {
   }
 }
 
-console.log(`Tolerancia del cuadre del agua: ${TOLERANCIA_AGUA} · ${N} meses por rama\n`)
+console.log(
+  `Cuadre del agua · ${N} meses por rama.\n` +
+    `La tolerancia NO es fija: el suelo es ${TOLERANCIA_AGUA} y crece con el precio del m³,\n` +
+    `porque el error del redondeo es proporcional al precio (ver toleranciaAgua en\n` +
+    `constantes.ts). Por eso un "peor error" de 0.11 puede cuadrar: se compara contra\n` +
+    `la cota de su precio, no contra ${TOLERANCIA_AGUA}.\n`,
+)
 const normal = medir('NORMAL', (azar) => base(azar, false), 20260701)
 const ajustado = medir('AJUSTADO', (azar) => base(azar, true), 20260702)
 
 console.log(
   `\nCota estructural: ocho redondeos a céntimo (siete cuotas de agua más el área\n` +
-    `común) dan hasta 8 × 0.005 = 0.04, por encima de la tolerancia de ${TOLERANCIA_AGUA}.\n` +
-    `En reparto ajustado se suman los redondeos de los m³ de cada departamento,\n` +
-    `que van multiplicados por el precio del m³, y la cota se dispara.`,
+    `común) más, en reparto ajustado, los m³ de cada dpto redondeados antes de\n` +
+    `multiplicar por el precio. Por eso la tolerancia fija de ${TOLERANCIA_AGUA} no basta y\n` +
+    `toleranciaAgua(precio) la ensancha justo esa cantidad. Ejemplo: a 12 S/ el m³,\n` +
+    `la cota es ${toleranciaAgua(12).toFixed(2)}.`,
 )
 
-process.exitCode = normal.n > 0 && ajustado.n > 0 ? 0 : 1
+// **El script falla si un cuadre se rompe.** Antes solo fallaba si una rama no
+// producía ni un mes válido, así que una regresión de la tolerancia —que
+// volviera a fallar el cuadre— pasaba con exit 0. Con la tolerancia adaptativa,
+// cero fallos es lo correcto; cualquier fallo es la señal de que algo se movió.
+if (normal.n === 0 || ajustado.n === 0) {
+  console.error('\nUna rama no produjo ni un mes válido: el generador está roto.')
+  process.exitCode = 2
+} else if (normal.fallos + normal.fallosMes + ajustado.fallos + ajustado.fallosMes > 0) {
+  console.error('\nHubo cuadres que fallaron. Con la tolerancia adaptativa no debería pasar ninguno.')
+  process.exitCode = 1
+} else {
+  process.exitCode = 0
+}

@@ -9,12 +9,29 @@
  * Julio no es alcanzable en la interfaz de solo lectura del prototipo: su lista
  * de meses (`MESES`) llega hasta junio. Se compara contra el motor del mockup
  * ejecutado en el navegador, que es el mismo código que alimenta la pantalla.
+ *
+ * **Esto es un apoyo de desarrollo, no un chequeo de CI**, y no está en la
+ * puerta. El chequeo repetible que compara el port con el mockup al céntimo es
+ * `lib/calculo/__tests__/fidelidad-mockup.test.ts`, contra el golden que genera
+ * `scripts/generar-golden.mjs`. Este script imprime las dos salidas lado a lado
+ * para mirarlas a ojo, y necesita un espejo local del CDN porque el prototipo
+ * carga React y Babel de unpkg, que aquí está bloqueado. La ruta del espejo sale
+ * de `CDN_LOCAL`; sin ella no puede correr, y lo dice en vez de fallar con una
+ * ruta de otra máquina codificada dentro.
  */
 import { chromium } from '@playwright/test'
 import path from 'node:path'
 import fs from 'node:fs'
 
-const CDN = '/tmp/claude-0/-home-user-Salazar-Barreto-BOB/43962ced-f1af-58ab-813c-36f0dab47336/scratchpad/cdn'
+const CDN = process.env.CDN_LOCAL
+if (!CDN) {
+  console.error(
+    'comparar-con-mockup: falta CDN_LOCAL, la carpeta con el espejo de React/Babel.\n' +
+      'Es un apoyo de desarrollo, no un chequeo. El chequeo repetible es\n' +
+      'lib/calculo/__tests__/fidelidad-mockup.test.ts.',
+  )
+  process.exit(2)
+}
 const L = {
   'https://unpkg.com/react@18.3.1/umd/react.production.min.js': `${CDN}/r/package/umd/react.production.min.js`,
   'https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js': `${CDN}/rd/package/umd/react-dom.production.min.js`,
