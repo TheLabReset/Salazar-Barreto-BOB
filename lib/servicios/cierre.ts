@@ -12,7 +12,7 @@
 
 import { prisma } from '@/lib/datos/prisma'
 import { aDecimal2, aDecimal3, aNumero, aNumeroObligatorio } from '@/lib/datos/decimal'
-import { entradasDeMes, resultadoDeMes } from '@/lib/datos/mes'
+import { entradasDeMes, resultadoDeMes, lavadoM3En } from '@/lib/datos/mes'
 import { nombreMes } from '@/lib/calculo/mes'
 import { enumerar } from '@/lib/formato'
 import { fmt } from '@/lib/calculo/redondeo'
@@ -301,18 +301,32 @@ export async function publicarMes(mes: MesId, datos: Publicar) {
      */
     const reasignacion = await tx.reasignacionAgua.findFirst({ where: { desde: { lte: mes } } })
     if (reasignacion) {
-      // `resultado.lavado` son los m³ del lavado con los que se acaba de calcular
-      // el mes, ya sea porque la reasignación está activa o 0 si se desmarcó.
-      const activa = resultado.lavado > 0
+      /**
+       * Se congela la **intención** del paso 5, no el resultado.
+       *
+       * `lavadoM3En` devuelve el precio del m³ si la casilla está marcada para
+       * este mes (o heredada del anterior), y 0 solo si se desmarcó a propósito
+       * —da igual si el lavado llegó a **caber** en el área común—. Y el precio
+       * se congela siempre que la casilla esté marcada, aunque este mes no haya
+       * cabido.
+       *
+       * Antes aquí se grababa `resultado.lavado > 0`, que es el resultado: un
+       * mes publicado con la casilla marcada pero con poca área común quedaba
+       * `activa:false, m3:null`, y una corrección posterior que restaurara el
+       * área común no recuperaba nunca el lavado. Guardando la intención, la
+       * corrección re-evalúa si cabe con **el m³ de cuando se publicó**, no con
+       * el global de hoy. Un mes desmarcado sigue desmarcado.
+       */
+      const marcado = (await lavadoM3En(mes, tx)) > 0
       await tx.reasignacionActivaEnMes.upsert({
         where: { reasignacionId_mes: { reasignacionId: reasignacion.id, mes } },
         create: {
           reasignacionId: reasignacion.id,
           mes,
-          activa,
-          m3: activa ? reasignacion.m3 : null,
+          activa: marcado,
+          m3: marcado ? reasignacion.m3 : null,
         },
-        update: { activa, m3: activa ? reasignacion.m3 : null },
+        update: { activa: marcado, m3: marcado ? reasignacion.m3 : null },
       })
     }
 
