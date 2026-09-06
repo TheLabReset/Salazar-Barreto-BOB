@@ -91,7 +91,20 @@ export async function listaDeMeses(): Promise<ResumenMes[]> {
 export async function serieDelSaldo(): Promise<FilaSaldo[]> {
   const config = await prisma.configuracionEdificio.findUnique({ where: { id: 1 } })
   if (!config) return []
-  const meses = (await mesesConDatos()).filter((m) => m >= config.mesInicial)
+  /**
+   * **Solo meses publicados**, no meses con recibo.
+   *
+   * El saldo es la cuenta conjunta a lo largo de los meses **cerrados**. La
+   * auditoría final encontró que esto usaba `mesesConDatos()`, que son los que
+   * tienen recibo: en cuanto el paso 2 del cierre guarda el recibo del mes en
+   * curso, ese mes entraba en la serie con `recibido = 0` y `gastado = total`,
+   * y el saldo daba un salto de miles de soles que Bob recitaba y el Excel
+   * exportaba, mientras la pantalla de Inicio —que sí filtra por publicado—
+   * enseñaba otra cifra dos centímetros más allá. Inicio e Historial ya
+   * filtraban; esto no, y era el único camino que no lo hacía.
+   */
+  const publicados = await mesesPublicados()
+  const meses = publicados.filter((m) => m >= config.mesInicial)
   const conPagos: MesConPagos[] = []
   for (const mes of meses) {
     const [resultado, pagos] = await Promise.all([resultadoDeMes(mes), pagosDe(mes)])

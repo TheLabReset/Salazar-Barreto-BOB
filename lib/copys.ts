@@ -369,6 +369,12 @@ export const COPYS = {
     campoM3Largo: 'Consumo de agua del edificio · m³ de SEDAPAL',
     campoMonto: 'Monto de la factura de agua',
     campoMontoLargo: 'Monto de la factura de agua · SEDAPAL',
+    // El descuento es opcional: la mayoría de recibos no lo traen. El mockup no
+    // lo dibuja, pero el recibo real de SEDAPAL a veces rebaja el monto, y sin
+    // esta casilla ese mes se cobraría de más. Se añade sin romper la regla de
+    // «los dos datos» del paso: los dos obligatorios siguen siendo m³ y monto.
+    campoDescuento: 'Descuento del recibo · opcional',
+    campoDescuentoLargo: 'Descuento del recibo de SEDAPAL · déjalo en 0 si no hay',
     faltanDos: 'Escribe los dos datos',
     // Paso 3
     luzTitulo: 'El recibo de luz común',

@@ -38,6 +38,7 @@ export function Paso2Agua({ borrador, guardar, guardando, errorGuardar, avanzar,
   const rec = borrador.resultado.rec
   const tieneM3 = rec.aguaM3 > 0
   const tieneMonto = rec.aguaMonto > 0
+  const tieneDescuento = (rec.descuento ?? 0) > 0
 
   /**
    * Las propuestas que el administrador ya descartó, en esta visita al paso.
@@ -96,6 +97,25 @@ export function Paso2Agua({ borrador, guardar, guardando, errorGuardar, avanzar,
             maxDecimales: 2,
             sufijo: 'S/',
             onOk: (v) => void guardar('recibo', { aguaMonto: v }),
+          })
+        }
+      />
+
+      <CampoNumerico
+        etiqueta={COPYS.cierre.campoDescuento}
+        tono="agua"
+        valor={tieneDescuento ? fmt(rec.descuento ?? 0) : null}
+        prefijo="S/"
+        onTocar={() =>
+          abrir({
+            etiqueta: COPYS.cierre.campoDescuentoLargo,
+            valorInicial: tieneDescuento ? (rec.descuento ?? 0) : null,
+            decimales: true,
+            maxDecimales: 2,
+            sufijo: 'S/',
+            // 0 lo borra (facturaAgua = monto). El motor trata 0 y null igual, y
+            // hay un test que lo fija: «un descuento en 0 también lo borra».
+            onOk: (v) => void guardar('recibo', { descuento: v > 0 ? v : null }),
           })
         }
       />

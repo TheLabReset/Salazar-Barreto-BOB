@@ -145,6 +145,31 @@ describe('toda escritura deja su rastro', () => {
     expect(apunte!.valorNuevo).toBe('true')
   })
 
+  it('el descuento del recibo se guarda y baja lo que se cobra', async () => {
+    /**
+     * La auditoría final encontró que el descuento **no se podía teclear en
+     * ninguna pantalla**: el motor y la base lo soportaban, pero la casilla no
+     * existía, así que un mes con descuento se cobraba de más con los cuatro
+     * cuadres en verde. Se añadió la casilla al paso 2. Este test fija el
+     * recorrido entero, servicio → base → cálculo, que es lo que la casilla
+     * dispara.
+     */
+    await cargarMesEnCurso(EN_CURSO)
+    const { resultadoDeMes } = await import('@/lib/datos/mes')
+    const sin = await resultadoDeMes(EN_CURSO)
+    await guardarRecibo(EN_CURSO, { descuento: 20 })
+    const con = await resultadoDeMes(EN_CURSO)
+    // La factura baja exactamente el descuento, y con ella el total del mes.
+    expect(con.facturaAgua).toBe(Math.round((sin.facturaAgua - 20) * 100) / 100)
+    expect(con.totalMes).toBe(Math.round((sin.totalMes - 20) * 100) / 100)
+    expect(con.descuento).toBe(20)
+    expect(con.cuadra).toBe(true)
+    // Y ponerlo a 0 lo borra, como dice el copy de la casilla.
+    await guardarRecibo(EN_CURSO, { descuento: 0 })
+    const cero = await resultadoDeMes(EN_CURSO)
+    expect(cero.facturaAgua).toBe(sin.facturaAgua)
+  })
+
   it('si una escritura falla, no deja ni rastro ni dato: la transacción se deshace', async () => {
     await cargarMesEnCurso(EN_CURSO)
     const auditoriaAntes = await contarAuditoria()
@@ -297,6 +322,31 @@ describe('un aviso de pago nunca se asciende solo a confirmado', () => {
     const junioDespues = despues.find((f) => f.mes === PUBLICADO)!
     expect(junioDespues.recibido).toBe(junioAntes.recibido)
     expect(junioDespues.saldo).toBe(junioAntes.saldo)
+  })
+
+  it('el mes en curso NO entra en el saldo hasta que se publica', async () => {
+    /**
+     * La auditoría final lo encontró: `serieDelSaldo` usaba los meses con
+     * recibo, no los publicados. En cuanto el paso 2 del cierre guardaba el
+     * recibo del mes en curso, ese mes entraba en la serie con recibido 0 y
+     * gastado el total, y el saldo pegaba un salto de miles de soles que Bob
+     * recitaba y el Excel exportaba, mientras Inicio enseñaba otra cifra.
+     */
+    const { serieDelSaldo } = await import('@/lib/datos/meses')
+    const antes = await serieDelSaldo()
+    expect(antes.some((f) => f.mes === EN_CURSO)).toBe(false)
+
+    // El paso 2 del cierre: se teclea el recibo y las lecturas del mes en curso.
+    await cargarMesEnCurso(EN_CURSO)
+
+    const despues = await serieDelSaldo()
+    // El mes en curso tiene datos pero no está publicado: no puede aparecer.
+    expect(despues.some((f) => f.mes === EN_CURSO)).toBe(false)
+    // Y el saldo del último mes publicado no se movió por tocar el mes en curso.
+    const ultAntes = antes[antes.length - 1]!
+    const ultDespues = despues[despues.length - 1]!
+    expect(ultDespues.mes).toBe(ultAntes.mes)
+    expect(ultDespues.saldo).toBe(ultAntes.saldo)
   })
 
   it('confirmarlo sí lo suma', async () => {
