@@ -295,12 +295,74 @@ consulta.
 
 ---
 
-## 11. La puerta, al cerrar la fase
+## 11. Un test mío que estaba en verde sin probar nada
+
+Los ocho tests de pantalla pasaron a la primera. Uno de ellos no probaba nada.
+
+Se llamaba **«la API de Bob no acepta que el cliente se declare
+administrador»**. Preguntaba *«¿Cuánto debe el 501?»* y comprobaba que la
+respuesta no contuviera «501». Verde. Pero no por lo que decía: esa frase **no
+dispara la intención `cuota`** —el catálogo busca «cuanto debo», no «cuanto
+debe»—, así que Bob contestaba con la respuesta genérica, que nunca iba a
+contener un número de departamento. El test habría pasado igual con la guarda
+arrancada de cuajo.
+
+Y el nombre era falso por partida doble. **La app no autentica a los vecinos.**
+No hay sesión de vecino en ninguna parte: `GET /api/dptos/501/historial` le
+responde a cualquiera, sin cookie y sin comprobación. La restricción por
+departamento de Bob no es una frontera de seguridad — es una regla de tono:
+decide **de qué habla Bob**, no a qué datos se puede llegar. El docstring de
+`dptoDe` lo dice ahora con esas palabras, para que nadie lo lea como una
+protección que no es, y el hallazgo sobre la app entera va a
+`docs/AUDITORIA-FINAL.md`.
+
+**Qué clase de defecto es**: un chequeo que miente sobre su alcance, que es
+peor que no tenerlo, porque apaga la sospecha. Y salió del sitio de siempre:
+leer qué hace el test, no mirar de qué color está.
+
+En su lugar hay nueve que sí pueden ponerse rojos:
+
+| Se le manda | Tiene que |
+|---|---|
+| `mes: '2026-13'` | 400 con mensaje |
+| `mes: "'; DROP TABLE pago; --"` | 400 con mensaje |
+| `dpto: '999'` | 400 con mensaje |
+| sin `texto` | 400 con mensaje |
+| `texto: '   '` | 400 con mensaje |
+| `texto` de 5 000 caracteres | 400 con mensaje |
+| cuerpo de 10 MB | 400, no se traga |
+| tres preguntas seguidas, dos de escritura | `GET /api/meses/2026-06` idéntico byte a byte |
+| `esAdmin: true` en el cuerpo | la misma respuesta que sin él |
+
+Ninguna devuelve 500 y ninguna deja rastro.
+
+---
+
+## 12. La puerta, al cerrar la fase
 
 | Chequeo | Resultado |
 |---|---|
 | `npx tsc --noEmit` | limpio |
-| `node scripts/verificar-tokens.mjs` | cero valores huérfanos |
-| `npx vitest run` | 310 / 310 |
-| `npm run test:integracion` | 106 / 106 |
-| `npx playwright test` | ver `docs/AUDITORIA-FINAL.md` |
+| `node scripts/verificar-tokens.mjs` | cero valores huérfanos · 186 ficheros |
+| `npx vitest run` (Bob) | **14 / 14**, con tres pruebas negativas |
+| `npm run test:integracion` (Bob) | **15 / 15** |
+| `npx playwright test tests/e2e/bob.spec.ts` | **16 / 16** en 1.0 min |
+
+La suite entera del repo se corre en la Fase 9, y sus cifras van en
+`docs/AUDITORIA-FINAL.md`. Aquí solo están las de Bob, que es lo que esta fase
+añadió.
+
+---
+
+## 13. Bajo qué condición esto estaría equivocado
+
+**La guarda de números es lo único que impide que Bob invente cifras, y solo
+mira los dígitos que escribe.** Si el modelo dijera *«tu cuota subió bastante»*
+sin ninguna cifra, o *«el 501 siempre paga tarde»* —que `05` §2 prohíbe—, la
+guarda no ve nada que comprobar y la respuesta se publica. Contra eso solo está
+el prompt, que es una instrucción y no una obligación.
+
+**Señal temprana**: en `consulta_bob`, una fila con `modo = 'deepseek'` cuya
+`respuesta` no contenga ni un dígito. En modo determinista eso no pasa nunca
+—las nueve intenciones responden con dato o dicen que no lo tienen—, así que la
+primera que aparezca es del modelo, y merece leerse entera.
