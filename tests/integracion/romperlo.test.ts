@@ -342,6 +342,37 @@ describe('el PIN', () => {
     expect(acertados, 'ningún PIN de cuatro dígitos puede reproducir la firma').toBe(0)
   })
 
+  /**
+   * **La firma no sale del PIN por ninguna derivación obvia.**
+   *
+   * El test de arriba prueba fuerza bruta de cuatro dígitos, y la auditoría
+   * final señaló que no puede fallar: `claveDeFirma` rechaza cualquier clave de
+   * menos de 32 caracteres, así que la firma nunca ES el PIN crudo y el barrido
+   * está condenado a dar 0. No atrapa la regresión que importa: que alguien
+   * derive la clave del PIN para llegar a los 32 caracteres (`PIN.repeat(8)`,
+   * `PIN + relleno`…). Esto la atrapa afirmando la propiedad directamente: la
+   * firma real no coincide con la de ninguna derivación del PIN.
+   */
+  it('la firma no coincide con ninguna clave derivada del PIN', async () => {
+    const pin = process.env.ADMIN_PIN!
+    const { cookie } = await validarPin('2026', '10.0.0.31')
+    const corte = cookie.lastIndexOf('.')
+    const [carga, firma] = [cookie.slice(0, corte), cookie.slice(corte + 1)]
+
+    const derivaciones = [
+      pin,
+      pin.repeat(8), // 32 caracteres a partir de un PIN de 4
+      pin.repeat(Math.ceil(32 / pin.length)),
+      pin.padEnd(32, '0'),
+      pin.padStart(32, '0'),
+      `sb_${pin}`,
+    ]
+    for (const clave of derivaciones) {
+      const prueba = createHmac('sha256', clave).update(carga).digest('base64url')
+      expect(prueba, `la firma sale de una derivación del PIN: ${clave.slice(0, 8)}…`).not.toBe(firma)
+    }
+  })
+
   it('y la cookie sigue siendo válida, claro', async () => {
     const { cookie } = await validarPin('2026', '10.0.0.4')
     expect(sesionValida(cookie)).toBe(true)

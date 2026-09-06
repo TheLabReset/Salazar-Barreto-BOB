@@ -24,6 +24,15 @@ import path from 'node:path'
 
 const RAIZ = path.resolve(import.meta.dirname, '..')
 const ESTATICO = path.join(RAIZ, '.next/static')
+/**
+ * `public/` **también** es JavaScript que descarga el navegador.
+ *
+ * Ahí vive `sw.js`, que se registra en cada visita. La auditoría final lo
+ * encontró: el chequeo solo miraba `.next/static`, así que un secreto escrito en
+ * `public/` —o en el service worker— pasaba con el chequeo diciendo «limpio».
+ * Se comprobó dejando el `ADMIN_SECRETO` entero en un `public/*.js`: verde.
+ */
+const PUBLICO = path.join(RAIZ, 'public')
 
 /**
  * Carga `.env` si existe. **Sin esto el chequeo mentía.**
@@ -77,7 +86,7 @@ function ficheros(dir) {
   return salida
 }
 
-const lista = ficheros(ESTATICO)
+const lista = [...ficheros(ESTATICO), ...(fs.existsSync(PUBLICO) ? ficheros(PUBLICO) : [])]
 if (lista.length === 0) {
   console.error('.next/static existe pero está vacío. El chequeo no ha mirado nada.')
   process.exit(2)

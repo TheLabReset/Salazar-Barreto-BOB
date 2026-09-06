@@ -27,7 +27,7 @@ const RAIZ =
 const ES_FIXTURE = banderaRaiz !== -1
 
 /** Se revisa el código de la aplicación. No el mockup, que es la referencia. */
-const CARPETAS = ['app', 'components', 'lib', 'scripts', 'tests', 'prisma']
+const CARPETAS = ['app', 'components', 'lib', 'scripts', 'tests', 'prisma', 'public']
 const EXTENSIONES = new Set(['.ts', '.tsx', '.mjs', '.js', '.css'])
 
 /**
@@ -115,20 +115,29 @@ const PALETA_TAILWIND =
 const REGLAS = [
   {
     nombre: 'hex',
-    // Un color hexadecimal de 3 a 8 dígitos.
+    // Un color hexadecimal de 3 a 8 dígitos. También en `.css`: un CSS Module
+    // con un `#hex` se colaba porque esta regla no miraba `.css`. El único `.css`
+    // donde un color literal es legítimo es el de tokens, que va exento.
     patron: /#[0-9a-f]{3,8}\b/i,
-    aplicaA: CODIGO,
+    aplicaA: [...CODIGO, '.css'],
+    exceptoEn: [ARCHIVO_TOKENS],
     mensaje: 'color hexadecimal suelto · define un token en @theme y úsalo',
   },
   {
     nombre: 'rgb',
     patron: /\brgba?\s*\(/,
-    aplicaA: CODIGO,
+    aplicaA: [...CODIGO, '.css'],
+    exceptoEn: [ARCHIVO_TOKENS],
     mensaje: 'rgb()/rgba() suelto · define un token en @theme y úsalo',
   },
   {
     nombre: 'px-en-style',
-    // `style={{ ...: '12px' }}` o `style="...12px..."`
+    // `style={{ ...: '12px' }}` o `style="...12px..."`. No se amplió a un `px`
+    // suelto: en código el `px` aparece legítimamente en comentarios y en las
+    // cadenas de los propios tests, y marcarlo todo era ruido que acaba con
+    // alguien apagando la regla. Los `px` sueltos en un `.css` los cubre
+    // `px-en-clase-arbitraria` y, para el resto, el `.css` que no sea el de
+    // tokens no debería existir con medidas a mano.
     patron: /style\s*=\s*(?:\{\{[^}]*\d+px|["'][^"']*\d+px)/,
     aplicaA: CODIGO,
     mensaje: 'px literal en una prop style · usa un token de espaciado',

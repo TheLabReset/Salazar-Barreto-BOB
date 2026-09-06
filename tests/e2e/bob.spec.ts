@@ -69,7 +69,7 @@ test.describe('la hoja de Bob', () => {
     await page.goto('/mi-departamento')
     await page.getByRole('button', { name: 'Preguntar a Bob' }).click()
     await page.getByRole('button', { name: SUGERIDAS[0]!, exact: true }).click()
-    const enlace = page.getByRole('button', { name: 'Ver el cálculo completo' })
+    const enlace = page.getByRole('button', { name: 'Ver de dónde sale cada monto' })
     await expect(enlace).toBeVisible({ timeout: 15_000 })
     await enlace.click()
     await expect(page.getByRole('dialog', { name: 'De dónde sale cada monto' })).toBeVisible()
