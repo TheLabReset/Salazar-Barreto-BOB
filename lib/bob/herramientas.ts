@@ -21,6 +21,11 @@ import { historialDeDpto } from '@/lib/datos/historial'
 import type { DptoId, MesId } from '@/lib/calculo/tipos'
 import type { Contexto, Herramienta } from './tipos'
 
+/** Dos decimales, que es como se guarda y como se enseña todo lo que es plata. */
+function redondear(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 const zMes = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/)
 const zDpto = z.enum(DPTO_IDS as unknown as [string, ...string[]])
 
@@ -223,6 +228,19 @@ export const HERRAMIENTAS: Herramienta[] = [
         aguaM3B: rb.rec.aguaM3,
         facturaAguaA: ra.facturaAgua,
         facturaAguaB: rb.facturaAgua,
+        /**
+         * El reparto de la diferencia, calculado **aquí y no en la frase**.
+         *
+         * Bob explica de dónde viene el cambio, y para eso necesita la cifra
+         * del agua y la del resto por separado. Si las restara al redactar,
+         * serían números sin herramienta detrás y la guarda de `guardas.ts`
+         * tiraría la respuesta entera, con razón: el sitio de una resta es el
+         * motor, no el texto.
+         */
+        diferenciaAgua: redondear(rb.facturaAgua - ra.facturaAgua),
+        diferenciaResto: redondear(
+          rb.totalMes - ra.totalMes - (rb.facturaAgua - ra.facturaAgua),
+        ),
       }
     },
   },
@@ -246,11 +264,15 @@ export const HERRAMIENTAS: Herramienta[] = [
         /**
          * La frase que el diseño ya escribió, con las cifras del mes.
          * `05` §3 la enseña como ejemplo de respuesta buena.
+         *
+         * Las dos rayas largas del original son comas. Es la regla de forma
+         * más rentable del criterio de redacción de la casa, y la única
+         * puntuación de esta frase que delataba una máquina.
          */
         explicacion:
           `El lavado del 401 son ${fmt(r.lavado)} m³ al mes que salen del caño común. ` +
-          `No se cobran por fuera de la factura: se restan del área común —que este mes queda en ` +
-          `${fmt(r.comunReal)} m³— y se le suman al 401, así que el total del edificio sigue siendo ` +
+          `No se cobran por fuera de la factura: se restan del área común, que este mes queda en ` +
+          `${fmt(r.comunReal)} m³, y se le suman al 401, así que el total del edificio sigue siendo ` +
           `exactamente lo que factura SEDAPAL.`,
       }
     },

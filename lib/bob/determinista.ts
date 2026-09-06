@@ -99,15 +99,16 @@ async function redactar(
     /**
      * Lo que Bob **no** puede hacer. `05` §2, que es un contrato.
      *
-     * Dice **quién sí puede**, no «como asistente, no puedo». La diferencia entre
-     * las dos frases es la diferencia entre una app que ayuda y una que se
-     * excusa.
+     * Arranca por **quién sí puede y dónde**, no por «yo solo leo». La versión
+     * anterior empezaba hablando de sí mismo, que es justo lo que `05` §3
+     * prohíbe, y encima dejaba al vecino sin saber qué hacer después. Ahora la
+     * primera frase resuelve el trámite y la segunda ofrece lo que sí hay.
      */
     case 'escribir':
       return {
         texto:
-          'Yo solo leo: no puedo confirmar pagos, cambiar lecturas ni publicar un mes. ' +
-          'Eso lo hace quien administra, desde Avisos → Administración, y queda registrado.',
+          'Eso lo cambia quien administra, desde Avisos → Administración, y queda registrado con la fecha. ' +
+          'Acá lo que hay es tu cuota del mes, tu consumo de agua y en qué se fue la plata.',
         lleva: null,
       }
 
@@ -115,56 +116,83 @@ async function redactar(
      * El banco. La prohibición más importante de `05` §2.
      *
      * Bob **no tiene acceso a la cuenta bancaria**: no puede ver depósitos, ni
-     * decir que vio uno, ni rellenar un monto desde el estado de cuenta. Los
-     * pagos los verifica una persona.
+     * decir que vio uno, ni rellenar un monto desde el estado de cuenta.
+     *
+     * El orden de las dos frases importa. Antes empezaba por la negativa —«no
+     * tengo acceso», «no puedo ver»— y el dato útil llegaba al final, si es que
+     * llegaba. Ahora primero va lo que sí se sabe, y después de dónde no sale.
+     * El límite se dice una vez y sin disculparse.
      */
     case 'banco': {
       const pagos = await llamar('estadoPagos', {}, contexto, llamadas)
       const mio = contexto.dpto
-      const estado = mio
-        ? (pagos.alDia as string[]).includes(mio)
-          ? 'al día'
-          : (pagos.enVerificacion as string[]).includes(mio)
-            ? 'en verificación'
-            : 'sin registrar'
-        : null
+      const mes = String(pagos.nombreMes)
+      const noVeoElBanco = 'Los depósitos no los veo yo: los revisa quien administra contra el estado de cuenta.'
+      if (!mio) {
+        return { texto: `${capitalizar(mes)} va con ${String(pagos.cuantosAlDia)} de ${String(pagos.deCuantos)} pagos confirmados. ${noVeoElBanco}`, lleva: null }
+      }
+      if ((pagos.alDia as string[]).includes(mio)) {
+        return { texto: `Tu pago de ${mes} ya está confirmado. ${noVeoElBanco}`, lleva: { hoja: 'pagos', etiqueta: 'Ver mis pagos' } }
+      }
+      if ((pagos.enVerificacion as string[]).includes(mio)) {
+        return { texto: `Tu aviso de ${mes} ya está puesto y queda en verificación. ${noVeoElBanco}`, lleva: { hoja: 'pagos', etiqueta: 'Ver mis pagos' } }
+      }
       return {
-        texto:
-          'No tengo acceso a la cuenta del banco, así que no puedo ver depósitos. ' +
-          (estado
-            ? `Lo que sí veo es que tu pago de ${String(pagos.nombreMes)} está ${estado}; lo confirma quien administra contra el estado de cuenta.`
-            : 'Los pagos los confirma quien administra contra el estado de cuenta.'),
-        lleva: mio ? { hoja: 'pagos', etiqueta: 'Ver mis pagos' } : null,
+        texto: `De ${mes} todavía no hay nada registrado a tu nombre. Cuando transfieras, avisa desde Cómo pagar y quien administra lo confirma contra el estado de cuenta.`,
+        lleva: { hoja: 'pagar', etiqueta: 'Ver cómo pagar' },
       }
     }
 
+    /**
+     * La cuota. La pregunta que más se hace.
+     *
+     * Lleva el estado del pago pegado, que es lo que se va a preguntar
+     * después. Proactivo quiere decir eso: contestar la segunda pregunta sin
+     * que haya que escribirla.
+     */
     case 'cuota': {
       if (!contexto.dpto) {
-        return { texto: 'Todavía no sé cuál es tu departamento. Elígelo y te digo tu cuota.', lleva: null }
+        return { texto: 'Todavía no sé en qué departamento vives. Elígelo arriba y te digo tu cuota del mes.', lleva: null }
       }
       const c = await llamar('cuotaDe', {}, contexto, llamadas)
       if (c.valido === false) {
         return {
-          texto: `${capitalizar(String(c.nombreMes ?? 'ese mes'))} todavía no está cerrado, así que aún no hay cuota que decirte.`,
+          texto: `${capitalizar(String(c.nombreMes ?? 'ese mes'))} todavía no está cerrado, así que la cuota no está calculada. En cuanto se cierre te la puedo desglosar.`,
           lleva: null,
         }
       }
+      const pagos = await llamar('estadoPagos', {}, contexto, llamadas)
+      const mio = contexto.dpto
+      const comoVa = (pagos.alDia as string[]).includes(mio)
+        ? 'Ya está pagada y confirmada.'
+        : (pagos.enVerificacion as string[]).includes(mio)
+          ? 'Ya avisaste el depósito y queda por confirmar.'
+          : 'Todavía no hay pago registrado.'
       return {
         texto:
-          `Tu cuota de ${String(c.nombreMes)} es S/ ${fmt(c.total as number)}: ` +
-          `S/ ${fmt(c.mantenimiento as number)} de mantenimiento y S/ ${fmt(c.agua as number)} de agua.`,
-        lleva: { hoja: 'calculo', etiqueta: 'Ver el cálculo completo' },
+          `Tu cuota de ${String(c.nombreMes)} es S/ ${fmt(c.total as number)}, entre S/ ${fmt(c.mantenimiento as number)} ` +
+          `de mantenimiento y S/ ${fmt(c.agua as number)} de agua. ${comoVa}`,
+        lleva: { hoja: 'calculo', etiqueta: 'Ver de dónde sale cada monto' },
       }
     }
 
+    /**
+     * El agua. La que más dudas genera, porque el monto no sale solo del
+     * medidor propio.
+     *
+     * Por eso la segunda frase **explica de dónde salen los m³** en vez de
+     * repetir la cifra con otras palabras: lo que marcó el medidor, la parte
+     * del área común y, si lo tiene, el lavado. Es la diferencia entre decir
+     * el número y decir por qué es ese número.
+     */
     case 'agua': {
       const mes = await llamar('calcularMes', {}, contexto, llamadas)
       if (!contexto.dpto) {
         return {
           texto:
             mes.valido === false
-              ? 'Todavía no hay recibo de agua de este mes.'
-              : `El edificio consumió ${String(mes.aguaM3)} m³ en ${String(mes.nombreMes)} y SEDAPAL facturó S/ ${fmt(mes.facturaAgua as number)}.`,
+              ? 'Todavía no está cargado el recibo de SEDAPAL de este mes, así que el agua no está repartida.'
+              : `El edificio consumió ${String(mes.aguaM3)} m³ en ${String(mes.nombreMes)} y SEDAPAL facturó S/ ${fmt(mes.facturaAgua as number)}. Eso es lo que se reparte entre los siete.`,
           lleva: null,
         }
       }
@@ -173,100 +201,147 @@ async function redactar(
       const ultimo = meses[meses.length - 1]
       const anterior = meses[meses.length - 2]
       if (!ultimo) {
-        return { texto: 'Todavía no hay consumos registrados de tu departamento.', lleva: null }
+        return { texto: 'Todavía no hay lecturas cargadas de tu medidor, así que no puedo decirte tu consumo.', lleva: null }
       }
+      const c = await llamar('cuotaDe', {}, contexto, llamadas)
+      const desglose =
+        c.valido === false
+          ? ''
+          : ` Tu medidor marcó ${fmt(c.m3medidos as number)} m³ y el resto es tu parte del área común` +
+            ((c.lavado as number) > 0 ? `, más ${fmt(c.lavado as number)} del lavado del carro.` : '.')
       return {
         texto: anterior
-          ? `En ${ultimo.nombreMes} te cobraron ${fmt(ultimo.m3)} m³ y en ${anterior.nombreMes} ${fmt(anterior.m3)}. Tu promedio del año es ${fmt(consumo.promedio as number)} m³.`
-          : `En ${ultimo.nombreMes} te cobraron ${fmt(ultimo.m3)} m³. Es el primer mes, así que todavía no hay con qué compararlo.`,
-        lleva: { hoja: 'agua', etiqueta: 'Ver mi consumo' },
+          ? `En ${ultimo.nombreMes} te tocaron ${fmt(ultimo.m3)} m³ y en ${anterior.nombreMes} fueron ${fmt(anterior.m3)}, con un promedio del año de ${fmt(consumo.promedio as number)}.${desglose}`
+          : `En ${ultimo.nombreMes} te tocaron ${fmt(ultimo.m3)} m³, y es el primer mes cargado, así que todavía no hay con qué compararlo.${desglose}`,
+        lleva: { hoja: 'agua', etiqueta: 'Ver mi consumo mes a mes' },
       }
     }
 
+    /**
+     * Cómo van los pagos.
+     *
+     * Lo bueno primero (`05` §3) y **lo pendiente sin sujeto que juzgar**: «del
+     * 501 todavía no hay aviso», no «el 501 no ha avisado». Es la misma
+     * información y no señala a nadie, que es lo que `05` §2 pide con «datos,
+     * no caracteres». Nunca «moroso», «deudor» ni «vencido».
+     */
     case 'pagos': {
       const p = await llamar('estadoPagos', {}, contexto, llamadas)
-      const faltan = (p.sinRegistrar as string[]).map((d) => `el ${d}`)
-      const verificando = (p.enVerificacion as string[]).map((d) => `el ${d}`)
-      // Reporta lo bueno también (`05` §3): primero lo que va bien.
-      const bueno = `${capitalizar(String(p.nombreMes))} va con ${String(p.cuantosAlDia)} de ${String(p.deCuantos)} al día`
+      const faltan = (p.sinRegistrar as string[]).map((d) => `del ${d}`)
+      const verificando = (p.enVerificacion as string[]).map((d) => `del ${d}`)
+      const bueno = `${capitalizar(String(p.nombreMes))} va con ${String(p.cuantosAlDia)} de ${String(p.deCuantos)} pagos confirmados`
       if (faltan.length === 0 && verificando.length === 0) {
-        return { texto: `${bueno}: están los siete.`, lleva: null }
+        return { texto: `${bueno}, o sea los siete. Mes cerrado y sin nada pendiente.`, lleva: null }
       }
-      /**
-       * Dos pendientes distintos se separan con punto y coma, no con otra «y».
-       * Con «y» salía *«Queda el 201 avisó y falta confirmar y el 501 sin aviso
-       * todavía»*: dos «y» en una frase, y la primera parecía unir «confirmar»
-       * con «el 501».
-       */
       const pendiente = [
-        verificando.length > 0
-          ? `${capitalizar(enumerar(verificando))} ${verificando.length === 1 ? 'avisó' : 'avisaron'} y falta confirmarlo`
-          : '',
-        faltan.length > 0
-          ? `${enumerar(faltan)} ${faltan.length === 1 ? 'todavía no avisa' : 'todavía no avisan'} nada`
-          : '',
+        verificando.length > 0 ? `${enumerar(verificando)} falta confirmar el depósito` : '',
+        faltan.length > 0 ? `${enumerar(faltan)} todavía no hay aviso` : '',
       ].filter(Boolean)
-      // La segunda mitad va con minúscula tras el punto y coma; si solo hay una
-      // pendiente, la mayúscula de `capitalizar` la pone bien igual.
-      const frase = pendiente.length === 2 ? pendiente.join('; ') : capitalizar(pendiente[0]!)
-      return { texto: `${bueno}. ${frase}.`, lleva: null }
+      return { texto: `${bueno}. ${capitalizar(pendiente.join(', y '))}.`, lleva: null }
     }
 
+    /**
+     * El lavado del carro. La reasignación que más se pregunta.
+     *
+     * El texto sale de la herramienta, que es donde vive la frase de `05` §3
+     * con las cifras del mes puestas.
+     */
     case 'lavado': {
       const l = await llamar('explicaLavado', {}, contexto, llamadas)
       if (l.valido === false) {
-        return { texto: 'Ese mes todavía no está cerrado, así que no puedo decirte cómo quedó el lavado.', lleva: null }
+        return { texto: 'Ese mes todavía no está cerrado, así que el lavado no está repartido. Te lo puedo explicar en cuanto se cierre.', lleva: null }
       }
       if (l.activo === false) {
         return {
-          texto: `En ${String(l.nombreMes)} el lavado no se aplicó, así que el área común se repartió entre los siete.`,
-          lleva: null,
+          texto: `En ${String(l.nombreMes)} el lavado no se cobró, así que el área común se repartió completa entre los siete. Cuando está activo, esos m³ se le cargan al 401 y se restan del área común.`,
+          lleva: { hoja: 'calculo', etiqueta: 'Ver de dónde sale cada monto' },
         }
       }
-      return { texto: String(l.explicacion), lleva: { hoja: 'calculo', etiqueta: 'Ver el cálculo' } }
+      return { texto: String(l.explicacion), lleva: { hoja: 'calculo', etiqueta: 'Ver de dónde sale cada monto' } }
     }
 
+    /**
+     * En qué se gastó.
+     *
+     * Además de los dos conceptos más grandes, avisa si queda algún monto por
+     * confirmar. Ese dato cambia cómo se lee el total, y no estaba.
+     */
     case 'gastos': {
       const g = await llamar('gastosDe', {}, contexto, llamadas)
       if (g.valido === false) {
-        return { texto: `${capitalizar(String(g.nombreMes ?? 'ese mes'))} todavía no está cerrado.`, lleva: null }
+        return { texto: `${capitalizar(String(g.nombreMes ?? 'ese mes'))} todavía no está cerrado, así que los gastos pueden moverse. Te los cuento cuando se cierre.`, lleva: null }
       }
-      const gastos = (g.gastos as { concepto: string; monto: number | null }[])
+      const todos = g.gastos as { concepto: string; monto: number | null; porConfirmar: boolean }[]
+      const grandes = todos
         .filter((x) => x.monto !== null)
         .sort((a, b) => (b.monto ?? 0) - (a.monto ?? 0))
         .slice(0, 2)
+      const porConfirmar = todos.filter((x) => x.porConfirmar).map((x) => x.concepto)
+      const cola =
+        porConfirmar.length > 0
+          ? ` Ojo que ${enumerar(porConfirmar)} ${porConfirmar.length === 1 ? 'está' : 'están'} por confirmar.`
+          : ''
       return {
         texto:
-          `${capitalizar(String(g.nombreMes))} costó S/ ${fmt(g.total as number)}. Lo más grande: ` +
-          `${gastos.map((x) => `${x.concepto} S/ ${fmt(x.monto ?? 0)}`).join(' y ')}.`,
-        lleva: { hoja: 'calculo', etiqueta: 'Ver el cálculo completo' },
+          `${capitalizar(String(g.nombreMes))} costó S/ ${fmt(g.total as number)} entre los siete. ` +
+          `Lo más grande fue ${grandes.map((x) => `${x.concepto} con S/ ${fmt(x.monto ?? 0)}`).join(', y después ')}.${cola}`,
+        lleva: { hoja: 'calculo', etiqueta: 'Ver de dónde sale cada monto' },
       }
     }
 
+    /**
+     * El saldo de la cuenta conjunta.
+     *
+     * Dice **si el fondo subió o bajó**, que es la lectura que importa y que la
+     * versión anterior dejaba a cargo del vecino: enseñaba tres cifras y que él
+     * dedujera cuál era mayor.
+     */
     case 'saldo': {
       const s = await llamar('serieSaldo', {}, contexto, llamadas)
       const meses = s.meses as { nombreMes: string; saldo: number; recibido: number; gastado: number }[]
       const ultimo = meses[meses.length - 1]
-      if (!ultimo) return { texto: 'Todavía no hay meses cerrados que sumar.', lleva: null }
+      if (!ultimo) return { texto: 'Todavía no hay meses cerrados, así que la cuenta no tiene movimientos que sumar.', lleva: null }
+      const movimiento =
+        ultimo.recibido > ultimo.gastado
+          ? 'así que el fondo subió'
+          : ultimo.recibido < ultimo.gastado
+            ? 'así que el fondo bajó'
+            : 'así que el fondo quedó igual'
       return {
         texto:
-          `La cuenta conjunta cerró ${ultimo.nombreMes} en S/ ${fmt(ultimo.saldo)}: ` +
-          `entraron S/ ${fmt(ultimo.recibido)} y se gastaron S/ ${fmt(ultimo.gastado)}.`,
+          `En ${ultimo.nombreMes} entraron S/ ${fmt(ultimo.recibido)} y salieron S/ ${fmt(ultimo.gastado)}, ${movimiento}. ` +
+          `La cuenta conjunta cerró el mes en S/ ${fmt(ultimo.saldo)}.`,
         lleva: null,
       }
     }
 
+    /**
+     * Comparar dos meses.
+     *
+     * La segunda frase dice **de dónde viene la diferencia**, agua o el resto,
+     * con las dos cifras que devuelve la herramienta. Antes solo daba los dos
+     * totales y el vecino se quedaba con la pregunta de siempre: por qué.
+     */
     case 'comparar': {
       const c = await llamar('comparaMeses', {}, contexto, llamadas)
-      if (c.valido === false) return { texto: 'Todavía no hay dos meses cerrados que comparar.', lleva: null }
+      if (c.valido === false) return { texto: 'Todavía no hay dos meses cerrados que comparar. Con el siguiente cierre ya te puedo decir qué cambió.', lleva: null }
       const dif = c.diferenciaTotal as number
+      const mesB = capitalizar(String(c.nombreMesB))
+      const mesA = String(c.nombreMesA)
+      if (dif === 0) {
+        return { texto: `${mesB} costó lo mismo que ${mesA}: S/ ${fmt(c.totalB as number)} los dos.`, lleva: { hoja: 'calculo', etiqueta: 'Ver de dónde sale cada monto' } }
+      }
+      const difAgua = c.diferenciaAgua as number
+      const difResto = c.diferenciaResto as number
+      const porQue =
+        Math.abs(difAgua) >= Math.abs(difResto)
+          ? `Casi todo es el agua: SEDAPAL facturó S/ ${fmt(c.facturaAguaB as number)} contra S/ ${fmt(c.facturaAguaA as number)}.`
+          : `El agua se movió S/ ${fmt(Math.abs(difAgua))} y los otros gastos S/ ${fmt(Math.abs(difResto))}, así que el grueso no es el agua.`
       return {
         texto:
-          dif === 0
-            ? `${capitalizar(String(c.nombreMesB))} costó lo mismo que ${String(c.nombreMesA)}: S/ ${fmt(c.totalB as number)}.`
-            : `${capitalizar(String(c.nombreMesB))} costó S/ ${fmt(Math.abs(dif))} ${dif > 0 ? 'más' : 'menos'} que ${String(c.nombreMesA)}: ` +
-              `S/ ${fmt(c.totalB as number)} contra S/ ${fmt(c.totalA as number)}.`,
-        lleva: { hoja: 'calculo', etiqueta: 'Ver el cálculo' },
+          `${mesB} costó S/ ${fmt(Math.abs(dif))} ${dif > 0 ? 'más' : 'menos'} que ${mesA}, ` +
+          `S/ ${fmt(c.totalB as number)} contra S/ ${fmt(c.totalA as number)}. ${porQue}`,
+        lleva: { hoja: 'calculo', etiqueta: 'Ver de dónde sale cada monto' },
       }
     }
 
@@ -274,13 +349,13 @@ async function redactar(
       /**
        * Lo que no sabe. `05` §2: **si no tiene el dato, lo dice**.
        *
-       * Y dice qué sí puede, en vez de disculparse: la lista de lo posible es
-       * más útil que una disculpa por lo imposible.
+       * Y ofrece la lista de lo que sí hay, en vez de disculparse. Sin «lo
+       * siento», sin «como asistente» y sin «¿quieres que profundice?».
        */
       return {
         texto:
-          'De eso no tengo dato. Puedo decirte tu cuota, tu consumo de agua, en qué se gastó el mes, ' +
-          'cómo va la cuenta o quién falta por pagar.',
+          'De eso no tengo dato. Te puedo contar tu cuota del mes, tu consumo de agua, en qué se fue la plata, ' +
+          'cómo va el fondo de la cuenta o cómo van los pagos.',
         lleva: null,
       }
   }

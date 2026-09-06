@@ -191,8 +191,21 @@ describe('5 · Bob no habla del banco · `05` §2', () => {
   it('dice que no tiene acceso y quién lo verifica', async () => {
     for (const pregunta of ['¿Viste mi depósito?', '¿Llegó mi transferencia?', '¿Qué dice el banco?']) {
       const r = await preguntarABob(pregunta, YO)
-      expect(r.texto, pregunta).toContain('No tengo acceso a la cuenta del banco')
+      /**
+       * Se afirma **el contenido, no la redacción**.
+       *
+       * La versión anterior comparaba contra la frase literal «No tengo acceso
+       * a la cuenta del banco». Al mejorar el texto, el test se puso rojo sin
+       * que nada del contrato de `05` §2 se hubiera roto: un test atado a las
+       * letras convierte cada corrección de estilo en un falso positivo, y a
+       * los tres falsos positivos alguien lo relaja de verdad.
+       *
+       * Las tres cosas que sí tienen que estar: que el límite se diga, que se
+       * nombre a quién sí puede, y contra qué lo verifica.
+       */
+      expect(r.texto, pregunta).toMatch(/no los veo yo|no tengo acceso|no veo (los )?dep[óo]sitos/i)
       expect(r.texto, pregunta).toContain('quien administra')
+      expect(r.texto, pregunta).toMatch(/estado de cuenta|banco/i)
       // Nunca una fecha ni un monto de depósito: eso sería inventarlo.
       expect(r.texto, pregunta).not.toMatch(/dep[óo]sito de S\//i)
     }
@@ -205,7 +218,8 @@ describe('5 · Bob no habla del banco · `05` §2', () => {
 
     const r = await preguntarABob('¿Viste mi depósito?', YO)
     expect(r.motivoCaida).toBe('numero-inventado')
-    expect(r.texto).toContain('No tengo acceso a la cuenta del banco')
+    expect(r.texto).toMatch(/no los veo yo|no tengo acceso|no veo (los )?dep[óo]sitos/i)
+    expect(r.texto).toContain('quien administra')
   })
 })
 
