@@ -10,6 +10,21 @@ export function esMesId(valor: unknown): valor is MesId {
 }
 
 /**
+ * Estrecha una cadena de la base a `MesId`, **en un solo sitio y con guardia**.
+ *
+ * La columna `mes` es `VarChar(7)` para Postgres y `MesId` para TypeScript, y la
+ * base garantiza la forma con un `CHECK` de patrón (migración
+ * `20260905183000_reglas_de_integridad`). El cast `as MesId` estaba repetido por
+ * media docena de ficheros; aquí se hace una vez, y además se comprueba: si una
+ * fila llegara mal formada —una migración a medias, una escritura a mano—, salta
+ * en vez de propagar un `'NaN-NaN'` en silencio.
+ */
+export function comoMes(valor: string): MesId {
+  if (!esMesId(valor)) throw new Error(`Mes mal formado en la base: ${JSON.stringify(valor)}`)
+  return valor
+}
+
+/**
  * Comprueba la forma y lanza si no es un mes.
  *
  * Sin esto, `mesAnterior('junio')` devolvía `'NaN-NaN'`, `mesCorto('2026-13')`

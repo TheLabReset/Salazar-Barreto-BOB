@@ -7,7 +7,7 @@
  */
 
 import { serieSaldo, type MesConPagos } from '@/lib/calculo/saldo'
-import { etiquetaMes, mesAnterior, mesCorto, nombreMes } from '@/lib/calculo/mes'
+import { etiquetaMes, mesAnterior, mesCorto, nombreMes, comoMes } from '@/lib/calculo/mes'
 import { DPTO_IDS } from '@/lib/calculo/constantes'
 import type { FilaSaldo, MesId, ResultadoMes } from '@/lib/calculo/tipos'
 import { aNumeroObligatorio } from './decimal'
@@ -31,14 +31,8 @@ export interface ResumenMes {
 /** Los meses que tienen recibo, del más antiguo al más nuevo. */
 export async function mesesConDatos(): Promise<MesId[]> {
   const filas = await prisma.recibo.findMany({ select: { mes: true }, orderBy: { mes: 'asc' } })
-  /**
-   * `as MesId`: la columna es `VarChar(7)` para Postgres y `MesId` para
-   * TypeScript, y la base garantiza la forma con un `CHECK` de patrón (ver la
-   * migración `20260905183000_reglas_de_integridad`). Es el único punto donde
-   * las dos verdades se juntan, y por eso el estrechamiento vive aquí y no
-   * repartido por las pantallas.
-   */
-  return filas.map((f) => f.mes as MesId)
+  // `comoMes` estrecha y comprueba la cadena de la base (ver su docstring).
+  return filas.map((f) => comoMes(f.mes))
 }
 
 /**
@@ -53,14 +47,8 @@ export async function mesesPublicados(): Promise<MesId[]> {
     select: { mes: true },
     orderBy: { mes: 'asc' },
   })
-  /**
-   * `as MesId`: la columna es `VarChar(7)` para Postgres y `MesId` para
-   * TypeScript, y la base garantiza la forma con un `CHECK` de patrón (ver la
-   * migración `20260905183000_reglas_de_integridad`). Es el único punto donde
-   * las dos verdades se juntan, y por eso el estrechamiento vive aquí y no
-   * repartido por las pantallas.
-   */
-  return filas.map((f) => f.mes as MesId)
+  // `comoMes` estrecha y comprueba la cadena de la base (ver su docstring).
+  return filas.map((f) => comoMes(f.mes))
 }
 
 /** La lista de meses con su estado, para la pantalla de Historial y la API. */
@@ -190,6 +178,8 @@ export async function borradorDeMes(mes: MesId): Promise<Borrador> {
     notaQueCambio: cierre?.notaQueCambio ?? null,
     notaQuePendiente: cierre?.notaQuePendiente ?? null,
     resultado,
+    // `Lecturas` es `Partial<Record<DptoId, number>>`; el borrador las expone
+    // como diccionario llano para la interfaz, que las lee por id de dpto.
     lecturas: entradas.lecturas as Record<string, number>,
     lecturasAnteriores: entradas.lecturasAnteriores as Record<string, number>,
     promedios: await promediosDeConsumo(mes),
@@ -230,7 +220,7 @@ export async function m3DeLosMesesAnteriores(
     take: 2,
     select: { mes: true, aguaM3: true },
   })
-  return filas.map((f) => ({ mes: nombreMes(f.mes as MesId), m3: f.aguaM3 }))
+  return filas.map((f) => ({ mes: nombreMes(comoMes(f.mes)), m3: f.aguaM3 }))
 }
 
 /**
@@ -246,7 +236,7 @@ export async function luzDeLosMesesAnteriores(
     take: 2,
     select: { mes: true, luz: true },
   })
-  return filas.map((f) => ({ mes: nombreMes(f.mes as MesId), luz: aNumeroObligatorio(f.luz) }))
+  return filas.map((f) => ({ mes: nombreMes(comoMes(f.mes)), luz: aNumeroObligatorio(f.luz) }))
 }
 
 /**

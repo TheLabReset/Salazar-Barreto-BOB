@@ -105,6 +105,8 @@ async function ejecutar(
   const h = herramienta(nombre)
   let argumentos: Record<string, unknown> = {}
   try {
+    // Los argumentos los serializa el modelo; `JSON.parse` da `any`, y se tratan
+    // como diccionario. Cada herramienta valida lo suyo con Zod al ejecutarse.
     argumentos = argumentosCrudos ? (JSON.parse(argumentosCrudos) as Record<string, unknown>) : {}
   } catch {
     argumentos = {}

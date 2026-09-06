@@ -110,6 +110,7 @@ export async function confirmarPago(datos: ConfirmarPago) {
       mes: datos.mes,
     })
 
+    // `datos.dpto` ya pasó por `zDpto` en el borde de la API; es un id de dpto real.
     const cuota = resultado.valido ? resultado.cuotas[datos.dpto as DptoId].total : null
     await avisarSiPublicado(tx, datos.mes, {
       tipo: 'pago_confirmado',

@@ -66,9 +66,12 @@ export function ProveedorHojas({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const alVolver = (ev: PopStateEvent) => {
-      const clave = (ev.state as Record<string, unknown> | null)?.[MARCA]
+      // `history.state` es `any` por definición del DOM; se lee una sola marca.
+    const clave = (ev.state as Record<string, unknown> | null)?.[MARCA]
       cerrandoPorHistoria.current = true
-      setHoja(typeof clave === 'string' ? (clave as ClaveHoja) : null)
+      // `clave` se guardó con `pushState` desde `abrir(clave: ClaveHoja)`, así que
+    // si es una cadena, es una de las claves de hoja.
+    setHoja(typeof clave === 'string' ? (clave as ClaveHoja) : null)
       queueMicrotask(() => {
         cerrandoPorHistoria.current = false
       })

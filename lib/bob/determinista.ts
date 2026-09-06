@@ -35,6 +35,8 @@ async function llamar(
   const h = herramienta(nombre)
   if (!h) throw new Error(`No existe la herramienta ${nombre}`)
   const t = Date.now()
+  // Cada herramienta devuelve su propia forma; aquí se leen campos por nombre,
+  // así que se trata como diccionario. La guarda de números valida las cifras aparte.
   const resultado = (await h.ejecutar(argumentos, contexto)) as Record<string, unknown>
   llamadas.push({ herramienta: nombre, argumentos, resultado, ms: Date.now() - t })
   return resultado

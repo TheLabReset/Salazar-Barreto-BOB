@@ -7,7 +7,7 @@
  */
 
 import { DPTOS } from '@/lib/calculo/constantes'
-import { etiquetaMes, mesSiguiente, nombreMes } from '@/lib/calculo/mes'
+import { etiquetaMes, mesSiguiente, nombreMes, comoMes } from '@/lib/calculo/mes'
 import type { DptoId, MesId, PagosMes } from '@/lib/calculo/tipos'
 import { aNumeroObligatorio } from './decimal'
 import { pagosDe, resultadoDeMes } from './mes'
@@ -79,15 +79,17 @@ function aniosExportables(
       return {
         anio,
         mesesPublicados: ordenados.length,
-        desde: nombreMes(ordenados[0] as MesId),
-        hasta: nombreMes(ordenados[ordenados.length - 1] as MesId),
+        // `ordenados` nunca está vacío: el grupo se crea al encontrar un mes de
+        // ese año, así que el primero y el último existen.
+        desde: nombreMes(ordenados[0]!),
+        hasta: nombreMes(ordenados[ordenados.length - 1]!),
       }
     })
 }
 
 export async function panelDeAdmin(): Promise<DatosAdmin> {
   const [publicados, conDatos] = await Promise.all([mesesPublicados(), mesesConDatos()])
-  const mesPublicado = (publicados[publicados.length - 1] ?? null) as MesId | null
+  const mesPublicado: MesId | null = publicados[publicados.length - 1] ?? null
 
   // El mes a cerrar es el primero con datos **posterior** al último publicado.
   // Si no hay ninguno, el siguiente del calendario: el administrador va a
@@ -96,8 +98,8 @@ export async function panelDeAdmin(): Promise<DatosAdmin> {
   // El "posterior" no es un detalle: el mes base de la semilla —diciembre de
   // 2025— tiene recibo y no se publica nunca, porque existe solo para darle a
   // enero su lectura anterior. Sin esa condición, el cierre se abría sobre él.
-  const siguiente = mesPublicado ? mesSiguiente(mesPublicado) : (conDatos[0] ?? '2026-01')
-  const mesACerrar = (conDatos.find((m) => m > (mesPublicado ?? '')) ?? siguiente) as MesId
+  const siguiente = mesPublicado ? mesSiguiente(mesPublicado) : (conDatos[0] ?? comoMes('2026-01'))
+  const mesACerrar: MesId = conDatos.find((m) => m > (mesPublicado ?? '')) ?? siguiente
 
   const [cierre, resultado, pagosMes, fijos, reasignacion] = await Promise.all([
     prisma.cierre.findUnique({ where: { mes: mesACerrar } }),
@@ -117,7 +119,7 @@ export async function panelDeAdmin(): Promise<DatosAdmin> {
     mesPublicado,
     publicados: [...publicados]
       .sort((a, b) => b.localeCompare(a))
-      .map((m) => ({ mes: m as MesId, etiqueta: etiquetaMes(m as MesId) })),
+      .map((m) => ({ mes: comoMes(m), etiqueta: etiquetaMes(comoMes(m)) })),
     etiquetaPublicado: mesPublicado ? etiquetaMes(mesPublicado) : '',
     mesACerrar,
     etiquetaACerrar: etiquetaMes(mesACerrar),

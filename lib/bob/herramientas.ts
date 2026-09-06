@@ -13,7 +13,7 @@
 
 import { z } from 'zod'
 import { DPTOS, DPTO_IDS } from '@/lib/calculo/constantes'
-import { mesAnterior, nombreMes } from '@/lib/calculo/mes'
+import { mesAnterior, nombreMes, comoMes } from '@/lib/calculo/mes'
 import { fmt } from '@/lib/calculo/redondeo'
 import { serieDelSaldo, mesesPublicados } from '@/lib/datos/meses'
 import { pagosDe, resultadoDeMes } from '@/lib/datos/mes'
@@ -32,6 +32,8 @@ const zDpto = z.enum(DPTO_IDS as unknown as [string, ...string[]])
 /** El mes del contexto si no se pide otro. Bob no adivina meses. */
 function mesDe(argumentos: { mes?: string }, contexto: Contexto): MesId {
   const pedido = argumentos.mes
+  // `as MesId`: la rama que devuelve `pedido` solo se toma si `zMes` lo validó;
+  // `contexto.mes` ya es MesId. En los dos casos es un mes de verdad.
   return (pedido && zMes.safeParse(pedido).success ? pedido : contexto.mes) as MesId
 }
 
@@ -132,7 +134,7 @@ export const HERRAMIENTAS: Herramienta[] = [
         dpto,
         meses: h.filas.map((f) => ({
           mes: f.mes,
-          nombreMes: nombreMes(f.mes as MesId),
+          nombreMes: nombreMes(comoMes(f.mes)),
           m3: f.m3,
           lavado: f.lavado,
         })),
@@ -149,7 +151,7 @@ export const HERRAMIENTAS: Herramienta[] = [
       return {
         meses: serie.map((f) => ({
           mes: f.mes,
-          nombreMes: nombreMes(f.mes as MesId),
+          nombreMes: nombreMes(comoMes(f.mes)),
           recibido: f.recibido,
           gastado: f.gastado,
           saldo: f.saldo,
@@ -211,6 +213,7 @@ export const HERRAMIENTAS: Herramienta[] = [
     async ejecutar(argumentos, contexto) {
       const a = argumentos as unknown as { mesA?: string; mesB?: string }
       const mesB = mesDe({ mes: a.mesB }, contexto)
+      // `as MesId`: `a.mesA` solo se usa si `zMes` lo validó; `mesAnterior` ya da MesId.
       const mesA = (a.mesA && zMes.safeParse(a.mesA).success ? a.mesA : mesAnterior(mesB)) as MesId
       const [ra, rb] = await Promise.all([resultadoDeMes(mesA), resultadoDeMes(mesB)])
       if (!ra.valido || !rb.valido) {

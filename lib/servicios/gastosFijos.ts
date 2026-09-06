@@ -17,9 +17,8 @@
 
 import { prisma } from '@/lib/datos/prisma'
 import { aDecimal2, aNumero } from '@/lib/datos/decimal'
-import { nombreMes } from '@/lib/calculo/mes'
+import { nombreMes, comoMes } from '@/lib/calculo/mes'
 import { fmt } from '@/lib/calculo/redondeo'
-import type { MesId } from '@/lib/calculo/tipos'
 import type { GuardarGastosFijos } from '@/lib/esquemas'
 import { auditar, avisar } from './auditoria'
 import { exigirNoPublicado, tomarVersion } from './bloqueo'
@@ -90,10 +89,10 @@ export async function guardarGastosFijos(
         tipo: 'gasto_fijo',
         titulo:
           c.a === null
-            ? `${c.concepto} queda por confirmar desde ${nombreMes(datos.vigenteDesde as MesId)}`
+            ? `${c.concepto} queda por confirmar desde ${nombreMes(comoMes(datos.vigenteDesde))}`
             : c.de === null
-              ? `${c.concepto} queda en S/ ${fmt(c.a)} desde ${nombreMes(datos.vigenteDesde as MesId)}`
-              : `${c.concepto} pasó de S/ ${fmt(c.de)} a S/ ${fmt(c.a)} desde ${nombreMes(datos.vigenteDesde as MesId)}`,
+              ? `${c.concepto} queda en S/ ${fmt(c.a)} desde ${nombreMes(comoMes(datos.vigenteDesde))}`
+              : `${c.concepto} pasó de S/ ${fmt(c.de)} a S/ ${fmt(c.a)} desde ${nombreMes(comoMes(datos.vigenteDesde))}`,
         detalle: 'Los meses ya cerrados no cambian.',
         mes: datos.vigenteDesde,
       })
