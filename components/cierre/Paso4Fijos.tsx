@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { COPYS } from '@/lib/copys'
 import { fmt } from '@/lib/calculo/redondeo'
 import { CONCEPTO_AGUA, CONCEPTO_LUZ } from '@/lib/calculo/constantes'
@@ -23,6 +24,20 @@ export function Paso4Fijos({ borrador, guardar, guardando, errorGuardar, avanzar
   )
   const suman = fijos.reduce((s, g) => s + (g.monto ?? 0), 0)
   const sinCifra = fijos.filter((g) => g.porConfirmar)
+
+  const [agregando, setAgregando] = useState(false)
+  const [nombre, setNombre] = useState('')
+  const [anual, setAnual] = useState(false)
+  const nombreLimpio = nombre.trim()
+  const yaExiste = fijos.some((g) => g.concepto.toLowerCase() === nombreLimpio.toLowerCase())
+
+  const guardarNuevo = (monto: number | null) => {
+    if (!nombreLimpio || yaExiste) return
+    void guardar('gastos-fijos', { concepto: nombreLimpio, monto, anual })
+    setNombre('')
+    setAnual(false)
+    setAgregando(false)
+  }
 
   return (
     <div className="cierre-cuerpo">
@@ -59,6 +74,62 @@ export function Paso4Fijos({ borrador, guardar, guardando, errorGuardar, avanzar
         <span className="tipo-etiqueta-seccion text-sobre-noche-etiqueta">{COPYS.cierre.suman}</span>
         <span className="tipo-cifra-bloque">{fmt(suman)}</span>
       </div>
+
+      {!agregando ? (
+        <button type="button" onClick={() => setAgregando(true)} className="puntual-boton fijo-anadir">
+          <span className="tipo-cuerpo-lista block">+ {COPYS.cierre.anadirConcepto}</span>
+          <span className="tipo-contexto-chico block text-gris puntual-boton-ejemplo">
+            {COPYS.cierre.anadirConceptoEjemplo}
+          </span>
+        </button>
+      ) : (
+        <div className="fijo-nuevo">
+          <input
+            type="text"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder={COPYS.cierre.nombreConcepto}
+            aria-label={COPYS.cierre.nombreConcepto}
+            maxLength={80}
+            className="fijo-nuevo-nombre"
+            autoFocus
+          />
+          <label className="fijo-nuevo-anual">
+            <input type="checkbox" checked={anual} onChange={(e) => setAnual(e.target.checked)} className="casilla" />
+            <span className="tipo-cuerpo-chico">{COPYS.cierre.conceptoAnual}</span>
+          </label>
+          {yaExiste && <p className="tipo-contexto-chico text-ambar">{COPYS.cierre.conceptoRepetido}</p>}
+          <div className="fijo-nuevo-acciones">
+            <button
+              type="button"
+              disabled={!nombreLimpio || yaExiste}
+              onClick={() =>
+                abrir({
+                  etiqueta: nombreLimpio,
+                  decimales: true,
+                  maxDecimales: 2,
+                  sufijo: 'S/',
+                  onOk: (v) => guardarNuevo(v),
+                })
+              }
+              className="fijo-nuevo-boton"
+            >
+              {COPYS.cierre.conceptoConMonto}
+            </button>
+            <button
+              type="button"
+              disabled={!nombreLimpio || yaExiste}
+              onClick={() => guardarNuevo(null)}
+              className="fijo-nuevo-boton"
+            >
+              {COPYS.cierre.conceptoPorConfirmar}
+            </button>
+          </div>
+          <button type="button" onClick={() => setAgregando(false)} className="fijo-nuevo-cancelar tipo-contexto-chico">
+            {COPYS.cierre.conceptoCancelar}
+          </button>
+        </div>
+      )}
 
       {sinCifra.length > 0 && (
         <AvisoBob>

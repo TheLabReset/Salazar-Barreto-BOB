@@ -2231,6 +2231,52 @@
   border-radius: var(--radius-mini);
   border-bottom-color: transparent;
 }
+/* Agregar un concepto fijo nuevo (data que se inyecta en vivo desde el panel). */
+.fijo-anadir {
+  margin-top: 14px;
+}
+.fijo-nuevo {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: var(--radius-tarjeta);
+  background: var(--color-neutro-suave);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fijo-nuevo-nombre {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius-chico);
+  border: 1px solid var(--color-linea);
+  background: var(--color-papel);
+  font: 400 15px/1.2 var(--font-cuerpo);
+}
+.fijo-nuevo-anual {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fijo-nuevo-acciones {
+  display: flex;
+  gap: 8px;
+}
+.fijo-nuevo-boton {
+  flex: 1;
+  padding: 12px 10px;
+  border-radius: var(--radius-chico);
+  background: var(--color-verde-suave);
+  color: var(--color-verde-oscuro);
+  font: 500 13.5px/1.2 var(--font-cuerpo);
+}
+.fijo-nuevo-boton:disabled {
+  opacity: 0.45;
+}
+.fijo-nuevo-cancelar {
+  color: var(--color-gris);
+  text-decoration: underline;
+  align-self: flex-start;
+}
 .fijos-suman {
   margin-top: 18px;
   background: var(--color-noche);

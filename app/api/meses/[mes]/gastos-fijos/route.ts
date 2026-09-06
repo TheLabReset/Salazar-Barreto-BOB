@@ -7,6 +7,8 @@ import type { MesId } from '@/lib/calculo/tipos'
 const zUno = z.object({
   concepto: zTexto(80).min(1),
   monto: zMonto.nullable(),
+  /** Anual se divide entre 12. Se manda solo al crear o cambiar la marca. */
+  anual: z.boolean().optional(),
   /**
    * El bloqueo optimista, que este esquema **no declaraba**.
    *
@@ -37,7 +39,10 @@ export async function PUT(peticion: Request, ctx: { params: Promise<{ mes: strin
     const mesId = validarParametro(mes, zMes, 'mes') as MesId
     const cambio = await leerCuerpo(peticion, zUno)
     return guardarGastosFijos(
-      { cambios: [{ concepto: cambio.concepto, monto: cambio.monto }], vigenteDesde: mesId },
+      {
+        cambios: [{ concepto: cambio.concepto, monto: cambio.monto, anual: cambio.anual }],
+        vigenteDesde: mesId,
+      },
       true,
       cambio.version,
     )
