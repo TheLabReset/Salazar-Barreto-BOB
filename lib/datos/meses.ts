@@ -146,7 +146,7 @@ export interface Borrador {
    */
   m3Anteriores: { mes: string; m3: number }[]
   /** Los m³ del lavado configurados y si está activo este mes. */
-  lavado: { m3: number; activo: boolean; dpto: string; concepto: string } | null
+  lavado: { m3: number; activo: boolean; aplicado: boolean; dpto: string; concepto: string } | null
 }
 
 /** Todo lo que el cierre del mes necesita para pintarse. */
@@ -177,7 +177,14 @@ export async function borradorDeMes(mes: MesId): Promise<Borrador> {
     lavado: reasignacion
       ? {
           m3: aNumeroObligatorio(reasignacion.m3),
+          // `activo` es el interruptor: lo que el administrador dejó marcado.
           activo: entradas.lavadoM3 > 0,
+          // `aplicado` es lo que de verdad pasó. `01` §3.3: el lavado puede estar
+          // activado y aun así no aplicarse si no hay bastante área común de
+          // donde sacarlo, o si el mes va en reparto ajustado. Cuando eso pasa,
+          // «la app lo dice explícitamente en pantalla», y para decirlo hay que
+          // distinguir las dos cosas: querer aplicarlo y haberlo aplicado.
+          aplicado: resultado.lavado > 0,
           dpto: reasignacion.dptoId,
           concepto: reasignacion.concepto,
         }

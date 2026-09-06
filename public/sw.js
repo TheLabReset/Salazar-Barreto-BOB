@@ -294,7 +294,7 @@ self.addEventListener('fetch', (ev) => {
     if (
       url.pathname.startsWith('/api/admin/') ||
       url.pathname.startsWith('/api/pruebas/') ||
-      url.pathname.endsWith('/borrador') ||
+      false ||
       url.pathname.startsWith('/api/export/')
     ) {
       return

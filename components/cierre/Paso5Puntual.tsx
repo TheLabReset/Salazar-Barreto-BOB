@@ -134,7 +134,11 @@ export function Paso5Puntual({ borrador, guardar, guardando, errorGuardar, avanz
                 {lavado.dpto} · {lavado.concepto}
               </span>
               <span className="tipo-contexto-chico block text-gris puntual-quien">
-                {lavado.activo ? COPYS.cierre.lavadoActivo : COPYS.cierre.lavadoInactivo}
+                {!lavado.activo
+                  ? COPYS.cierre.lavadoInactivo
+                  : lavado.aplicado
+                    ? COPYS.cierre.lavadoActivo
+                    : COPYS.cierre.lavadoNoAplicado}
               </span>
             </span>
             {/* El valor sigue lo configurado en el panel, no se escribe aquí. */}

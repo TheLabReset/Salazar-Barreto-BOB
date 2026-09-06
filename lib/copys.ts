@@ -400,6 +400,9 @@ export const COPYS = {
     reasignaciones: 'Reasignaciones de agua · ¿siguen?',
     lavadoActivo: 'activo · se descuenta del área común',
     lavadoInactivo: 'desactivado este mes',
+    // `01` §3.3: activado, pero este mes no había de dónde sacarlo (poca área
+    // común o reparto ajustado), así que no se aplicó. La app tiene que decirlo.
+    lavadoNoAplicado: 'activado, pero este mes no había suficiente área común: no se aplicó',
     nadaMas: 'Nada más este mes, seguir',
     // Paso 6
     revisionTitulo: (mes: string) => `Así queda ${mes}`,

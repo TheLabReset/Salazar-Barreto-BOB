@@ -87,6 +87,34 @@ describe('los m³ del lavado se congelan al publicar', () => {
     expect(Number(marca!.m3)).toBe(1.5)
   })
 
+  it('el borrador dice si el lavado se aplicó, no solo si está activado', async () => {
+    /**
+     * `01` §3.3: el lavado puede estar activado y aun así no aplicarse si no hay
+     * bastante área común. «La app lo dice explícitamente en pantalla», y para
+     * decirlo el borrador distingue `activo` (el interruptor) de `aplicado` (lo
+     * que de verdad pasó). La auditoría final encontró que la casilla del paso 5
+     * decía «activo · se descuenta del área común» aun cuando no se descontó.
+     */
+    const { borradorDeMes } = await import('@/lib/datos/meses')
+
+    // Un mes normal: el lavado está activado y se aplica.
+    await cargarMesEnCurso(EN_CURSO)
+    const normal = await borradorDeMes(EN_CURSO as never)
+    expect(normal.lavado!.activo).toBe(true)
+    expect(normal.lavado!.aplicado).toBe(true)
+
+    // Bajamos los m³ de SEDAPAL por debajo de lo que midieron los medidores: el
+    // mes pasa a reparto ajustado, y `01` §3.3 dice que ahí el lavado no aplica.
+    // El interruptor sigue puesto; lo que cambia es que ya no hay de dónde sacarlo.
+    const { guardarRecibo } = await import('@/lib/servicios/cierre')
+    await guardarRecibo(EN_CURSO as never, { aguaM3: 1 })
+
+    const apretado = await borradorDeMes(EN_CURSO as never)
+    expect(apretado.resultado.valido && apretado.resultado.ajustado).toBe(true)
+    expect(apretado.lavado!.activo).toBe(true)      // el interruptor sigue puesto
+    expect(apretado.lavado!.aplicado).toBe(false)   // pero no se aplicó
+  })
+
   it('un mes desmarcado se congela sin m³, no con los del mes siguiente', async () => {
     await cargarMesEnCurso(EN_CURSO)
     const reasignacion = await prisma.reasignacionAgua.findFirstOrThrow()
