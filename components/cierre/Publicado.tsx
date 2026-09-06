@@ -4,6 +4,7 @@ import { COPYS } from '@/lib/copys'
 import { fmt } from '@/lib/calculo/redondeo'
 import { Hoja } from '@/components/hojas/Hoja'
 import { TarjetaNoche } from '@/components/ui/TarjetaNoche'
+import { AvisarWhatsapp, urlApp } from './AvisarWhatsapp'
 
 /** La pantalla de confirmación del paso 7. `04-cierre-del-mes.md`. */
 export function Publicado({
@@ -42,6 +43,7 @@ export function Publicado({
             repartido entre los siete{cuadra ? ' · el agua cuadró exacto' : ''}
           </p>
         </TarjetaNoche>
+        <AvisarWhatsapp mensaje={COPYS.avisar.mensajePublicado(mes, fmt(total), urlApp())} />
         <button type="button" onClick={onVolver} className="cierre-boton">
           {COPYS.cierre.volverAlPanel}
         </button>

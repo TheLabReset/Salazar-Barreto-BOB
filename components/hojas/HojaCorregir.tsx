@@ -10,6 +10,7 @@ import { fmt, fmt3 } from '@/lib/calculo/redondeo'
 import type { DptoId, MesId, ResultadoMes } from '@/lib/calculo/tipos'
 import { useNumpad } from '@/components/Numpad'
 import { useAnuncio } from '@/components/Anuncio'
+import { AvisarWhatsapp, urlApp } from '@/components/cierre/AvisarWhatsapp'
 import { Hoja } from './Hoja'
 import { useHoja } from './Hojas'
 import { Fallo } from '@/components/ui/Fallo'
@@ -100,6 +101,7 @@ export function HojaCorregir({
         <div className="cierre-cuerpo publicado">
           <h2 className="tipo-titulo-hoja publicado-titulo">{COPYS.correccion.hecho}</h2>
           <p className="tipo-cuerpo-chico text-gris publicado-texto">{hecho}</p>
+          <AvisarWhatsapp mensaje={COPYS.avisar.mensajeCorreccion(etiquetaMes(mes), urlApp())} />
           <button type="button" onClick={cerrar} className="cierre-boton">
             {COPYS.cierre.volverAlPanel}
           </button>

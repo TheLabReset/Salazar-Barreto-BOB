@@ -476,6 +476,17 @@ export const COPYS = {
     otroMonto: 'Entró otro monto',
     otroMontoEtiqueta: (dpto: string) => `¿Cuánto entró del ${dpto}?`,
   },
+  avisar: {
+    titulo: 'Avísales a los demás',
+    copiar: 'Copiar el mensaje',
+    copiado: '¡Copiado!',
+    whatsapp: 'Abrir WhatsApp',
+    // Mensaje listo para pegar en el grupo. Cálido, claro, sin sonar a cobrador.
+    mensajePublicado: (mes: string, total: string, url: string) =>
+      `Vecinos, ya está el cierre de ${mes}: S/ ${total} en total, repartido entre los siete. Pueden ver su cuota y cómo pagar acá: ${url}`,
+    mensajeCorreccion: (mes: string, url: string) =>
+      `Vecinos, corregí el cierre de ${mes}. Revisen su cuota actualizada acá: ${url}`,
+  },
   admin: {
     entrar: 'Administrar el edificio',
     pinTitulo: 'Administrar el edificio',

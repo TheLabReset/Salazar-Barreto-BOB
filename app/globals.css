@@ -2480,6 +2480,43 @@
 .publicado {
   text-align: center;
 }
+/* «Avísales a los demás»: el mensaje listo para copiar y el botón de WhatsApp. */
+.avisar {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: var(--radius-tarjeta);
+  background: var(--color-neutro-suave);
+  text-align: left;
+}
+.avisar-titulo {
+  margin-bottom: 8px;
+}
+.avisar-mensaje {
+  color: var(--color-tinta);
+  white-space: pre-wrap;
+  margin-bottom: 12px;
+}
+.avisar-acciones {
+  display: flex;
+  gap: 8px;
+}
+.avisar-copiar,
+.avisar-wa {
+  flex: 1;
+  text-align: center;
+  padding: 12px 10px;
+  border-radius: var(--radius-chico);
+  font: 500 13.5px/1.2 var(--font-cuerpo);
+}
+.avisar-copiar {
+  background: var(--color-papel);
+  color: var(--color-tinta);
+  border: 1px solid var(--color-linea);
+}
+.avisar-wa {
+  background: var(--color-verde);
+  color: var(--color-sobre-noche);
+}
 .publicado-icono {
   width: 56px;
   height: 56px;
