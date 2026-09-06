@@ -69,9 +69,29 @@ export async function exigirAdmin(): Promise<void> {
 /** La IP de quien pide, para el límite de intentos. */
 export async function ipDeLaPeticion(): Promise<string> {
   const cabeceras = await headers()
+  /**
+   * **`x-real-ip` primero, no `x-forwarded-for`.**
+   *
+   * Quien ataca controla el contenido de `x-forwarded-for`, y la versión
+   * anterior tomaba su primer elemento —el más a la izquierda—, que es justo el
+   * que el cliente pone. Así, cambiando la cabecera en cada intento, el límite
+   * del PIN por IP no se tocaba nunca. En Vercel `x-real-ip` lo fija la
+   * plataforma con la IP real de la conexión y sobrescribe lo que mande el
+   * cliente, así que es el dato en el que se puede confiar.
+   *
+   * Si sólo llega `x-forwarded-for`, se toma el **último** elemento, que es el
+   * que añade el proxy de confianza más cercano, no el primero que pone el
+   * cliente. Aun así, el freno real contra la IP falsa es el techo global de
+   * `validarPin`: esto solo evita bloquear a un vecino honesto por culpa de otro.
+   */
+  const real = cabeceras.get('x-real-ip')?.trim()
+  if (real) return real
   const reenviada = cabeceras.get('x-forwarded-for')
-  if (reenviada) return reenviada.split(',')[0]!.trim()
-  return cabeceras.get('x-real-ip') ?? 'desconocida'
+  if (reenviada) {
+    const partes = reenviada.split(',').map((p) => p.trim()).filter(Boolean)
+    if (partes.length > 0) return partes[partes.length - 1]!
+  }
+  return 'desconocida'
 }
 
 /**

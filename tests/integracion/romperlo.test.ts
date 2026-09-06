@@ -286,6 +286,38 @@ describe('el PIN', () => {
   })
 
   /**
+   * **El límite por IP no basta: la IP viene de una cabecera que se falsea.**
+   *
+   * Lo encontró la auditoría final ejecutando contra la app construida. La IP
+   * sale de `x-forwarded-for`, que controla quien pide, así que rotándola en
+   * cada intento el tope por IP no se toca nunca y los diez mil PINes vuelven a
+   * estar al alcance. La defensa es el tope **global**: 40 fallos por ventana
+   * sumando todas las IP.
+   *
+   * Este test simula el ataque llamando a `validarPin` con una IP distinta cada
+   * vez. Sin el tope global, ninguna llamada se bloquea. Con él, la número 41 sí.
+   *
+   * Limpia `intento_pin` al entrar y al salir: el tope global lee TODAS las
+   * filas de la ventana, así que un test que no aísle su cuenta contamina a los
+   * demás de este fichero.
+   */
+  it('el tope global frena la fuerza bruta con IP rotada', async () => {
+    await prisma.intentoPin.deleteMany()
+    const estados: number[] = []
+    for (let i = 0; i < 41; i++) {
+      const error = await falla(() => validarPin('0000', `203.0.${Math.floor(i / 256)}.${i % 256}`))
+      estados.push(error.estado)
+    }
+    // Los 40 primeros son 401 (PIN incorrecto, IP nueva cada vez); el 41 ya es 429.
+    expect(estados.slice(0, 40).every((e) => e === 401)).toBe(true)
+    expect(estados[40]).toBe(429)
+    // Y el PIN correcto, desde una IP limpia, tampoco entra bajo el bloqueo global.
+    const correcto = await falla(() => validarPin('2026', '198.51.100.7'))
+    expect(correcto.estado).toBe(429)
+    await prisma.intentoPin.deleteMany()
+  })
+
+  /**
    * **La cookie de sesión no se firma con el PIN.**
    *
    * Lo estuvo, y era un agujero: el PIN tiene cuatro dígitos, diez mil

@@ -8,6 +8,7 @@ import type { PropsPaso } from './Wizard'
 import { useAnuncio } from '@/components/Anuncio'
 import { BotonAvanzar } from './BotonAvanzar'
 import { Fallo } from '@/components/ui/Fallo'
+import { mensajeDeError } from '@/lib/errores-ui'
 
 /**
  * Paso 7 · Publicar. `04-cierre-del-mes.md`.
@@ -96,7 +97,7 @@ export function Paso7Publicar({
       </div>
 
       {publicar.isError && (
-        <Fallo>{(publicar.error as Error).message}</Fallo>
+        <Fallo>{mensajeDeError(publicar.error)}</Fallo>
       )}
 
       <BotonAvanzar

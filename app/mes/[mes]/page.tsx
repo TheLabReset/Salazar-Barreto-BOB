@@ -7,15 +7,17 @@ import { zMes } from '@/lib/esquemas'
 import { ElMes } from '@/components/pantallas/ElMes'
 import { Onboarding } from '@/components/pantallas/Onboarding'
 import { SinDatos } from '@/components/pantallas/SinDatos'
-import type { MesId } from '@/lib/calculo/tipos'
 
 export default async function Pagina({ params }: { params: Promise<{ mes: string }> }) {
   const dpto = await dptoElegido()
   if (!dpto) return <Onboarding />
 
   const { mes } = await params
-  if (!zMes.safeParse(mes).success) notFound()
-  const mesId = mes as MesId
+  // Se estrecha con el resultado del propio parseo, no con un `as` a ciegas: si
+  // mañana `zMes` cambia de forma, esto deja de compilar en vez de mentir.
+  const parseado = zMes.safeParse(mes)
+  if (!parseado.success) notFound()
+  const mesId = parseado.data
 
   const meses = await listaDeMeses()
   const publicados = meses.filter((m) => m.publicado)

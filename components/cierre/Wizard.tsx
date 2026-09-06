@@ -18,6 +18,7 @@ import { Paso5Puntual } from './Paso5Puntual'
 import { Paso6Revision } from './Paso6Revision'
 import { Paso7Publicar } from './Paso7Publicar'
 import { Publicado } from './Publicado'
+import { mensajeDeError } from '@/lib/errores-ui'
 
 /**
  * El cierre del mes. `04-cierre-del-mes.md`.
@@ -105,7 +106,7 @@ export function Wizard({ mes }: { mes: MesId }) {
       <Hoja titulo="Cerrar el mes" altura="alta">
         <div className="hoja-cuerpo">
           <p className="tipo-cuerpo-menor text-gris">
-            {(error as Error)?.message ?? 'No se pudo abrir el cierre.'}
+            {mensajeDeError(error, 'No se pudo abrir el cierre.')}
           </p>
         </div>
       </Hoja>
@@ -131,7 +132,7 @@ export function Wizard({ mes }: { mes: MesId }) {
     borrador: data,
     guardar: (ruta: string, cuerpo: unknown) => guardar.mutateAsync({ ruta, cuerpo }),
     guardando: guardar.isPending,
-    errorGuardar: guardar.error ? (guardar.error as Error).message : null,
+    errorGuardar: guardar.error ? mensajeDeError(guardar.error) : null,
     avanzar: () => irAPaso.mutate(paso + 1),
     nombreMes: nombreCorto,
   }

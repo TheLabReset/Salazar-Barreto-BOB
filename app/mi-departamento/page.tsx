@@ -5,14 +5,13 @@ import { historialDeDpto } from '@/lib/datos/historial'
 import { MiDepartamento } from '@/components/pantallas/MiDepartamento'
 import { Onboarding } from '@/components/pantallas/Onboarding'
 import { SinDatos } from '@/components/pantallas/SinDatos'
-import type { MesId } from '@/lib/calculo/tipos'
 
 export default async function Pagina() {
   const dpto = await dptoElegido()
   if (!dpto) return <Onboarding />
 
   const publicados = await mesesPublicados()
-  const mes = publicados[publicados.length - 1] as MesId | undefined
+  const mes = publicados[publicados.length - 1]
   if (!mes) return <SinDatos />
 
   const [resultado, pagos, historial] = await Promise.all([

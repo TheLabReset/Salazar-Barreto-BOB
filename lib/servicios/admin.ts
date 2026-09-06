@@ -31,6 +31,24 @@ export const DURACION_SESION_MS = 60 * 60 * 1000 // una hora
 const VENTANA_MS = 15 * 60 * 1000 // quince minutos
 const MAX_INTENTOS = 8
 
+/**
+ * El techo **global** de intentos fallidos en la ventana, sumando todas las IP.
+ *
+ * El límite por IP no basta, y esto es la lección de un agujero real que
+ * encontró la auditoría final: quien ataca controla la cabecera
+ * `x-forwarded-for`, así que puede presentar una IP distinta en cada intento y
+ * no tocar nunca el tope por IP. Medido contra la app construida: con la IP
+ * fija, el noveno intento daba 429; rotándola, los diez mil PINes quedaban al
+ * alcance sin un solo 429.
+ *
+ * Un PIN de cuatro dígitos son diez mil combinaciones. Con 40 fallos por
+ * ventana de quince minutos —vengan de una IP o de diez mil— recorrer el
+ * espacio entero llevaría más de un día de bloqueos encadenados, y cada ventana
+ * deja rastro en `intento_pin` para que se vea el ataque. Para siete vecinos que
+ * teclean cuatro dígitos, 40 fallos cada quince minutos no estorban jamás.
+ */
+const MAX_GLOBAL = 40
+
 function secreto(): string {
   const pin = process.env.ADMIN_PIN
   if (!pin) throw new Error('Falta ADMIN_PIN en el entorno del servidor.')
@@ -84,10 +102,14 @@ function igualSeguro(a: string, b: string): boolean {
  */
 export async function validarPin(pin: string, ip: string): Promise<{ cookie: string; expira: Date }> {
   const desde = new Date(Date.now() - VENTANA_MS)
-  const fallidos = await prisma.intentoPin.count({
-    where: { ip, acertado: false, momento: { gte: desde } },
-  })
-  if (fallidos >= MAX_INTENTOS) {
+  // Dos cuentas, no una: la de esta IP y la de todas juntas. La segunda es la
+  // que sostiene el freno cuando la IP es falsa, porque `ip` viene de una
+  // cabecera que quien ataca controla (ver `ipDeLaPeticion`).
+  const [fallidos, fallidosGlobal] = await Promise.all([
+    prisma.intentoPin.count({ where: { ip, acertado: false, momento: { gte: desde } } }),
+    prisma.intentoPin.count({ where: { acertado: false, momento: { gte: desde } } }),
+  ])
+  if (fallidos >= MAX_INTENTOS || fallidosGlobal >= MAX_GLOBAL) {
     // Se registra también el intento bloqueado: si alguien está probando, tiene
     // que verse en la auditoría.
     await prisma.intentoPin.create({ data: { ip, acertado: false } })

@@ -8,6 +8,7 @@ import { Avatar } from '@/components/Avatar'
 import { Fallo } from '@/components/ui/Fallo'
 import { Hoja } from './Hoja'
 import { useHoja, type ClaveHoja } from './Hojas'
+import { mensajeDeError } from '@/lib/errores-ui'
 
 /**
  * `bob` · la hoja de conversación. `05-bob-agente.md` §5.
@@ -101,7 +102,7 @@ export function HojaBob({ mes, dpto }: { mes: MesId; dpto: DptoId | null }) {
         {preguntar.isPending && (
           <p className="tipo-cuerpo-menor text-gris bob-esperando">Mirando los números…</p>
         )}
-        {preguntar.isError && <Fallo>{(preguntar.error as Error).message}</Fallo>}
+        {preguntar.isError && <Fallo>{mensajeDeError(preguntar.error)}</Fallo>}
       </div>
 
       <div className="bob-chips scroll-limpio">

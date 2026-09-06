@@ -11,6 +11,7 @@ import { useAnuncio } from '@/components/Anuncio'
 import { Hoja } from './Hoja'
 import { useHoja } from './Hojas'
 import { Fallo } from '@/components/ui/Fallo'
+import { mensajeDeError } from '@/lib/errores-ui'
 
 /**
  * `pagar` · Cómo pagar. `03-pantallas.md`.
@@ -104,7 +105,7 @@ export function HojaPagar({
           </p>
         </div>
 
-        {avisar.isError && <Fallo>{(avisar.error as Error).message}</Fallo>}
+        {avisar.isError && <Fallo>{mensajeDeError(avisar.error)}</Fallo>}
 
         <button
           type="button"

@@ -4,7 +4,6 @@ import { resultadoDeMes } from '@/lib/datos/mes'
 import { Historial } from '@/components/pantallas/Historial'
 import { Onboarding } from '@/components/pantallas/Onboarding'
 import { SinDatos } from '@/components/pantallas/SinDatos'
-import type { MesId } from '@/lib/calculo/tipos'
 
 export default async function Pagina() {
   const dpto = await dptoElegido()
@@ -24,7 +23,7 @@ export default async function Pagina() {
   return (
     <Historial
       dpto={dpto}
-      mes={(publicados[publicados.length - 1]?.mes ?? null) as MesId | null}
+      mes={publicados[publicados.length - 1]?.mes ?? null}
       serie={serie.filter((f) => publicados.some((m) => m.mes === f.mes))}
       meses={publicados}
       m3PorMes={m3PorMes}

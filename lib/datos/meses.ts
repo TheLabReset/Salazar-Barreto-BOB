@@ -31,6 +31,13 @@ export interface ResumenMes {
 /** Los meses que tienen recibo, del más antiguo al más nuevo. */
 export async function mesesConDatos(): Promise<MesId[]> {
   const filas = await prisma.recibo.findMany({ select: { mes: true }, orderBy: { mes: 'asc' } })
+  /**
+   * `as MesId`: la columna es `VarChar(7)` para Postgres y `MesId` para
+   * TypeScript, y la base garantiza la forma con un `CHECK` de patrón (ver la
+   * migración `20260905183000_reglas_de_integridad`). Es el único punto donde
+   * las dos verdades se juntan, y por eso el estrechamiento vive aquí y no
+   * repartido por las pantallas.
+   */
   return filas.map((f) => f.mes as MesId)
 }
 
@@ -46,6 +53,13 @@ export async function mesesPublicados(): Promise<MesId[]> {
     select: { mes: true },
     orderBy: { mes: 'asc' },
   })
+  /**
+   * `as MesId`: la columna es `VarChar(7)` para Postgres y `MesId` para
+   * TypeScript, y la base garantiza la forma con un `CHECK` de patrón (ver la
+   * migración `20260905183000_reglas_de_integridad`). Es el único punto donde
+   * las dos verdades se juntan, y por eso el estrechamiento vive aquí y no
+   * repartido por las pantallas.
+   */
   return filas.map((f) => f.mes as MesId)
 }
 
