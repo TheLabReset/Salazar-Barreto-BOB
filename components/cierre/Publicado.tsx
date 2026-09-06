@@ -4,14 +4,6 @@ import { COPYS } from '@/lib/copys'
 import { fmt } from '@/lib/calculo/redondeo'
 import { Hoja } from '@/components/hojas/Hoja'
 import { TarjetaNoche } from '@/components/ui/TarjetaNoche'
-import { nombreMes } from '@/lib/calculo/mes'
-import type { MesId } from '@/lib/calculo/tipos'
-
-/** «JULIO 2026» para la etiqueta de la tarjeta, del identificador del mes. */
-function etiquetaAnual(mes: string): string {
-  const [anio, mm] = mes.split('-')
-  return `${nombreMes(`${anio}-${mm}` as MesId).toUpperCase()} ${anio}`
-}
 
 /** La pantalla de confirmación del paso 7. `04-cierre-del-mes.md`. */
 export function Publicado({
@@ -40,7 +32,7 @@ export function Publicado({
             La versión anterior la había perdido, dejando todo sobre crema. */}
         <TarjetaNoche className="publicado-noche">
           <p className="tipo-etiqueta-seccion text-sobre-noche-etiqueta publicado-noche-mes">
-            {etiquetaAnual(mes)}
+            {mes.toUpperCase()}
           </p>
           <p className="publicado-total">
             <span className="tipo-simbolo text-sobre-noche-terciario">S/</span>
