@@ -399,6 +399,20 @@ export const COPYS = {
     anadidos: (n: number) => `Añadido este mes · ${n}`,
     seRepartte: 'se reparte entre los siete',
     aFavorDe: (dpto: string) => `a favor del ${dpto}`,
+    // Cómo se reparte un gasto extraordinario, en una línea que se lee de corrido.
+    comoSeReparte: (modo: 'flat' | 'igual', cuantos: number, sin: readonly string[]) => {
+      const forma = modo === 'igual' ? 'en partes iguales' : 'por metraje'
+      if (cuantos === 7) return `Se reparte ${forma} entre los siete`
+      if (sin.length) return `Se reparte ${forma} entre ${cuantos} · sin el ${sin.join(', ')}`
+      return `Se reparte ${forma} entre ${cuantos}`
+    },
+    cambiarReparto: 'Cambiar el reparto',
+    repartoTitulo: '¿Cómo se reparte?',
+    repartoPorMetraje: 'Por metraje',
+    repartoIgual: 'En partes iguales',
+    quienesPagan: '¿Quiénes lo pagan?',
+    quienesPaganPista: 'Toca para sacar o volver a poner un departamento. Tiene que quedar al menos uno.',
+    repartoListo: 'Listo',
     reasignaciones: 'Reasignaciones de agua · ¿siguen?',
     lavadoActivo: 'activo · se descuenta del área común',
     lavadoInactivo: 'desactivado este mes',

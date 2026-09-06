@@ -358,7 +358,14 @@ export function calcularMes(entradasCrudas: EntradasMes, ovCruda: Overrides = {}
     e.reparto === 'igual' || participantesDe(e).length < IDS.length
 
   for (const e of extras) {
-    if (e.tipo === 'gasto') gastos.push({ concepto: e.concepto, monto: e.monto, extra: true })
+    if (e.tipo === 'gasto')
+      gastos.push({
+        concepto: e.concepto,
+        monto: e.monto,
+        extra: true,
+        ...(e.reparto ? { reparto: e.reparto } : {}),
+        ...(e.participantes && e.participantes.length ? { participantes: e.participantes } : {}),
+      })
   }
 
   /**

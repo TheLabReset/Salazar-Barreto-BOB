@@ -31,6 +31,12 @@ export function Paso5Puntual({ borrador, guardar, guardando, errorGuardar, avanz
   const { abrir } = useNumpad()
   const [extras, setExtras] = useState<Extra[]>(() => extrasDelMes(borrador))
   const [eligiendoDpto, setEligiendoDpto] = useState<number | null>(null)
+  const [configurando, setConfigurando] = useState<number | null>(null)
+  const IDS = DPTOS.map((d) => d.id)
+
+  /** Los participantes actuales de un gasto: los que tenga, o los siete. */
+  const participantesDe = (e: Extra): DptoId[] =>
+    e.tipo === 'gasto' && e.participantes && e.participantes.length ? [...e.participantes] : IDS
 
   const guardarExtras = (lista: Extra[]) => {
     setExtras(lista)
@@ -68,7 +74,26 @@ export function Paso5Puntual({ borrador, guardar, guardando, errorGuardar, avanz
 
   const quitar = (indice: number) => guardarExtras(extras.filter((_, i) => i !== indice))
 
+  const cambiarReparto = (indice: number, reparto: 'flat' | 'igual') =>
+    guardarExtras(extras.map((e, i) => (i === indice && e.tipo === 'gasto' ? { ...e, reparto } : e)))
+
+  /** Saca o vuelve a poner un departamento. Nunca deja la lista vacía. */
+  const alternarParticipante = (indice: number, dpto: DptoId) =>
+    guardarExtras(
+      extras.map((e, i) => {
+        if (i !== indice || e.tipo !== 'gasto') return e
+        const actuales = participantesDe(e)
+        const nuevos = actuales.includes(dpto)
+          ? actuales.filter((x) => x !== dpto)
+          : [...actuales, dpto]
+        if (nuevos.length === 0) return e // no se puede dejar sin nadie
+        // Si vuelven a estar los siete, se guarda vacío: «todos» es el defecto.
+        return { ...e, participantes: nuevos.length === IDS.length ? [] : nuevos }
+      }),
+    )
+
   const lavado = borrador.lavado
+  const enConfig = configurando !== null ? extras[configurando] : undefined
 
   return (
     <div className="cierre-cuerpo">
@@ -93,22 +118,37 @@ export function Paso5Puntual({ borrador, guardar, guardando, errorGuardar, avanz
           <p className="tipo-etiqueta-seccion text-gris puntual-etiqueta">
             {COPYS.cierre.anadidos(extras.length)}
           </p>
-          {extras.map((e, i) => (
-            <div key={i} className="puntual-anadido">
-              <span className="min-w-0 flex-1">
-                <span className="tipo-cuerpo-lista block truncate">{e.concepto}</span>
-                <span className="tipo-contexto-chico block text-gris puntual-quien">
-                  {e.tipo === 'gasto' ? COPYS.cierre.seRepartte : COPYS.cierre.aFavorDe(e.dpto)}
+          {extras.map((e, i) => {
+            const parts = participantesDe(e)
+            const sin = e.tipo === 'gasto' ? IDS.filter((id) => !parts.includes(id)) : []
+            return (
+              <div key={i} className="puntual-anadido">
+                <span className="min-w-0 flex-1">
+                  <span className="tipo-cuerpo-lista block truncate">{e.concepto}</span>
+                  <span className="tipo-contexto-chico block text-gris puntual-quien">
+                    {e.tipo === 'gasto'
+                      ? COPYS.cierre.comoSeReparte(e.reparto ?? 'flat', parts.length, sin)
+                      : COPYS.cierre.aFavorDe(e.dpto)}
+                  </span>
+                  {e.tipo === 'gasto' && (
+                    <button
+                      type="button"
+                      onClick={() => setConfigurando(configurando === i ? null : i)}
+                      className="tipo-contexto-chico puntual-cambiar-reparto"
+                    >
+                      {COPYS.cierre.cambiarReparto}
+                    </button>
+                  )}
                 </span>
-              </span>
-              <span className="tipo-monto-lista">{fmt(e.monto)}</span>
-              <button type="button" onClick={() => quitar(i)} className="puntual-quitar" aria-label="Quitar">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <path d="M5 5l14 14M19 5 5 19" />
-                </svg>
-              </button>
-            </div>
-          ))}
+                <span className="tipo-monto-lista">{fmt(e.monto)}</span>
+                <button type="button" onClick={() => quitar(i)} className="puntual-quitar" aria-label="Quitar">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                    <path d="M5 5l14 14M19 5 5 19" />
+                  </svg>
+                </button>
+              </div>
+            )
+          })}
         </>
       )}
 
@@ -122,6 +162,43 @@ export function Paso5Puntual({ borrador, guardar, guardando, errorGuardar, avanz
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {enConfig && enConfig.tipo === 'gasto' && configurando !== null && (
+        <div className="puntual-elegir">
+          <p className="tipo-cuerpo-destacado-medio puntual-elegir-titulo">{COPYS.cierre.repartoTitulo}</p>
+          <div className="puntual-modos">
+            {(['flat', 'igual'] as const).map((modo) => (
+              <button
+                key={modo}
+                type="button"
+                onClick={() => cambiarReparto(configurando, modo)}
+                aria-pressed={(enConfig.reparto ?? 'flat') === modo}
+                className="puntual-modo"
+              >
+                {modo === 'flat' ? COPYS.cierre.repartoPorMetraje : COPYS.cierre.repartoIgual}
+              </button>
+            ))}
+          </div>
+          <p className="tipo-etiqueta-seccion text-gris puntual-etiqueta">{COPYS.cierre.quienesPagan}</p>
+          <p className="tipo-contexto-chico text-gris">{COPYS.cierre.quienesPaganPista}</p>
+          <div className="puntual-dptos">
+            {DPTOS.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => alternarParticipante(configurando, d.id)}
+                aria-pressed={participantesDe(enConfig).includes(d.id)}
+                className="puntual-dpto"
+              >
+                {d.id}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => setConfigurando(null)} className="puntual-modo puntual-listo">
+            {COPYS.cierre.repartoListo}
+          </button>
         </div>
       )}
 
@@ -166,5 +243,11 @@ export function Paso5Puntual({ borrador, guardar, guardando, errorGuardar, avanz
 function extrasDelMes(borrador: PropsPaso['borrador']): Extra[] {
   return borrador.resultado.gastos
     .filter((g) => g.extra)
-    .map((g): Extra => ({ tipo: 'gasto', concepto: g.concepto, monto: g.monto ?? 0 }))
+    .map((g): Extra => ({
+      tipo: 'gasto',
+      concepto: g.concepto,
+      monto: g.monto ?? 0,
+      ...(g.reparto ? { reparto: g.reparto } : {}),
+      ...(g.participantes && g.participantes.length ? { participantes: [...g.participantes] } : {}),
+    }))
 }

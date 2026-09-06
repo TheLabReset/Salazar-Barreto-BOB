@@ -55,6 +55,10 @@ export interface LineaGasto {
   esAgua?: boolean
   /** Marca un gasto extraordinario añadido en el paso 5 del cierre. */
   extra?: boolean
+  /** El reparto de un extra. `undefined`/`'flat'` = por metraje entre los siete. */
+  reparto?: Reparto
+  /** Los deptos que pagan un extra. Vacío u omitido = los siete. */
+  participantes?: readonly DptoId[]
 }
 
 /**
