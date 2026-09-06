@@ -119,6 +119,9 @@ export const zConfirmarPago = z.object({
   dpto: zDpto,
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha va en AAAA-MM-DD').optional(),
   operacion: zTexto(40).optional(),
+  // Cuánto entró de verdad. Omitido = pagó justo su cuota. Si difiere, la
+  // diferencia queda a favor o pendiente del departamento.
+  monto: zMonto.optional(),
 })
 
 /** `PUT /api/gastos-fijos` · editar montos, con su vigencia. */

@@ -145,6 +145,7 @@ export async function pagosDe(mes: MesId, db: Lector = prisma): Promise<PagosMes
     salida[f.dptoId as DptoId] = {
       estado: f.estado,
       fecha: f.fecha.toISOString().slice(0, 10),
+      monto: aNumero(f.monto),
       op: f.operacion,
       texto: f.texto,
     }

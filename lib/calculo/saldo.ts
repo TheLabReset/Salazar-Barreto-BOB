@@ -2,11 +2,15 @@
  * El saldo de la cuenta conjunta. `01-reglas-de-negocio.md` §6.
  *
  * ```
- * recibido(mes) = Σ cuota(d) de los que pagaron y están CONFIRMADOS
+ * recibido(mes) = Σ lo que entró de verdad de los CONFIRMADOS
  * gastado(mes)  = totalMes
  * delta(mes)    = recibido − gastado
  * saldo(mes)    = saldo(mes-1) + delta(mes)
  * ```
+ *
+ * «Lo que entró de verdad» es el monto verificado contra el banco, y su cuota
+ * exacta cuando no se anotó otro monto (el caso normal: pagó justo). Un pago de
+ * más o de menos mueve la cuenta por su monto real, no por la cuota teórica.
  *
  * **Solo cuentan los pagos confirmados.** Un pago avisado por el vecino pero no
  * verificado contra el banco no suma al saldo.
@@ -15,7 +19,7 @@
 import { DPTOS, SALDO_BASE } from './constantes'
 import { mesCorto } from './mes'
 import { round2 } from './redondeo'
-import type { FilaSaldo, MesId, PagosMes, ResultadoMes } from './tipos'
+import type { DptoId, FilaSaldo, MesId, PagosMes, ResultadoMes } from './tipos'
 
 /** Un mes con su cálculo y sus pagos, que es lo que la serie necesita. */
 export interface MesConPagos {
@@ -30,16 +34,51 @@ interface Delta {
   delta: number
 }
 
+/**
+ * Lo que un departamento aportó a la cuenta en un mes: **el monto que entró de
+ * verdad** si está confirmado, y si no se anotó el monto, su cuota exacta (que
+ * es el caso normal). Un pago solo avisado no aporta: es la palabra del vecino.
+ */
+function aportadoPor(pago: MesConPagos['pagos'][DptoId], cuota: number): number {
+  if (!pago || pago.estado !== 'confirmado') return 0
+  return round2(pago.monto ?? cuota)
+}
+
 function deltaDe(m: MesConPagos): Delta {
   const c = m.resultado
   if (!c || !c.valido) return { recibido: 0, gastado: 0, delta: 0 }
   const recibido = round2(
-    DPTOS.reduce((s, d) => {
-      const p = m.pagos[d.id]
-      return s + (p && p.estado === 'confirmado' ? c.cuotas[d.id].total : 0)
-    }, 0),
+    DPTOS.reduce((s, d) => s + aportadoPor(m.pagos[d.id], c.cuotas[d.id].total), 0),
   )
   return { recibido, gastado: c.totalMes, delta: round2(recibido - c.totalMes) }
+}
+
+/**
+ * El balance de cada departamento, **acumulado hacia adelante**.
+ *
+ * Por cada mes cerrado y confirmado: lo que pagó menos lo que le tocaba. Un
+ * saldo **positivo** es plata a favor (pagó de más o por adelantado) que
+ * arrastra al mes siguiente; uno **negativo** es lo que todavía le falta poner.
+ * La cuota del mes no se toca: esto es aparte, para que «te toca pagar» pueda
+ * descontar lo que ya trae a favor.
+ *
+ * Un mes sin pago confirmado cuenta como cuota **no** aportada (balance en
+ * contra por esa cuota): es la verdad, no un castigo. La interfaz lo dice en
+ * suave, sin rojo ni la palabra «deuda».
+ */
+export function balancePorDpto(meses: readonly MesConPagos[]): Record<DptoId, number> {
+  const balance = Object.fromEntries(DPTOS.map((d) => [d.id, 0])) as Record<DptoId, number>
+  for (const m of meses) {
+    const c = m.resultado
+    if (!c || !c.valido) continue
+    for (const d of DPTOS) {
+      // Lo que puso menos lo que le tocaba. Sin pago confirmado, puso 0 y le
+      // falta la cuota entera.
+      const aporte = aportadoPor(m.pagos[d.id], c.cuotas[d.id].total)
+      balance[d.id] = round2((balance[d.id] ?? 0) + aporte - c.cuotas[d.id].total)
+    }
+  }
+  return balance
 }
 
 /**

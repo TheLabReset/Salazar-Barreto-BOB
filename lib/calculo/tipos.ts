@@ -234,6 +234,8 @@ export type EstadoPago = 'confirmado' | 'aviso'
 export interface Pago {
   estado: EstadoPago
   fecha: string
+  /** Cuánto entró de verdad. `null`/omitido = pagó justo su cuota. */
+  monto?: number | null
   op?: string | null
   texto?: string | null
 }

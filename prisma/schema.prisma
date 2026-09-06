@@ -207,6 +207,11 @@ model Pago {
   dptoId        String     @db.VarChar(8)
   estado        EstadoPago
   fecha         DateTime   @db.Date
+  /// Cuánto entró de verdad, verificado contra el banco. `null` = pagó justo su
+  /// cuota, que es lo normal. Si difiere, la diferencia queda a favor (pagó de
+  /// más o por adelantado) o pendiente (pagó de menos) del departamento, y
+  /// arrastra a los meses siguientes.
+  monto         Decimal?   @db.Decimal(10, 2)
   operacion     String?
   /// Lo que escribió el vecino al avisar.
   texto         String?
