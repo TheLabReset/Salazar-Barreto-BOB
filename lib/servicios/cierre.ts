@@ -17,7 +17,7 @@ import { nombreMes } from '@/lib/calculo/mes'
 import { enumerar } from '@/lib/formato'
 import { fmt } from '@/lib/calculo/redondeo'
 import { DPTO_IDS } from '@/lib/calculo/constantes'
-import type { MesId } from '@/lib/calculo/tipos'
+import type { MesId, ResultadoMes } from '@/lib/calculo/tipos'
 import type { GuardarGastos, GuardarLecturas, GuardarRecibo, Publicar } from '@/lib/esquemas'
 import { auditar } from './auditoria'
 import { cierreDe, exigirNoPublicado, tomarVersion } from './bloqueo'
@@ -375,13 +375,16 @@ export async function corregirMes(
     }
 
     /**
-     * El "antes" se lee **dentro** de la transacción.
-     *
-     * Fuera, dos correcciones simultáneas del mismo mes leían las dos el mismo
-     * estado inicial, las dos salían bien, y los dos avisos a los siete citaban
-     * el mismo «pasó de S/ …» — cierto solo para la primera.
+     * El "antes" del aviso sale de la **instantánea** que se guardó al publicar
+     * (`06` §2): es la cuota que el vecino vio de verdad, no un recálculo. Se
+     * mantiene al día —cada corrección la reescribe con su resultado, más abajo—,
+     * así que «pasó de X a Y» siempre cita lo último que se le comunicó. Si por lo
+     * que sea faltara (nunca debería en un mes publicado), se recalcula dentro de
+     * la transacción, que también evita que dos correcciones a la vez citen el
+     * mismo «pasó de S/ …».
      */
-    const antes = await resultadoDeMes(mes, {}, tx)
+    const antes =
+      (cierre.instantanea as unknown as ResultadoMes | null) ?? (await resultadoDeMes(mes, {}, tx))
 
     const cambios: { que: string; de: string; a: string; dpto?: string }[] = []
 
@@ -467,6 +470,13 @@ export async function corregirMes(
     // mismo mes salían las dos bien y cada aviso citaba un "pasó de S/ …" que
     // solo era cierto para la primera.
     await tomarVersion(tx, mes, datos.version)
+
+    // La instantánea queda con el resultado corregido: es la cuota oficial de
+    // ahora, y el "antes" de la próxima corrección. Así deja de ser peso muerto.
+    await tx.cierre.update({
+      where: { mes },
+      data: { instantanea: JSON.parse(JSON.stringify(despues)) },
+    })
 
     // El aviso a los siete, con el monto anterior y el nuevo de quien cambió.
     const cambiaron = DPTO_IDS.filter(
