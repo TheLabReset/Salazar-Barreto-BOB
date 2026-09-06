@@ -37,6 +37,12 @@ function mesDe(argumentos: { mes?: string }, contexto: Contexto): MesId {
  * Bob cuánto debe el 501: eso es exactamente el lenguaje de cobranza que el
  * producto no tiene. El panel de administración sí ve los siete, porque quien
  * administra tiene que verlos para confirmar pagos.
+ *
+ * **Esto es una regla de tono, no una frontera de seguridad**, y conviene no
+ * confundirlas. La app no autentica a los vecinos: no hay sesión de vecino en
+ * ninguna parte, y `GET /api/dptos/501/historial` le responde a cualquiera. Lo
+ * que esto decide es de qué habla Bob, no a qué datos se puede llegar. Si algún
+ * día hace falta lo segundo, se resuelve autenticando al vecino, no aquí.
  */
 function dptoDe(argumentos: { dpto?: string }, contexto: Contexto): DptoId | null {
   const pedido = argumentos.dpto

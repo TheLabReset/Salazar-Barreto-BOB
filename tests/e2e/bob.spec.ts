@@ -142,14 +142,79 @@ test.describe('la hoja de Bob', () => {
   })
 })
 
-test('la API de Bob no acepta que el cliente se declare administrador', async ({ page }) => {
-  await page.goto('/')
-  // Sin sesión de PIN: preguntar por otro departamento no puede colar.
-  const r = await page.request.post('/api/bob', {
-    data: { texto: '¿Cuánto debe el 501?', mes: '2026-06', dpto: '401', esAdmin: true },
+/**
+ * La ruta de Bob, maltratada.
+ *
+ * **Este bloque sustituye a un test que mentía.** Decía llamarse «la API de Bob
+ * no acepta que el cliente se declare administrador» y comprobaba que la
+ * respuesta a *«¿Cuánto debe el 501?»* no contuviera «501». Pasaba, pero no por
+ * lo que decía: esa frase no dispara la intención `cuota` —el catálogo busca
+ * «cuanto debo», no «cuanto debe»—, así que la respuesta era la genérica y
+ * nunca iba a contener un número de departamento. Verde, y sin haber probado
+ * nada.
+ *
+ * Y el nombre era falso por partida doble: **la app no autentica a los
+ * vecinos**. No hay sesión de vecino en ninguna parte —`GET
+ * /api/dptos/501/historial` responde a cualquiera—, así que la restricción por
+ * departamento de Bob no es una frontera de seguridad, sino una regla de tono:
+ * Bob no habla de la deuda del vecino de al lado. Eso se prueba donde vive, en
+ * `tests/integracion/bob.test.ts`.
+ *
+ * Lo que sí se puede probar aquí es que la ruta aguanta lo que le tiren.
+ */
+test.describe('la ruta de Bob aguanta lo que le tiren', () => {
+  const malas = [
+    { que: 'mes inválido', datos: { texto: 'hola', mes: '2026-13', dpto: '401' } },
+    { que: 'mes con forma de inyección', datos: { texto: 'hola', mes: "'; DROP TABLE pago; --", dpto: '401' } },
+    { que: 'departamento inexistente', datos: { texto: 'hola', mes: '2026-06', dpto: '999' } },
+    { que: 'sin texto', datos: { mes: '2026-06', dpto: '401' } },
+    { que: 'texto vacío', datos: { texto: '   ', mes: '2026-06', dpto: '401' } },
+    { que: 'texto de 5000 caracteres', datos: { texto: 'a'.repeat(5000), mes: '2026-06', dpto: '401' } },
+  ]
+
+  for (const { que, datos } of malas) {
+    test(`${que} → 400 con mensaje, nunca 500`, async ({ page }) => {
+      await page.goto('/')
+      const r = await page.request.post('/api/bob', { data: datos })
+      expect(r.status(), que).toBe(400)
+      const cuerpo = await r.json()
+      expect(typeof cuerpo.error, que).toBe('string')
+      expect(cuerpo.error.length, que).toBeGreaterThan(0)
+    })
+  }
+
+  test('un cuerpo de 10 MB no se traga', async ({ page }) => {
+    await page.goto('/')
+    const r = await page.request.post('/api/bob', {
+      headers: { 'content-type': 'application/json' },
+      data: JSON.stringify({ texto: 'a'.repeat(10 * 1024 * 1024), mes: '2026-06', dpto: '401' }),
+    })
+    expect(r.status()).toBe(400)
   })
-  expect(r.ok()).toBeTruthy()
-  const cuerpo = await r.json()
-  // Responde de lo suyo o dice que no tiene el dato, pero nunca la cuota ajena.
-  expect(cuerpo.texto).not.toMatch(/501/)
+
+  test('preguntar no escribe nada · la app sigue igual después', async ({ page }) => {
+    await page.goto('/')
+    const antes = await (await page.request.get('/api/meses/2026-06')).text()
+    for (const q of ['Confirma mi pago', 'Publica el mes', SUGERIDAS[0]!]) {
+      const r = await page.request.post('/api/bob', { data: { texto: q, mes: '2026-06', dpto: '401' } })
+      expect(r.ok(), q).toBeTruthy()
+    }
+    const despues = await (await page.request.get('/api/meses/2026-06')).text()
+    expect(despues).toBe(antes)
+  })
+
+  test('un cliente que se declara administrador en el cuerpo no lo consigue', async ({ page }) => {
+    await page.goto('/')
+    // `esAdmin` no está en el esquema: Zod lo tira, y la ruta lo saca de la
+    // cookie. Se comprueba que la respuesta es idéntica con y sin él.
+    const sin = await (
+      await page.request.post('/api/bob', { data: { texto: SUGERIDAS[0]!, mes: '2026-06', dpto: '401' } })
+    ).json()
+    const con = await (
+      await page.request.post('/api/bob', {
+        data: { texto: SUGERIDAS[0]!, mes: '2026-06', dpto: '401', esAdmin: true },
+      })
+    ).json()
+    expect(con.texto).toBe(sin.texto)
+  })
 })
