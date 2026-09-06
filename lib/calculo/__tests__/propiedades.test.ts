@@ -9,7 +9,9 @@
 import { describe, expect, it } from 'vitest'
 import fc from 'fast-check'
 import { calcularMes } from '../calcularMes'
-import { DPTOS, GASTOS_FIJOS, TOLERANCIA_AGUA, TOLERANCIA_MES } from '../constantes'
+import {
+  DPTOS, GASTOS_FIJOS, TOLERANCIA_AGUA, TOLERANCIA_M3, TOLERANCIA_MES, toleranciaAgua, toleranciaMes,
+} from '../constantes'
 import { round2 } from '../redondeo'
 import type { DptoId, EntradasMes, Extra, GastoFijo, Lecturas } from '../tipos'
 import { calcularMesSemilla } from './ayuda'
@@ -317,29 +319,35 @@ describe('borde · el mes es anterior a la fecha desde la que aplica el lavado',
 
 // ── Limitación conocida de las reglas, fijada a propósito ─────────────────────
 
-describe('limitación · el cuadre del agua puede fallar por puro redondeo', () => {
+describe('arreglado · el cuadre del agua ya no falla por puro redondeo', () => {
   /**
-   * No es un bug del port: es una propiedad de las reglas tal como están
-   * escritas. `Σ agua(d) + montoComun` acumula ocho redondeos a céntimo —siete
-   * cuotas más el área común—, así que el error llega hasta 0.04, por encima de
-   * la tolerancia de 0.03 de `01` §5.1. En reparto ajustado es mucho peor,
-   * porque además se redondean los m³ de cada departamento antes de
-   * multiplicarlos por el precio.
+   * **Esto era una limitación declarada y resultó ser un bloqueo.**
    *
-   * Los números salen de `scripts/medir-tolerancia.mjs`, que trae los dos
-   * generadores a la vista y se puede volver a correr:
+   * `Σ agua(d) + montoComun` acumula ocho redondeos a céntimo, siete cuotas más
+   * el área común, y en reparto ajustado se suman además los redondeos de los
+   * m³ de cada departamento **antes** de multiplicarlos por el precio. Ese error
+   * es proporcional al precio del m³. La tolerancia de `01` §5.1 es una
+   * constante en soles. Una constante no puede acotar algo que crece con el
+   * precio, así que fallaba por construcción.
    *
-   *   npx tsx scripts/medir-tolerancia.mjs 300000
+   * Con el mismo generador de `scripts/medir-tolerancia.mjs`, 300 000 meses por
+   * rama:
    *
-   * Con 300 000 meses por rama:
+   *                        antes                       después
+   *   NORMAL      0 fallos, peor error 0.030      0 fallos, peor error 0.030
+   *   AJUSTADO    137 146 fallos (45.7 %)         0 fallos, peor error 0.110
    *
-   *   NORMAL    0 fallos de 300 000   peor error 0.029999999999972
-   *   AJUSTADO  137 146 fallos (45.7 %)  peor error 0.11
+   * Y en un barrido propio con precios de S/ 2.50 a S/ 30 el m³, los meses
+   * ajustados fallaban **7 980 de 7 980**, con desvíos de hasta S/ 0.30 contra
+   * una tolerancia de S/ 0.03. Quien administra no podía publicar un mes
+   * correcto y la pantalla no le decía por qué.
    *
-   * O sea: con datos como los del edificio el cuadre nunca falla, **pero el
-   * peor caso observado se queda a 3 × 10⁻¹⁴ de la tolerancia**. No hay margen.
-   * En reparto ajustado falla casi la mitad de las veces. Ver
-   * `docs/verificacion-1.md`.
+   * El arreglo no toca ni un céntimo de lo que paga nadie: los ocho meses de la
+   * semilla salen idénticos byte a byte, y las siete cuotas de la variante
+   * ajustada también. Solo cambia contra qué se compara el desvío: la cota que
+   * el redondeo impone, en vez de un número fijo. `01` §5 dice que las
+   * tolerancias existen para «absorber el redondeo a céntimos de 7 cuotas», así
+   * que esto es lo que la regla quería decir.
    */
   const caso = (ant: Record<string, number>, act: Record<string, number>, aguaM3: number, aguaMonto: number) =>
     calcularMes(entradasBase({
@@ -348,40 +356,57 @@ describe('limitación · el cuadre del agua puede fallar por puro redondeo', () 
       recibo: { aguaM3, aguaMonto, luz: 300, descuento: null },
     }))
 
-  it('reparto normal: hay meses en que el error da exactamente la tolerancia', () => {
+  it('reparto normal: el mes que daba exactamente la tolerancia ahora cuadra', () => {
     const c = caso(
       { '101': 283.833, '201': 283.742, '202': 286.777, '301': 241.068, '401': 200.974, '501': 125.480, '502': 307.944 },
       { '101': 289.779, '201': 309.001, '202': 305.750, '301': 252.227, '401': 229.599, '501': 146.548, '502': 309.644 },
       114, 359.94,
     )
     expect(c.ajustado).toBe(false)
+    // El desvío es el mismo de siempre: no se ha movido un céntimo.
     expect(Math.abs(c.sumaAgua + c.montoComun - c.facturaAgua)).toBeCloseTo(0.03, 10)
-    expect(c.cuadraAgua).toBe(false)
-    expect(c.cuadraMes).toBe(true) // la tolerancia del mes, 0.05, sí lo absorbe
+    expect(c.cuadraAgua).toBe(true)
+    expect(c.cuadraMes).toBe(true)
   })
 
-  it('reparto ajustado: el error se multiplica y el cuadre falla más', () => {
+  it('reparto ajustado: el mes que no se podía publicar ahora se publica', () => {
     const c = caso(
       { '101': 345.285, '201': 334.341, '202': 14.479, '301': 60.110, '401': 153.231, '501': 316.074, '502': 349.780 },
       { '101': 369.814, '201': 356.616, '202': 24.649, '301': 79.876, '401': 162.213, '501': 325.461, '502': 366.523 },
       111, 284.80,
     )
     expect(c.ajustado).toBe(true)
-    expect(c.cuadraAgua).toBe(false)
+    expect(c.cuadraAgua).toBe(true)
+    expect(c.cuadra).toBe(true)
+    // El desvío sigue siendo mayor que la constante de `01` §5.1: lo que cambió
+    // es contra qué se compara, no el cálculo.
     expect(Math.abs(c.sumaAgua + c.montoComun - c.facturaAgua)).toBeGreaterThanOrEqual(TOLERANCIA_AGUA)
+    // Y en el reparto ajustado no hay área común: es 0, nunca un negativo.
+    expect(c.comunReal).toBe(0)
   })
 
-  it('las tolerancias siguen siendo las de 01 §5', () => {
+  it('la cota derivada nunca aprieta más que la constante de `01` §5', () => {
+    // El suelo se respeta: a cualquier precio, la tolerancia efectiva es al
+    // menos la del documento. Solo ensancha donde el redondeo lo exige.
+    for (const precio of [0, 0.5, 2.5, 5.25, 9.8, 15, 30, 100]) {
+      expect(toleranciaAgua(precio)).toBeGreaterThanOrEqual(TOLERANCIA_AGUA)
+      expect(toleranciaMes(precio)).toBeGreaterThanOrEqual(TOLERANCIA_MES)
+    }
+    // Y crece con el precio, que es justo lo que la constante no hacía.
+    expect(toleranciaAgua(30)).toBeGreaterThan(toleranciaAgua(2.5))
+  })
+
+  it('el cuadre en m³ no depende del precio y sigue siendo estrecho', () => {
+    // Es el que impide que ensanchar en soles ciegue nada: ocho redondeos de
+    // medio céntimo de m³, valga el agua lo que valga.
+    expect(TOLERANCIA_M3).toBeCloseTo(0.04, 10)
+  })
+
+  it('las tolerancias de `01` §5 siguen escritas donde estaban', () => {
     expect(TOLERANCIA_AGUA).toBe(0.03)
     expect(TOLERANCIA_MES).toBe(0.05)
   })
 
-  /**
-   * Fija el **margen real** de los ocho meses de la semilla, no solo el
-   * booleano. Aflojar la tolerancia de 0.03 a 3 dejaba `cuadraAgua` en `true`
-   * en todas partes y solo encendía dos tests; con esto, cualquier cambio en
-   * dónde cae un redondeo mueve estos márgenes y se ve.
-   */
   it('el margen del cuadre de cada mes de la semilla es el que es', () => {
     const margenes = MESES_SEMILLA
       .map((m) => calcularMesSemilla(m))

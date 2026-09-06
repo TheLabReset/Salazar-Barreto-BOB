@@ -213,11 +213,22 @@ describe('el tercer cuadre · lo que los dos cuadres algebraicos no ven', () => 
     expect(c.motivosSanidad.join(' ')).toContain('101')
   })
 
-  it('un descuento mayor que el monto da precio negativo y NO se puede publicar', () => {
+  it('un descuento mayor que el monto se rechaza en la entrada, diciendo por qué', () => {
+    /**
+     * Antes esto se calculaba entero con una factura de agua negativa y, de
+     * ahí, un precio por m³ negativo: el tercer cuadre lo atrapaba al final,
+     * pero el motivo que veía quien administra hablaba de precios imposibles en
+     * lugar de decirle que mirara el descuento. Ahora se corta antes de
+     * calcular nada y el mensaje nombra las dos cifras.
+     */
     const c = calcularMes(entradasDe('2026-06'), { recibo: { aguaMonto: 100, descuento: 350 } })
-    expect(c.precioM3).toBeLessThan(0)
-    expect(c.cuadraSanidad).toBe(false)
+    expect(c.valido).toBe(false)
+    expect(c.motivoInvalido).toContain('descuento')
+    expect(c.motivoInvalido).toContain('350.00')
+    expect(c.motivoInvalido).toContain('100.00')
     expect(c.cuadra).toBe(false)
+    // Y ni una cifra imposible dentro: el resultado inválido va en ceros.
+    expect(Number.isFinite(c.precioM3)).toBe(true)
   })
 
   it('un monto que llega como cadena no se traga el gasto en silencio', () => {
@@ -370,6 +381,9 @@ describe('sumarMontos · la suma de las líneas de gasto', () => {
       precioM3: 4, facturaAgua: 100, comunReal: 1, montoComun: 4, factor: 1,
       totalMes: 3317.98,
       gastos: [{ concepto: 'Portón', monto: '1200' as unknown as number }],
+      // El recibo crudo, coherente con `facturaAgua`, para que el defecto que
+      // este test busca sea el único que salga en los motivos.
+      rec: { aguaM3: 25, aguaMonto: 100, luz: 180, descuento: null },
     })
     expect(revision.cuadra).toBe(false)
     expect(revision.motivos.join(' ')).toContain('Portón')

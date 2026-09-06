@@ -170,6 +170,10 @@ export interface ResultadoMes {
   readonly totalCreditos: number
   /** `Σ agua + montoComun ≈ facturaAgua`, tolerancia 0.03. */
   readonly cuadraAgua: boolean
+  /** El mismo cuadre del agua, pero en m³ y sin el precio de por medio. */
+  readonly cuadraM3: boolean
+  /** Los m³ que se le cobran a los siete, sumados. */
+  readonly sumaM3Cobrados: number
   /** `Σ cuota + montoComun + Σ créditos ≈ totalMes`, tolerancia 0.05. */
   readonly cuadraMes: boolean
   /**

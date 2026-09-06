@@ -16,8 +16,9 @@ import {
   DPTOS,
   LAVADO,
   ORDEN_GASTOS,
-  TOLERANCIA_AGUA,
-  TOLERANCIA_MES,
+  TOLERANCIA_M3,
+  toleranciaAgua,
+  toleranciaMes,
 } from './constantes'
 import { esMesId } from './mes'
 import { round2 } from './redondeo'
@@ -77,6 +78,8 @@ function invalido(
     sumaCuotas: 0,
     totalCreditos: 0,
     cuadraAgua: false,
+    cuadraM3: false,
+    sumaM3Cobrados: 0,
     cuadraMes: false,
     cuadraSanidad: false,
     motivosSanidad: [motivo],
@@ -205,6 +208,26 @@ export function calcularMes(entradasCrudas: EntradasMes, ovCruda: Overrides = {}
   // precioM3 NO se redondea: se arrastra a precisión completa. Redondear el
   // precio unitario descuadra el total.
   const precioM3 = facturaAgua / rec.aguaM3
+  /**
+   * **El precio por m³ tiene que ser un número, y `aguaM3 > 0` no lo garantiza.**
+   *
+   * La guarda de arriba exige `aguaM3` finito y mayor que cero, y eso deja
+   * pasar los denormales: con `aguaM3 = 5e-324` —el número positivo más
+   * pequeño que existe en coma flotante— la división da `Infinity`, y el mes
+   * salía marcado como **válido** con un precio infinito dentro. Lo encontró la
+   * batería en la corrida 159; a mano no se le ocurre a nadie, y un recibo mal
+   * tecleado con un exponente puede producirlo.
+   *
+   * Se comprueba lo que de verdad tiene que valer, que es el resultado de la
+   * división, en vez de adivinar un mínimo de m³ que lo evite.
+   */
+  if (!Number.isFinite(precioM3)) {
+    return invalido(
+      mesId,
+      rec,
+      'Los m³ del recibo son demasiado pequeños para repartir la factura entre ellos. Revisa el recibo de SEDAPAL.',
+    )
+  }
   const brutoComun = round2(rec.aguaM3 - sumaMedida)
 
   // ── Reparto ajustado · §3.4 · los medidores midieron más de lo facturado
@@ -218,7 +241,24 @@ export function calcularMes(entradasCrudas: EntradasMes, ovCruda: Overrides = {}
   const lavM3 = ov.lavadoM3 ?? entradas.lavadoM3 ?? LAVADO.m3
   const lavado =
     !ajustado && lavM3 > 0 && brutoComun >= lavM3 && mesId >= LAVADO.desde ? lavM3 : 0
-  const comunReal = round2(brutoComun - lavado)
+  /**
+   * **En el reparto ajustado no hay área común: es 0, no un número negativo.**
+   *
+   * Cuando los medidores miden más de lo que facturó SEDAPAL no sobra agua que
+   * repartir, sobra medición. El código ya lo sabía a medias —`montoComun` se
+   * fuerza a 0 tres líneas más abajo— pero dejaba `comunReal` en negativo, y
+   * eso tenía dos consecuencias de verdad: la hoja «De dónde sale cada monto»
+   * le enseñaba al vecino un área común de −4.98 m³, y el tercer cuadre lo leía
+   * como cifra imposible y **bloqueaba la publicación de un mes correcto**.
+   *
+   * `brutoComun` se conserva tal cual, en negativo, porque es la diferencia
+   * cruda y es justo el dato que dice cuánto midieron de más.
+   *
+   * Esto **no mueve un céntimo**: `montoComun` ya era 0 y los m³ de cada
+   * departamento salen de `consumos · factor`, que no toca `comunReal`. Hay un
+   * test que compara los ocho meses de la semilla byte a byte contra antes.
+   */
+  const comunReal = ajustado ? 0 : round2(brutoComun - lavado)
 
   // `as`: los rellena el bucle siguiente, uno por departamento.
   const m3Cobrados = {} as PorDpto<number>
@@ -329,7 +369,19 @@ export function calcularMes(entradasCrudas: EntradasMes, ovCruda: Overrides = {}
     // "simplifica" a `round2`: `01` §9 dice que no se mueve ningún redondeo de
     // sitio, y aquí eso mueve dinero de verdad.
     const mant = Math.round(baseMant * d.flat) / 100
-    const cred = creditos[d.id] ?? 0
+    /**
+     * El crédito, a céntimos como todo lo que es plata.
+     *
+     * Era el único campo de dinero del resultado que salía sin redondear: un
+     * crédito de S/ 12.345 se guardaba así, y el vecino veía un decimal de más
+     * en la tarjeta del mes. Lo encontró la batería con un crédito
+     * infinitesimal, que es el mismo defecto en su forma extrema.
+     *
+     * Comprobado que no mueve nada: los 224 tests del motor, incluidos los ocho
+     * meses de fidelidad al mockup y las seis variantes, dan idéntico con y sin
+     * este `round2`.
+     */
+    const cred = round2(creditos[d.id] ?? 0)
     cuotas[d.id] = {
       credito: cred,
       mantenimiento: round2(mant),
@@ -345,17 +397,33 @@ export function calcularMes(entradasCrudas: EntradasMes, ovCruda: Overrides = {}
 
   // ── Los dos cuadres · §5
   const sumaAgua = round2(DPTOS.reduce((s, d) => s + montoAgua[d.id], 0))
-  const cuadraAgua = Math.abs(sumaAgua + montoComun - facturaAgua) < TOLERANCIA_AGUA
+  /**
+   * Los dos cuadres se miden contra la cota que el redondeo impone, no contra
+   * una constante. Ver `toleranciaAgua` en `constantes.ts`: el error crece con
+   * el precio del m³, así que una tolerancia fija en soles falla por
+   * construcción en cuanto el agua se encarece.
+   */
+  const cuadraAgua = Math.abs(sumaAgua + montoComun - facturaAgua) <= toleranciaAgua(precioM3)
+
+  /**
+   * El tercer cuadre del agua, **en metros cúbicos y sin precio de por medio**.
+   *
+   * Es el que impide que ensanchar la tolerancia en soles ciegue algo. Lo que
+   * se le cobra a los siete más el área común tiene que ser lo que facturó
+   * SEDAPAL, y eso vale igual a S/ 2.50 el m³ que a S/ 30.
+   */
+  const sumaM3Cobrados = round2(DPTOS.reduce((s, d) => s + m3Cobrados[d.id], 0))
+  const cuadraM3 = Math.abs(sumaM3Cobrados + comunReal - rec.aguaM3) <= TOLERANCIA_M3
 
   const totalCreditos = round2(DPTOS.reduce((s, d) => s + (cuotas[d.id].credito || 0), 0))
   const sumaCuotas = round2(DPTOS.reduce((s, d) => s + cuotas[d.id].total, 0))
   const cuadraMes =
-    Math.abs(sumaCuotas + montoComun + totalCreditos - totalMes) < TOLERANCIA_MES
+    Math.abs(sumaCuotas + montoComun + totalCreditos - totalMes) <= toleranciaMes(precioM3)
 
   // El tercer cuadre. Los dos de `01` §5 son identidades algebraicas: se
   // cumplen igual con cifras imposibles. Ver `sanidad.ts`.
   const sanidad = revisarResultado({
-    consumos, cuotas, precioM3, facturaAgua, comunReal, montoComun, factor, totalMes, gastos,
+    consumos, cuotas, precioM3, facturaAgua, comunReal, montoComun, factor, totalMes, gastos, rec,
   })
 
   return {
@@ -382,10 +450,12 @@ export function calcularMes(entradasCrudas: EntradasMes, ovCruda: Overrides = {}
     sumaCuotas,
     totalCreditos,
     cuadraAgua,
+    cuadraM3,
+    sumaM3Cobrados,
     cuadraMes,
     cuadraSanidad: sanidad.cuadra,
     motivosSanidad: sanidad.motivos,
-    cuadra: cuadraAgua && cuadraMes && sanidad.cuadra,
+    cuadra: cuadraAgua && cuadraM3 && cuadraMes && sanidad.cuadra,
     descuento: rec.descuento ?? 0,
   }
 }

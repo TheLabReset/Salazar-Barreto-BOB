@@ -80,6 +80,24 @@ export function revisarEntradas(entradas: EntradasMes, ov: Overrides): string | 
   for (const [campo, valor] of Object.entries(rec)) {
     if (valor === null || valor === undefined) continue
     if (!esFinito(valor)) return `El campo "${campo}" del recibo no es un número.`
+    if (valor < 0) return `El campo "${campo}" del recibo es negativo.`
+  }
+
+  /**
+   * Un descuento mayor que el monto del recibo.
+   *
+   * Es un error de tecleo corriente: se escribe el descuento en la casilla del
+   * monto, o se pone el total del recibo donde va la rebaja. Sin esta guarda el
+   * mes se calculaba entero con una **factura de agua negativa** y, de ahí, un
+   * precio por m³ negativo: el cuadre de sanidad lo atrapaba al final, pero el
+   * motivo que veía quien administra hablaba de precios imposibles en vez de
+   * decirle que mirara el descuento.
+   *
+   * Lo encontró la batería. Se corta en la entrada, que es donde el mensaje
+   * puede ser útil.
+   */
+  if (esFinito(rec.aguaMonto) && esFinito(rec.descuento) && rec.descuento > rec.aguaMonto) {
+    return `El descuento del recibo (S/ ${rec.descuento.toFixed(2)}) es mayor que el monto (S/ ${rec.aguaMonto.toFixed(2)}).`
   }
 
   for (const fuente of [entradas.lecturas, entradas.lecturasAnteriores, ov.lecturas ?? {}]) {
@@ -125,8 +143,32 @@ export function revisarResultado(r: {
   factor: number
   totalMes: number
   gastos: readonly { concepto: string; monto: number | null }[]
+  /** El recibo **crudo**, para rederivar desde él y no fiarse del resultado. */
+  rec: { aguaM3: number; aguaMonto: number; luz: number; descuento?: number | null }
 }): RevisionSanidad {
   const motivos: string[] = []
+
+  /**
+   * **Rederivar la factura desde el recibo, en vez de creerse la del resultado.**
+   *
+   * Los dos cuadres de `01` §5 son identidades algebraicas montadas sobre
+   * `facturaAgua`: si esa cifra está mal, todo escala con ella y los dos dan
+   * verde igual. Se comprobó metiendo el defecto a mano: **ignorando el
+   * descuento del recibo**, los siete pagaban S/ 55 de más, repartidos, y
+   * `cuadraAgua`, `cuadraM3`, `cuadraMes` y esta misma revisión decían que el
+   * mes cuadraba. Cuatro chequeos en verde sobre plata que no era de nadie.
+   *
+   * Lo único que lo atrapa es volver al dato crudo y rehacer la resta.
+   */
+  if (esFinito(r.rec.aguaMonto)) {
+    const esperada = Math.round((r.rec.aguaMonto - (r.rec.descuento ?? 0)) * 100) / 100
+    if (!esFinito(r.facturaAgua) || Math.abs(r.facturaAgua - esperada) > 0.005) {
+      motivos.push(
+        `La factura de agua no cuadra con el recibo: sale S/ ${r.facturaAgua.toFixed(2)} ` +
+          `y el recibo dice S/ ${r.rec.aguaMonto.toFixed(2)} menos S/ ${(r.rec.descuento ?? 0).toFixed(2)}.`,
+      )
+    }
+  }
 
   for (const d of DPTOS) {
     const consumo = r.consumos[d.id]
@@ -142,6 +184,24 @@ export function revisarResultado(r: {
     }
     if (esFinito(q.agua) && q.agua < 0) motivos.push(`El ${d.id} tendría un agua negativa.`)
     if (esFinito(q.m3) && q.m3 < 0) motivos.push(`Al ${d.id} se le cobrarían m³ negativos.`)
+    /**
+     * Una cuota total negativa: el crédito se comió el mes entero.
+     *
+     * `01` §4.2 no dice qué pasa cuando el crédito de un departamento es mayor
+     * que su cuota, y el diseño no tiene ningún estado para «el edificio te
+     * debe a ti»: no hay pantalla, no hay copy y no hay forma de pagarlo. Con
+     * un crédito grande el vecino veía **S/ -0.01** en la tarjeta del mes y un
+     * botón de «Cómo pagar» debajo.
+     *
+     * Se bloquea, y el mensaje dice qué hacer: partir el crédito en dos meses.
+     * Es la opción que no inventa nada, ni plata ni pantallas.
+     */
+    if (esFinito(q.total) && q.total < 0) {
+      motivos.push(
+        `El crédito del ${d.id} (S/ ${(q.credito || 0).toFixed(2)}) es mayor que su cuota del mes. ` +
+          'Repártelo entre dos meses o bájalo.',
+      )
+    }
   }
 
   if (!esFinito(r.precioM3) || r.precioM3 < 0) {

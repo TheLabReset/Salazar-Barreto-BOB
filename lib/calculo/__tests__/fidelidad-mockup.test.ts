@@ -116,7 +116,32 @@ describe('fidelidad · las variantes con overrides', () => {
       expect(c.totalMes).toBe(e.totalMes)
       expect(c.baseMant).toBe(e.baseMant)
       expect(c.brutoComun).toBe(e.brutoComun)
-      expect(c.comunReal).toBe(e.comunReal)
+      /**
+       * **La única cifra en la que producción se aparta del mockup, a
+       * propósito y declarada.**
+       *
+       * En el reparto ajustado —los medidores midieron más de lo que facturó
+       * SEDAPAL— el mockup deja `comunReal` en negativo: −64.88 m³ de «área
+       * común». Producción lo pone en 0, porque en ese caso no sobra agua que
+       * repartir, sobra medición.
+       *
+       * No es una mejora de estilo. Un área común negativa hacía dos cosas: se
+       * le pintaba al vecino en la hoja «De dónde sale cada monto», y el tercer
+       * cuadre la leía como cifra imposible y **bloqueaba la publicación de un
+       * mes correcto**. El mockup nunca lo notó porque no publica nada.
+       *
+       * Lo que **no** cambia, y por eso esto es admisible: `brutoComun` sigue
+       * siendo −64.88 exacto, que es el dato que dice cuánto se midió de más, y
+       * **las siete cuotas salen idénticas al céntimo**. Se comprueba abajo,
+       * como en todas las variantes. Ni un sol cambia de bolsillo.
+       */
+      if (nombre === 'ajustado') {
+        expect(c.ajustado).toBe(true)
+        expect(e.comunReal).toBeLessThan(0)
+        expect(c.comunReal).toBe(0)
+      } else {
+        expect(c.comunReal).toBe(e.comunReal)
+      }
       expect(c.lavado).toBe(e.lavado)
       expect(c.ajustado).toBe(e.ajustado)
       expect(c.factor).toBe(e.factor)

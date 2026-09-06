@@ -88,6 +88,61 @@ export const CONCEPTO_LUZ = 'Recibo de luz común'
  */
 export const SALDO_BASE = 4182.4
 
-/** Tolerancias de los dos cuadres. `01` §5. */
+/**
+ * Tolerancias de los dos cuadres. `01` §5.
+ *
+ * Son el **suelo**, no el techo. Ver `toleranciaAgua` justo debajo.
+ */
 export const TOLERANCIA_AGUA = 0.03
 export const TOLERANCIA_MES = 0.05
+
+/** Lo que cada `round2` puede desviar como mucho: medio céntimo. */
+const MEDIO_CENTIMO = 0.005
+
+/**
+ * Cuánto puede desviarse el cuadre del agua **solo por los redondeos que las
+ * propias reglas imponen**.
+ *
+ * Esto no es una tolerancia elegida: es una cota calculada. `01` §3 manda
+ * redondear a dos decimales los m³ que se le cobran a cada departamento y otra
+ * vez el monto que sale de multiplicarlos por el precio. Con siete
+ * departamentos más el área común son ocho redondeos de m³, que valen medio
+ * céntimo de m³ **multiplicado por el precio del m³**, y ocho de soles.
+ *
+ * De ahí sale el defecto que esto arregla: **la tolerancia era una constante y
+ * el error es proporcional al precio del agua.** Medido sobre 7 980 meses
+ * generados, con los medidores midiendo más de lo facturado —el reparto
+ * ajustado de `01` §3.4, que es un caso legítimo y documentado— fallaban el
+ * cuadre **7 980 de 7 980**, con desvíos de hasta S/ 0.30 contra una
+ * tolerancia de S/ 0.03. Ninguno de esos meses tenía nada mal: quien administra
+ * no podía publicarlos y no había forma de saber por qué.
+ *
+ * El suelo de `01` §5 se respeta: esto solo ensancha donde el redondeo prueba
+ * que hace falta, nunca aprieta. Y para que ensanchar no ciegue nada, el
+ * cuadre en m³ de `TOLERANCIA_M3` no depende del precio y sigue siendo estrecho.
+ */
+export function toleranciaAgua(precioM3: number): number {
+  if (!Number.isFinite(precioM3) || precioM3 < 0) return TOLERANCIA_AGUA
+  const n = DPTOS.length + 1 // los siete departamentos más el área común
+  return Math.max(TOLERANCIA_AGUA, n * MEDIO_CENTIMO * precioM3 + n * MEDIO_CENTIMO)
+}
+
+/**
+ * Lo mismo para el cuadre del mes, que arrastra el del agua.
+ *
+ * Suma dos redondeos más por departamento: el del mantenimiento y el del total
+ * de la cuota.
+ */
+export function toleranciaMes(precioM3: number): number {
+  return Math.max(TOLERANCIA_MES, toleranciaAgua(precioM3) + 2 * DPTOS.length * MEDIO_CENTIMO)
+}
+
+/**
+ * El cuadre que **no** depende del precio: en metros cúbicos.
+ *
+ * Existe justo para que ensanchar la tolerancia en soles no tape nada. Un
+ * departamento que se pierda del reparto, un factor de ajuste mal aplicado o un
+ * lavado que se cobre dos veces mueven los m³, y eso se ve aquí valga el agua
+ * lo que valga. Ocho redondeos de medio céntimo de m³.
+ */
+export const TOLERANCIA_M3 = (DPTOS.length + 1) * MEDIO_CENTIMO
