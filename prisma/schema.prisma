@@ -24,17 +24,17 @@ datasource db {
 
 /// Los siete departamentos. Sus flats vienen de la escritura del edificio.
 model Departamento {
-  id     String @id @db.VarChar(8)
+  id     String  @id @db.VarChar(8)
   nombre String
   /// Porcentaje de participación. Los siete suman 100.00.
   flat   Decimal @db.Decimal(5, 2)
   piso   Int
 
-  lecturas        Lectura[]
-  pagos           Pago[]
-  gastosExtra     GastoExtra[]
-  reasignaciones  ReasignacionAgua[]
-  avisosLeidos    AvisoLeido[]
+  lecturas       Lectura[]
+  pagos          Pago[]
+  gastosExtra    GastoExtra[]
+  reasignaciones ReasignacionAgua[]
+  avisosLeidos   AvisoLeido[]
 
   @@map("departamento")
 }
@@ -80,17 +80,17 @@ model Recibo {
 /// Un cambio de monto **no reescribe el pasado**: se guarda una fila nueva con
 /// su `vigenteDesde`, y cada mes usa la vigente en ese momento.
 model GastoFijo {
-  id           String  @id @default(cuid())
+  id           String   @id @default(cuid())
   concepto     String
   /// `null` significa **por confirmar**, no "cuesta cero". El pozo a tierra es
   /// un gasto real sin cifra confirmada: aparece en la lista con su etiqueta y
   /// suma 0. La interfaz muestra las dos cosas distinto.
   monto        Decimal? @db.Decimal(10, 2)
-  anual        Boolean @default(false)
+  anual        Boolean  @default(false)
   /// Mes desde el que aplica este monto, `'2026-07'`.
-  vigenteDesde String  @db.VarChar(7)
+  vigenteDesde String   @db.VarChar(7)
   /// Posición en la lista de gastos del mes.
-  orden        Int     @default(0)
+  orden        Int      @default(0)
   creadoEn     DateTime @default(now())
 
   @@unique([concepto, vigenteDesde])
@@ -131,16 +131,16 @@ model GastoExtra {
 /// Los m³ se **reasignan**: se restan del área común y se le suman al
 /// departamento. El total del edificio no cambia.
 model ReasignacionAgua {
-  id       String  @id @default(cuid())
-  dptoId   String  @db.VarChar(8)
+  id       String   @id @default(cuid())
+  dptoId   String   @db.VarChar(8)
   concepto String
-  m3       Decimal @db.Decimal(6, 2)
+  m3       Decimal  @db.Decimal(6, 2)
   /// Mes desde el que aplica.
-  desde    String  @db.VarChar(7)
+  desde    String   @db.VarChar(7)
   creadoEn DateTime @default(now())
 
-  dpto      Departamento              @relation(fields: [dptoId], references: [id], onDelete: Restrict)
-  activaEn  ReasignacionActivaEnMes[]
+  dpto     Departamento              @relation(fields: [dptoId], references: [id], onDelete: Restrict)
+  activaEn ReasignacionActivaEnMes[]
 
   @@unique([dptoId, concepto])
   @@map("reasignacion_agua")
@@ -149,10 +149,10 @@ model ReasignacionAgua {
 /// En qué meses está activa una reasignación, y **con cuántos m³**. Se marca en
 /// el paso 5, y al publicar el mes se congela el valor.
 model ReasignacionActivaEnMes {
-  id              String  @id @default(cuid())
-  reasignacionId  String
-  mes             String  @db.VarChar(7)
-  activa          Boolean @default(true)
+  id             String   @id @default(cuid())
+  reasignacionId String
+  mes            String   @db.VarChar(7)
+  activa         Boolean  @default(true)
   /// Los m³ con los que se cerró este mes.
   ///
   /// **Sin esto, cambiar el consumo del lavado reescribía el pasado.** El valor
@@ -162,7 +162,7 @@ model ReasignacionActivaEnMes {
   /// no se tocaban. Al publicar se graba aquí el valor en vigor y ese mes queda
   /// congelado. `null` significa "sigue el valor actual", que es lo correcto
   /// para un mes que todavía no se ha publicado.
-  m3              Decimal? @db.Decimal(6, 2)
+  m3             Decimal? @db.Decimal(6, 2)
 
   reasignacion ReasignacionAgua @relation(fields: [reasignacionId], references: [id], onDelete: Cascade)
 
@@ -297,22 +297,22 @@ model AvisoLeido {
 
 /// Ajustes del edificio que no son de un mes concreto.
 model ConfiguracionEdificio {
-  id            Int      @id @default(1)
+  id             Int      @id @default(1)
   /// **El saldo real de la cuenta antes del primer mes cargado.**
   ///
   /// `serieSaldo()` acumula hacia adelante desde aquí. El prototipo lo derivaba
   /// hacia atrás desde un saldo final; eso era una muleta por no tener backend.
-  saldoInicial  Decimal  @db.Decimal(12, 2)
+  saldoInicial   Decimal  @db.Decimal(12, 2)
   /// El mes del que parte la serie del saldo.
-  mesInicial    String   @db.VarChar(7)
+  mesInicial     String   @db.VarChar(7)
   /// Datos de la cuenta que se muestran en la hoja "Cómo pagar".
-  bancoNombre   String
-  bancoCuenta   String
-  bancoCci      String
-  bancoTitular  String
+  bancoNombre    String
+  bancoCuenta    String
+  bancoCci       String
+  bancoTitular   String
   /// Día del mes en que vence la cuota.
-  diaVencimiento Int     @default(10)
-  actualizadoEn DateTime @updatedAt
+  diaVencimiento Int      @default(10)
+  actualizadoEn  DateTime @updatedAt
 
   @@map("configuracion_edificio")
 }
@@ -326,4 +326,35 @@ model IntentoPin {
 
   @@index([ip, momento])
   @@map("intento_pin")
+}
+
+/// Cada consulta a Bob, entera. `05-bob-agente.md` §6 y Fase 8 §8.4.4.
+///
+/// **La pregunta, las llamadas a herramienta y la respuesta.** Sin esto no hay
+/// forma de revisar si Bob dijo algo mal: cuando un vecino diga «Bob me dijo
+/// otra cosa», la conversación está aquí con las cifras que miró para decirla.
+///
+/// `motivoCaida` es lo que hace útil la tabla el día que se enchufe DeepSeek:
+/// una racha de `numero_inventado` es la señal de que el modelo empezó a
+/// calcular por su cuenta, y se ve en una consulta.
+model ConsultaBob {
+  id          String   @id @default(cuid())
+  momento     DateTime @default(now())
+  /// El departamento que preguntó, o `null` si aún no había elegido.
+  dpto        String?  @db.VarChar(3)
+  mes         String   @db.VarChar(7)
+  esAdmin     Boolean  @default(false)
+  pregunta    String
+  respuesta   String
+  /// `determinista` | `deepseek`
+  modo        String   @db.VarChar(16)
+  /// Por qué se descartó la respuesta del modelo, si se descartó.
+  motivoCaida String?  @db.VarChar(24)
+  /// Las llamadas a herramienta con sus argumentos y sus resultados.
+  llamadas    Json
+  ms          Int
+
+  @@index([momento])
+  @@index([dpto, momento])
+  @@map("consulta_bob")
 }

@@ -2,6 +2,7 @@
 
 import { useHoja } from './Hojas'
 import { HojaAvisoOk } from './HojaAvisoOk'
+import { HojaBob } from './HojaBob'
 import { HojaCalculo } from './HojaCalculo'
 import { HojaHistorial } from './HojaHistorial'
 import { HojaPagarConDatos } from './HojaPagarConDatos'
@@ -20,6 +21,10 @@ export function Hojas() {
   const { mes, dpto } = useContexto()
   if (!hoja) return null
   switch (hoja) {
+    case 'bob':
+      // Bob no necesita departamento —responde de los totales del edificio
+      // igual—, pero sí el mes que se está mirando.
+      return mes ? <HojaBob mes={mes} dpto={dpto} /> : null
     case 'aviso-ok':
       return <HojaAvisoOk />
     case 'calculo':

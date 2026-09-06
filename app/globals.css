@@ -126,6 +126,13 @@
   --spacing-boton-x: 20px;          /* Relleno lateral de un botón que no es de ancho completo */
   --spacing-boton-medio: 46px;
   --spacing-campo: 50px;            /* Alto del campo de Bob */
+  --spacing-campo-x: 20px;          /* Relleno lateral del campo de Bob */
+  --spacing-chat-x: 22px;           /* Margen lateral de la conversación de Bob · §5 */
+  --spacing-burbuja-y: 13px;        /* Interior de una burbuja de la conversación */
+  --spacing-burbuja-x: 16px;
+  --spacing-burbuja: 12px;          /* Entre dos burbujas */
+  --spacing-burbuja-max: 82%;       /* Lo ancho que llega a ser una burbuja */
+  --spacing-cerrar: 30px;           /* Botón de cerrar de la cabecera de Bob */
   --spacing-grafico-mes: 132px;     /* Alto del gráfico de barras en El mes */
   --spacing-grafico-edificio: 100px;
   --spacing-grafico-tira: 56px;
@@ -216,6 +223,16 @@
 }
 @utility tipo-titulo-bob {
   font: 700 17px/1.2 var(--font-titulo);
+}
+/* La conversación de Bob · §5 */
+@utility tipo-burbuja {
+  font: 400 14px/1.5 var(--font-cuerpo);
+}
+@utility tipo-chip {
+  font: 400 12.5px/1 var(--font-cuerpo);
+}
+@utility tipo-campo {
+  font: 300 14px/1 var(--font-cuerpo);
 }
 @utility tipo-cifra-protagonista {
   font: 500 46px/1 var(--font-mono);
@@ -721,6 +738,14 @@
 
 .hoja-completa {
   top: var(--top);
+}
+
+/* Bob: cabecera y campo quietos, conversación desplazándose en medio. La hoja
+   entera no se desplaza, así que el campo de escribir no se va nunca de vista. */
+.hoja-columna {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .hoja-alta {
@@ -2483,4 +2508,159 @@
    lector de pantalla: ver `components/ui/Fallo.tsx`. */
 .fallo {
   margin-top: var(--spacing-fila-alta);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Bob · la hoja de conversación · 05 §5
+   Al abrir Bob la conversación está ahí mismo: no hay pantalla intermedia.
+   Nada de chispas, gradientes morados ni iconografía de "IA" (05 §6).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.bob-cabecera {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-fila-x);
+  padding: 18px var(--spacing-chat-x) var(--spacing-interior-chico);
+  border-bottom: 1px solid var(--color-linea);
+  flex: 0 0 auto;
+}
+
+.bob-cabecera-avatar {
+  width: var(--spacing-avatar-cabecera);
+  height: var(--spacing-avatar-cabecera);
+  border-radius: var(--radius-icono);
+  background: var(--color-ambar-suave);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.bob-cabecera-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bob-cabecera-subtitulo {
+  margin-top: 4px;
+}
+
+.bob-conversacion {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px var(--spacing-chat-x) 8px;
+}
+
+.bob-invitacion,
+.bob-esperando {
+  text-align: center;
+  padding: 0 var(--spacing-tarjetas) 8px;
+  margin: 0;
+}
+
+/* Lo que dice el vecino: bloque noche, alineado a la derecha. */
+.bob-mia {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 var(--spacing-burbuja);
+}
+
+.bob-mia-texto {
+  max-width: 80%;
+  background: var(--color-noche);
+  color: var(--color-sobre-noche);
+  border-radius: var(--radius-bloque) var(--radius-bloque) var(--radius-tira) var(--radius-bloque);
+  padding: var(--spacing-burbuja-y) var(--spacing-burbuja-x);
+}
+
+/* Lo que dice Bob: papel, con su avatar al lado. */
+.bob-suya {
+  display: flex;
+  gap: 9px;
+  align-items: flex-end;
+  margin-bottom: var(--spacing-burbuja);
+}
+
+.bob-suya-avatar {
+  flex: 0 0 auto;
+  margin-bottom: 2px;
+}
+
+.bob-suya-texto {
+  max-width: var(--spacing-burbuja-max);
+  background: var(--color-papel);
+  border: 1px solid var(--color-neutro-pista);
+  border-radius: var(--radius-bloque) var(--radius-bloque) var(--radius-bloque) var(--radius-tira);
+  padding: var(--spacing-burbuja-y) var(--spacing-burbuja-x);
+}
+
+/* "Con dónde verificarlo" (05 §3): el enlace a la pantalla que lo demuestra. */
+.bob-lleva {
+  display: block;
+  margin-top: 10px;
+  color: var(--color-terra-oscuro);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.bob-chips {
+  display: flex;
+  gap: var(--spacing-acciones);
+  padding: 6px var(--spacing-chat-x) 10px;
+  overflow-x: auto;
+  flex: 0 0 auto;
+}
+
+.bob-chip {
+  background: var(--color-papel);
+  border: 1px solid var(--color-linea);
+  padding: 10px var(--spacing-fila-alta);
+  border-radius: var(--radius-pildora);
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.bob-pie {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px var(--spacing-chat-x) calc(26px + var(--bot));
+  flex: 0 0 auto;
+}
+
+.bob-campo {
+  flex: 1;
+  min-width: 0;
+  height: var(--spacing-campo);
+  border-radius: var(--radius-pildora);
+  background: var(--color-papel);
+  border: 1px solid var(--color-neutro-barra);
+  padding: 0 var(--spacing-campo-x);
+  color: var(--color-tinta);
+  outline: none;
+}
+
+.bob-campo:focus-visible {
+  border-color: var(--color-terra);
+}
+
+.bob-enviar {
+  width: var(--spacing-campo);
+  height: var(--spacing-campo);
+  border-radius: var(--radius-pildora);
+  background: var(--color-noche);
+  color: var(--color-sobre-noche);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+/* Con algo escrito, el botón pasa a terracota: el acento de marca marca el
+   dato activo (02 §1), y aquí el dato activo es la pregunta a medio escribir. */
+.bob-enviar-listo {
+  background: var(--color-terra);
 }

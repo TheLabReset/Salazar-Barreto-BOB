@@ -32,11 +32,18 @@ export function Hoja({
   children,
   titulo,
   altura = 'media',
+  columna = false,
 }: {
   children: ReactNode
   /** Lo que anuncia el lector de pantalla al abrirse. */
   titulo: string
   altura?: keyof typeof ALTURAS
+  /**
+   * La hoja no se desplaza entera: se reparte en cabecera, cuerpo con su propio
+   * desplazamiento, y pie fijo. Lo usa Bob, donde el campo de escribir tiene que
+   * quedarse abajo mientras la conversación sube.
+   */
+  columna?: boolean
 }) {
   const { cerrar } = useHoja()
   const panel = useRef<HTMLDivElement>(null)
@@ -92,7 +99,7 @@ export function Hoja({
         aria-modal="true"
         aria-label={titulo}
         tabIndex={0}
-        className={`hoja animar-hoja scroll-limpio ${ALTURAS[altura]}`}
+        className={`hoja animar-hoja ${columna ? 'hoja-columna' : 'scroll-limpio'} ${ALTURAS[altura]}`}
       >
         <div className="asa-contenedor">
           <span className="asa" />
