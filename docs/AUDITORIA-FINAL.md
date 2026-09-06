@@ -40,7 +40,7 @@ Estado de la puerta, medido al cerrar:
 | `node scripts/verificar-tokens.mjs` | cero valores huérfanos · 192 ficheros |
 | `npx vitest run` | **343 / 343** |
 | `npm run test:integracion` | **120 / 120** |
-| `npx playwright test` | pendiente de una corrida limpia (ver §6) |
+| `npx playwright test` | **157 / 157** en una corrida limpia |
 | `node scripts/verificar-secretos.mjs` | cero secretos en el bundle, ahora incluido `public/` |
 
 ---
@@ -172,11 +172,11 @@ Con honestidad, que es lo que se pidió.
 Ninguno es código a medias; son cosas que **solo se pueden verificar fuera de
 aquí**.
 
-1. **Una corrida limpia de `npx playwright test`.** Toda la sesión compartió la
-   máquina con cinco auditores en paralelo, y las tres suites de pantalla
-   colisionaban sobre el mismo `.next` y la misma base. Los unitarios (343) y los
-   de integración (120) están en verde; el e2e hay que correrlo una vez con la
-   máquina para él solo. Ver §6.
+1. ~~Una corrida limpia de `npx playwright test`.~~ **Hecha**: 157/157 con la
+   máquina para el e2e solo. Cazó dos regresiones que la contención escondía —una
+   etiqueta de enlace que la pasada de textos cambió, y la tarjeta noche
+   restaurada del «publicado» que reventaba por un formato de mes—, las dos ya
+   arregladas. Los unitarios (343) y los de integración (120) también en verde.
 2. **Probarlo en un teléfono de verdad**, iOS y Android. Todo el responsive es
    Chromium redimensionado. Un teclado de sistema real, un notch, un navegador
    embebido: nada de eso lo ve un emulador.
@@ -223,12 +223,12 @@ Todo lo de la semilla está marcado `EJEMPLO`. Lo que hay que reemplazar, en
 
 ## 6. Bajo qué condición esta auditoría estaría equivocada
 
-- **La cifra del e2e.** No hay una corrida limpia de Playwright en este informe
-  porque la máquina estuvo compartida toda la sesión. La última corrida completa
-  dio 154/157, y los tres rojos eran ambientales (una etiqueta de test que ya
-  corregí, y dos timeouts de 30 s bajo contención). **Señal temprana de que me
-  equivoco aquí**: si en una máquina en reposo esos tres siguen rojos, no eran
-  ambientales. Es lo primero que hay que correr.
+- **El e2e ya corrió limpio: 157/157.** Lo que empezó como «tres rojos que
+  parecían de contención» resultó ser dos regresiones reales que yo mismo
+  introduje arreglando otras cosas —una etiqueta de enlace y la tarjeta noche del
+  «publicado»—; la corrida limpia las destapó y están arregladas. La lección:
+  bajo contención no se distingue un rojo ambiental de uno real, así que el e2e
+  hay que correrlo en una máquina en reposo, y ahí es donde di la cifra.
 - **El motor.** Si el PostgreSQL de Railway aplicara los `CHECK` o las claves
   foráneas distinto que el local, la mitad de las defensas de integración estaría
   comprobando algo que allí no existe. Señal: `npm run test:integracion` contra
