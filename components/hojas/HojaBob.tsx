@@ -105,7 +105,7 @@ export function HojaBob({ mes, dpto }: { mes: MesId; dpto: DptoId | null }) {
         {preguntar.isError && <Fallo>{mensajeDeError(preguntar.error)}</Fallo>}
       </div>
 
-      <div className="bob-chips scroll-limpio">
+      <div className="bob-chips scroll-limpio" data-scroll-x>
         {COPYS.bob.sugeridas.map((q) => (
           <button key={q} type="button" className="bob-chip tipo-chip" onClick={() => enviar(q)}>
             {q}

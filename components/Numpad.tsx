@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { fmt3 } from '@/lib/calculo/redondeo'
 
 /**
@@ -160,7 +161,8 @@ function Teclado({
     if (Number.isFinite(n)) peticion.onOk(n)
   }
 
-  return (
+  // El teclado se pinta dentro de `.marco-app` con un portal (ver más abajo).
+  const capa = (
     <div className="numpad-capa" role="dialog" aria-modal="true" aria-label={peticion.etiqueta}>
       <button type="button" className="numpad-velo" onClick={cerrar} aria-label="Cancelar" tabIndex={-1} />
       <div className="numpad-panel" ref={panel} tabIndex={-1}>
@@ -212,6 +214,9 @@ function Teclado({
       </div>
     </div>
   )
+
+  const marco = typeof document !== 'undefined' ? document.getElementById('marco-app') : null
+  return marco ? createPortal(capa, marco) : capa
 }
 
 /** El texto de la etiqueta del numpad para una lectura de medidor. */

@@ -184,11 +184,16 @@ export function Inicio({
         <div className="flex flex-col gap-gasto">
           {cuatro.map((g) => (
             <div key={g.concepto}>
-              <div className="flex justify-between inicio-gasto-fila">
-                <span className="tipo-cuerpo-chico">
+              <div className="flex justify-between inicio-gasto-fila gap-fila-x">
+                {/* `min-w-0 truncate` + `shrink-0`: sin esto un concepto largo empuja
+                    el monto fuera del marco, y como `.marco-app` recorta con
+                    `overflow:hidden`, el número desaparece sin dejar barra de
+                    scroll — ningún chequeo de `scrollWidth` lo ve. ElMes ya lo
+                    hacía; esta fila se había olvidado. */}
+                <span className="tipo-cuerpo-chico min-w-0 truncate">
                   {g.esAgua ? COPYS.inicio.facturaAguaCon(resultado.rec.aguaM3) : g.concepto}
                 </span>
-                <span className="tipo-monto-lista-chico">{fmt(g.monto)}</span>
+                <span className="tipo-monto-lista-chico shrink-0">{fmt(g.monto)}</span>
               </div>
               <div className="barra-gasto-pista">
                 <span

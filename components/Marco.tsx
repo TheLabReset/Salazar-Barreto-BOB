@@ -15,7 +15,7 @@ import type { ReactNode } from 'react'
 export function Marco({ children }: { children: ReactNode }) {
   return (
     <div className="marco-exterior">
-      <div className="marco-app">{children}</div>
+      <div className="marco-app" id="marco-app">{children}</div>
     </div>
   )
 }

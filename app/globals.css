@@ -800,7 +800,11 @@
   z-index: 40;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  /* `overflow-y:auto` + `margin-top:auto` en el panel, en vez de
+     `justify-content:flex-end`: cuando el panel es más alto que la ventana
+     —teléfono en apaisado— así se puede desplazar hasta la etiqueta y el valor,
+     que con `flex-end` quedaban cortados arriba y fuera de alcance. `02` §4.6. */
+  overflow-y: auto;
 }
 
 .numpad-velo {
@@ -813,9 +817,12 @@
 
 .numpad-panel {
   position: relative;
+  margin-top: auto;
   background: var(--color-crema);
   border-radius: 28px 28px var(--rad) var(--rad);
-  padding: 22px 22px 30px;
+  /* 30px + el inset del gesto de inicio, como `--bot`: sin esto la fila
+     Cancelar/Guardar caía dentro de la zona del gesto en un iPhone. */
+  padding: 22px 22px calc(30px + env(safe-area-inset-bottom));
   box-shadow: var(--shadow-hoja);
 }
 

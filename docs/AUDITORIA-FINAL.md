@@ -73,6 +73,9 @@ pantalla; **ALTO** rompe un contrato del diseño o de los chequeos; **MEDIO**/
 | A8 | **`verificar-secretos` no miraba `public/`** (donde vive `sw.js`). Un secreto ahí pasaba como «limpio». | `public/` en el alcance. Probado en rojo con el `ADMIN_SECRETO` en un `public/*.js`. |
 | A9 | **El test «los diez mil PINs» no podía fallar**: fuerza bruta de claves de 4 dígitos contra una firma que por contrato tiene ≥32 caracteres. | Aserción de propiedad: la firma no coincide con ninguna derivación del PIN. Probada en rojo. |
 | A10 | **Tres cláusulas de `revisarResultado` no se probaban en dirección de fallo.** | `sanidad.test.ts` construye meses malos y exige que los cace. Cada cláusula probada en rojo. |
+| A11 | **El monto de un gasto se salía de la pantalla en Inicio y se recortaba en silencio** (fila flex sin `min-width:0`; `.marco-app` recorta con `overflow:hidden`, así que ni `scrollWidth` lo veía). ElMes ya lo hacía bien. | `min-w-0 truncate` en el concepto, `shrink-0` en el monto. |
+| A12 | **El teclado numérico se dibujaba fuera de `.marco-app`**: en escritorio ocupaba los 1440px del viewport en vez de la columna de 390. Su `position:absolute` resolvía contra el viewport porque se montaba como hermano del marco. | Se pinta dentro del marco con un portal a `#marco-app`. |
+| A13 | **En apaisado, el teclado numérico cortaba su propia etiqueta y el valor** (panel más alto que el viewport, `flex-end` empuja el sobrante fuera de alcance). | `overflow-y:auto` + `margin-top:auto`: el sobrante se puede desplazar. |
 
 ### MEDIO — arreglados
 
@@ -86,6 +89,9 @@ pantalla; **ALTO** rompe un contrato del diseño o de los chequeos; **MEDIO**/
 | M6 | El panel colapsaba «Cargos adicionales y créditos» en una fila rotulada solo por el lavado. | La fila se llama por lo que abre. |
 | M7 | `verificar-tokens` no aplicaba las reglas de color a los `.css` ni miraba `public/`. | hex y rgb valen en `.css` (exento el de tokens); `public/` en el alcance. Probado con un `.css` de fixture. |
 | M8 | `medir-tolerancia.mjs` imprimía una contradicción (peor error 0.11 «sobre» una tolerancia de 0.03, y falla 0) y no fallaba por lo que mide. | Mensaje alineado con la tolerancia adaptativa; falla si un cuadre se rompe. |
+| M9 | Un mes publicado sin recibo (estado incoherente) daba 404 «esta página no existe» en `/mes` mientras Inicio mostraba su estado vacío. | La puerta de `/mes/[mes]` mira «¿publicado?», no «¿tiene recibo?»; el resultado inválido muestra `SinDatos`. |
+| M10 | El teclado numérico no respetaba `env(safe-area-inset-bottom)`: la fila Cancelar/Guardar caía en la zona del gesto de inicio del iPhone. | `padding-bottom: calc(30px + env(safe-area-inset-bottom))`. |
+| M11 | `.bob-chips` era un carrusel horizontal sin declarar `data-scroll-x`, que es lo que el chequeo de desbordes usa para perdonar un scroller intencional. | `data-scroll-x` añadido. |
 
 ### BAJO — arreglados
 
@@ -157,7 +163,33 @@ Con honestidad, que es lo que se pidió.
    Todo esto está acotado y ninguno deja pasar un error de dinero; son mejoras de
    la red, no agujeros en el producto.
 
-6. **La app no autentica a los vecinos.** `GET /api/dptos/501/historial` le
+6. **No hay notificaciones: ni push, ni enlace de WhatsApp** (§9.6.7 del
+   encargo pide una de las dos, además de la campana). Hoy solo está la campana
+   dentro de la app. No lo añadí porque necesita una decisión tuya: **push**
+   quiere infraestructura (claves VAPID, service worker de push, backend) y solo
+   se prueba desplegado; **un enlace de WhatsApp** —`wa.me` con un mensaje
+   prellenado al publicar un mes— es ligero, pero el texto del mensaje y dónde va
+   el botón son decisiones de producto que no me toca inventar. Recomiendo el
+   enlace de WhatsApp como primer paso: es lo que un edificio de siete vecinos
+   con un grupo ya usa.
+
+7. **Toda la tipografía va en `px`, no en `rem`.** El ajuste de «tamaño de letra»
+   del sistema operativo no la agranda (el zoom del navegador sí funciona, y está
+   permitido hasta ×5). Es fiel al sistema de diseño, que fija cada tamaño en px,
+   pero para siete vecinos que pueden ser mayores, convendría un pase a `rem`
+   partiendo de los mismos valores. Es una mejora de accesibilidad, no un
+   incumplimiento duro de WCAG. Lo dejo como decisión tuya porque toca la escala
+   tipográfica entera, que es diseño validado.
+
+8. **Cinco cosas menores, medidas y declaradas** (todas BAJO): a 320px se corta
+   por 3px el concepto del lavado en la hoja de cargos; el panel de admin con la
+   base vacía muestra «SIN AVISO» sin nombre de mes; `URL.revokeObjectURL` se
+   llama justo tras `click()` (funciona en Chromium; WebKit a veces necesita
+   diferirlo — a vigilar si un iPhone no descarga el Excel); y `/mes` no entra en
+   la caché sin conexión por ser un `redirect`, pero su destino sí y el respaldo
+   lo cubre. Ninguna mueve dinero ni impide usar la app.
+
+9. **La app no autentica a los vecinos.** `GET /api/dptos/501/historial` le
    responde a cualquiera. Es coherente con un producto sin roles (siete vecinos
    que confían entre sí), pero **tiene que ser una decisión tuya, no un
    descuido**. Hoy: cualquiera con el enlace ve el historial de cualquier
