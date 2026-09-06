@@ -1,5 +1,5 @@
 import { dptoElegido } from '@/lib/sesion'
-import { mesesPublicados } from '@/lib/datos/meses'
+import { balanceDelDpto, mesesPublicados } from '@/lib/datos/meses'
 import { pagosDe, resultadoDeMes } from '@/lib/datos/mes'
 import { historialDeDpto } from '@/lib/datos/historial'
 import { MiDepartamento } from '@/components/pantallas/MiDepartamento'
@@ -14,12 +14,22 @@ export default async function Pagina() {
   const mes = publicados[publicados.length - 1]
   if (!mes) return <SinDatos />
 
-  const [resultado, pagos, historial] = await Promise.all([
+  const [resultado, pagos, historial, balance] = await Promise.all([
     resultadoDeMes(mes),
     pagosDe(mes),
     historialDeDpto(dpto),
+    balanceDelDpto(dpto),
   ])
   if (!resultado.valido) return <SinDatos motivo={resultado.motivoInvalido} />
 
-  return <MiDepartamento dpto={dpto} mes={mes} resultado={resultado} pagos={pagos} historial={historial} />
+  return (
+    <MiDepartamento
+      dpto={dpto}
+      mes={mes}
+      resultado={resultado}
+      pagos={pagos}
+      historial={historial}
+      balance={balance}
+    />
+  )
 }

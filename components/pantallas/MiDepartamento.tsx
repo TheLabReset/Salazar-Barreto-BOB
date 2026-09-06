@@ -28,12 +28,15 @@ export function MiDepartamento({
   resultado,
   pagos,
   historial,
+  balance,
 }: {
   dpto: DptoId
   mes: MesId
   resultado: ResultadoMes
   pagos: PagosMes
   historial: HistorialDpto
+  /** Lo que el depto trae a favor (+) o le falta (−), acumulado. */
+  balance: number
 }) {
   const mia = resultado.cuotas[dpto]
   const miPago = pagos[dpto] ?? null
@@ -87,6 +90,18 @@ export function MiDepartamento({
           {estado === 'sin-registrar' && <AccionesPago mes={mes} dpto={dpto} />}
         </TarjetaNoche>
       </div>
+
+      {/* El balance que arrastra: a favor si pagó de más o por adelantado, o lo
+          que le falta poner. En suave, sin rojo ni la palabra deuda. Al día no
+          se dice nada, para no llenar de ruido. */}
+      {Math.abs(balance) >= 0.01 && (
+        <div className={balance > 0 ? 'midpto-balance midpto-balance-favor' : 'midpto-balance midpto-balance-falta'}>
+          <span className="tipo-cuerpo-chico">
+            {balance > 0 ? COPYS.miDpto.aFavor : COPYS.miDpto.leFalta}
+          </span>
+          <span className="tipo-monto-lista">{fmt(Math.abs(balance))}</span>
+        </div>
+      )}
 
       {mia.lavado > 0 && (
         <div className="animar-entrada midpto-lavado-contenedor">

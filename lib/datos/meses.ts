@@ -6,10 +6,10 @@
  * producción el mes en curso es precisamente el que se está cerrando.
  */
 
-import { serieSaldo, type MesConPagos } from '@/lib/calculo/saldo'
+import { balancePorDpto, serieSaldo, type MesConPagos } from '@/lib/calculo/saldo'
 import { etiquetaMes, mesAnterior, mesCorto, nombreMes, comoMes } from '@/lib/calculo/mes'
 import { DPTO_IDS } from '@/lib/calculo/constantes'
-import type { FilaSaldo, MesId, ResultadoMes } from '@/lib/calculo/tipos'
+import type { DptoId, FilaSaldo, MesId, ResultadoMes } from '@/lib/calculo/tipos'
 import { aNumeroObligatorio } from './decimal'
 import { entradasDeMes, pagosDe, resultadoDeMes } from './mes'
 import { prisma } from './prisma'
@@ -99,6 +99,26 @@ export async function serieDelSaldo(): Promise<FilaSaldo[]> {
     conPagos.push({ mesId: mes, resultado, pagos })
   }
   return serieSaldo(conPagos, aNumeroObligatorio(config.saldoInicial))
+}
+
+/**
+ * El balance de un departamento a hoy: lo que trae a favor (pagó de más o por
+ * adelantado) o lo que le falta poner, acumulado sobre los meses publicados.
+ *
+ * Positivo = a favor; negativo = pendiente; 0 = al día. Se calcula sobre los
+ * mismos meses cerrados que la cuenta conjunta, así los dos números concuerdan.
+ */
+export async function balanceDelDpto(dpto: DptoId): Promise<number> {
+  const config = await prisma.configuracionEdificio.findUnique({ where: { id: 1 } })
+  if (!config) return 0
+  const publicados = await mesesPublicados()
+  const meses = publicados.filter((m) => m >= config.mesInicial)
+  const conPagos: MesConPagos[] = []
+  for (const mes of meses) {
+    const [resultado, pagos] = await Promise.all([resultadoDeMes(mes), pagosDe(mes)])
+    conPagos.push({ mesId: mes, resultado, pagos })
+  }
+  return balancePorDpto(conPagos)[dpto]
 }
 
 export interface Borrador {

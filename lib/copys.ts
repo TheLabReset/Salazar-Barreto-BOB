@@ -138,6 +138,9 @@ export const COPYS = {
     cabecera: (nombre: string, flat: number) => `${nombre} · Flat ${flat}%`,
     titulo: (dpto: string) => `Depa ${dpto}`,
     cambiar: 'Cambiar',
+    // El balance que arrastra. En positivo y en suave; nada de «deuda».
+    aFavor: 'Tienes a favor',
+    leFalta: 'Te toca poner',
     comoPagar: 'Cómo pagar',
     yaPague: 'Ya pagué',
     lavado: 'Lavado de vehículo',
@@ -459,6 +462,11 @@ export const COPYS = {
   },
 
   // ── Administración ─────────────────────────────────────────────────────
+  pagos: {
+    // Confirmar un pago que entró por un monto distinto de la cuota.
+    otroMonto: 'Entró otro monto',
+    otroMontoEtiqueta: (dpto: string) => `¿Cuánto entró del ${dpto}?`,
+  },
   admin: {
     entrar: 'Administrar el edificio',
     pinTitulo: 'Administrar el edificio',

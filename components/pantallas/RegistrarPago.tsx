@@ -7,6 +7,7 @@ import { fechaCorta } from '@/lib/formato'
 import { nombreMes } from '@/lib/calculo/mes'
 import { COPYS } from '@/lib/copys'
 import { useAnuncio } from '@/components/Anuncio'
+import { useNumpad } from '@/components/Numpad'
 import type { FilaPago } from '@/lib/datos/admin'
 import type { MesId } from '@/lib/calculo/tipos'
 import { Fallo } from '@/components/ui/Fallo'
@@ -22,12 +23,14 @@ import { mensajeDeError } from '@/lib/errores-ui'
 export function RegistrarPago({ pago, mes }: { pago: FilaPago; mes: MesId }) {
   const router = useRouter()
   const anunciar = useAnuncio()
+  const { abrir } = useNumpad()
   const confirmar = useMutation({
-    mutationFn: async () => {
+    /** `monto` solo va cuando entró algo distinto de la cuota. */
+    mutationFn: async (monto?: number) => {
       const r = await fetch('/api/pagos/confirmar', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ mes, dpto: pago.dpto }),
+        body: JSON.stringify({ mes, dpto: pago.dpto, ...(monto === undefined ? {} : { monto }) }),
       })
       const cuerpo = await r.json()
       if (!r.ok) throw new Error(cuerpo.error ?? 'No se pudo confirmar')
@@ -58,12 +61,32 @@ export function RegistrarPago({ pago, mes }: { pago: FilaPago; mes: MesId }) {
       {confirmar.isError && <Fallo>{mensajeDeError(confirmar.error)}</Fallo>}
       <button
         type="button"
-        onClick={() => confirmar.mutate()}
+        onClick={() => confirmar.mutate(undefined)}
         aria-disabled={confirmar.isPending}
         aria-label={`Confirmar contra el estado de cuenta el pago del ${pago.dpto}, ${pago.nombre}`}
         className="admin-pago-boton"
       >
         {confirmar.isPending ? 'Confirmando…' : 'Confirmar contra el estado de cuenta'}
+      </button>
+      {/* El caso normal es pagar la cuota exacta; el botón de arriba asume eso.
+          Esto es para cuando entró un monto distinto: de más queda a favor, de
+          menos queda pendiente, y el balance del depto lo arrastra. */}
+      <button
+        type="button"
+        onClick={() =>
+          abrir({
+            etiqueta: COPYS.pagos.otroMontoEtiqueta(pago.dpto),
+            valorInicial: pago.cuota ?? undefined,
+            decimales: true,
+            maxDecimales: 2,
+            sufijo: 'S/',
+            onOk: (monto) => confirmar.mutate(monto),
+          })
+        }
+        aria-disabled={confirmar.isPending}
+        className="admin-pago-otro"
+      >
+        {COPYS.pagos.otroMonto}
       </button>
     </div>
   )
