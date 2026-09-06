@@ -78,7 +78,47 @@ test.describe('axe-core · cero violaciones críticas o serias', () => {
   }
 })
 
+/**
+ * La pantalla del PIN, que **ningún test había visto nunca**.
+ *
+ * El fixture de la base hace `POST /api/admin/pin` antes de cada test, así que
+ * `/admin` siempre renderiza el panel y la pantalla del PIN no se pintaba en
+ * ninguna corrida. Ahí estaba el defecto de que quien administra sin ver no
+ * podía saber cuántos dígitos llevaba tecleados.
+ */
+test.describe('axe-core · la pantalla del PIN', () => {
+  test('sin sesión de administración', async ({ page }) => {
+    await page.context().clearCookies({ name: 'sb_admin' })
+    await page.goto('/admin')
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByText('Administrar el edificio')).toBeVisible()
+    const malas = await violaciones(page)
+    expect(malas.length, `pantalla del PIN:\n${describir(malas)}`).toBe(0)
+  })
+
+  test('lo que teclea se anuncia', async ({ page }) => {
+    await page.context().clearCookies({ name: 'sb_admin' })
+    await page.goto('/admin')
+    const region = page.locator('[role="status"]').filter({ hasText: /dígitos|Sin dígitos/ })
+    await expect(region).toContainText('Sin dígitos')
+    await page.getByRole('button', { name: '1', exact: true }).click()
+    await expect(region).toContainText('1 de 4')
+    await page.getByRole('button', { name: '2', exact: true }).click()
+    await expect(region).toContainText('2 de 4')
+  })
+})
+
 test.describe('axe-core · las hojas', () => {
+  /**
+   * **Las diez hojas, no cuatro.**
+   *
+   * Se escaneaban `calculo`, `pagar`, `wizard` y `corregir`, y quedaban fuera
+   * seis. En una de ellas —el historial de pagos— estaba el mismo defecto que
+   * este bloque dice haber cerrado en Avisos: el estado de cada mes solo lo
+   * llevaba un punto de color con `aria-label` sobre un `<span>` sin rol, que no
+   * lee nadie. Un vecino ciego oía seis meses, seis fechas y seis montos, y ni
+   * una vez «al día» o «sin registrar».
+   */
   const HOJAS: {
     ruta: string
     boton: RegExp
@@ -88,8 +128,12 @@ test.describe('axe-core · las hojas', () => {
   }[] = [
     { ruta: '/', boton: /¿Cómo se calculó\?/, nombre: 'El cálculo', admin: false },
     { ruta: '/mi-departamento', boton: /Cómo pagar/, nombre: 'Cómo pagar', admin: false, dpto: '501' },
+    { ruta: '/mi-departamento', boton: /Historial de pagos/, nombre: 'Historial de pagos', admin: false },
+    { ruta: '/mi-departamento', boton: /Tu consumo de agua/, nombre: 'Consumo de agua', admin: false },
     { ruta: '/admin', boton: /Empezar |Seguir con /, nombre: 'El cierre del mes', admin: true },
     { ruta: '/admin', boton: /Corregir/, nombre: 'Corregir un mes', admin: true },
+    { ruta: '/admin', boton: /lavado de vehículo/, nombre: 'Cargos y créditos', admin: true },
+    { ruta: '/admin', boton: /Exportar el año en Excel/, nombre: 'Exportar el año', admin: true },
   ]
 
   for (const { ruta, boton, nombre, admin, dpto } of HOJAS) {
@@ -177,6 +221,83 @@ test.describe('se puede recorrer solo con el teclado', () => {
   })
 })
 
+/**
+ * **El cierre del mes, entero, sin ratón.**
+ *
+ * Esto faltaba y era lo más grave de toda la fase: el teclado numérico propio es
+ * la única entrada de cifras que existe —siete lecturas, agua, luz, gastos
+ * fijos, puntuales, correcciones, cargos— y con el teclado era inalcanzable. El
+ * foco se quedaba en la hoja de detrás, cuya trampa lo paseaba en bucle, y
+ * `Escape` cerraba la hoja dejando el teclado huérfano en pantalla. Un
+ * administrador que no use ratón no podía cerrar el mes. Ni empezarlo.
+ *
+ * Ninguno de los quince tests de accesibilidad lo veía, porque todos miraban el
+ * marcado y ninguno tecleaba.
+ */
+test.describe('el numpad, sin ratón', () => {
+  async function abrirNumpadConTeclado(page: Page) {
+    const r = await page.request.post('/api/admin/pin', { data: { pin: PIN } })
+    expect(r.ok()).toBeTruthy()
+    await page.goto('/admin')
+    await page.getByRole('button', { name: /Empezar |Seguir con / }).first().click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.getByRole('button', { name: 'Empezar', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Las lecturas' })).toBeVisible()
+
+    // Se tabula hasta la primera fila de lectura y se abre con Enter. Sin tocar
+    // el ratón ni una vez.
+    for (let i = 0; i < 25; i++) {
+      await page.keyboard.press('Tab')
+      const esFila = await page.evaluate(() =>
+        (document.activeElement as HTMLElement | null)?.classList.contains('lectura-fila'),
+      )
+      if (esFila) break
+    }
+    await page.keyboard.press('Enter')
+  }
+
+  test('se abre, se teclea y se guarda una lectura sin tocar el ratón', async ({ page }) => {
+    await abrirNumpadConTeclado(page)
+
+    // El foco tiene que estar **dentro** del teclado.
+    const dentro = await page.evaluate(() =>
+      !!document.querySelector('.numpad-panel')?.contains(document.activeElement),
+    )
+    expect(dentro, 'al abrirse, el foco entra en el teclado').toBe(true)
+
+    // Y tabulando se llega a los dígitos, que es lo que hace falta para escribir.
+    const alcanzados: string[] = []
+    for (let i = 0; i < 30; i++) {
+      await page.keyboard.press('Tab')
+      const etiqueta = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null
+        const enNumpad = !!document.querySelector('.numpad-panel')?.contains(el)
+        return enNumpad ? (el?.getAttribute('aria-label') ?? el?.textContent ?? '').trim() : null
+      })
+      if (etiqueta) alcanzados.push(etiqueta)
+    }
+    for (const tecla of ['1', '8', '6', 'Punto decimal', 'Borrar', 'Guardar']) {
+      expect(alcanzados, `la tecla «${tecla}» tiene que alcanzarse con el tabulador`).toContain(tecla)
+    }
+
+    // Y el foco no se escapa a la hoja de detrás en ninguna de las 30 vueltas.
+    expect(alcanzados.length, 'el foco nunca sale del teclado').toBe(30)
+  })
+
+  test('Escape cierra el teclado, no la hoja de debajo', async ({ page }) => {
+    await abrirNumpadConTeclado(page)
+    await expect(page.locator('.numpad-panel')).toBeVisible()
+
+    await page.keyboard.press('Escape')
+
+    await expect(page.locator('.numpad-panel'), 'el teclado se cierra').toHaveCount(0)
+    await expect(
+      page.getByRole('heading', { name: 'Las lecturas' }),
+      'y la hoja de detrás sigue ahí: cerrar el teclado no es salirse del cierre',
+    ).toBeVisible()
+  })
+})
+
 test.describe('lo que se anuncia a un lector de pantalla', () => {
   test('la región de anuncios existe y no se ve', async ({ page }) => {
     await page.goto('/')
@@ -227,31 +348,52 @@ test.describe('con el texto del sistema al doble', () => {
       await page.addStyleTag({ content: 'html { font-size: 200% }' })
       await page.waitForTimeout(200)
 
-      // Ni barra horizontal en el marco…
-      const marco = page.locator('.marco-app')
-      const medidas = await marco.evaluate((el) => ({
+      /**
+       * Se mide `.pantalla`, **no** `.marco-app`.
+       *
+       * `.marco-app` lleva `overflow: hidden`, así que su `scrollWidth` no crece
+       * nunca por mucho que el contenido se salga: el que absorbe el desborde es
+       * `.pantalla`. Con el contenedor equivocado, el aserto no podía fallar —se
+       * comprobó metiendo a mano un párrafo de 2668 px con la letra al doble: el
+       * marco seguía diciendo 390—.
+       */
+      const pantalla = page.locator('.pantalla').first()
+      const medidas = await pantalla.evaluate((el) => ({
         scroll: el.scrollWidth,
         cliente: el.clientWidth,
       }))
-      expect(medidas.scroll, `${nombre} se desborda a lo ancho con el texto al doble`).toBeLessThanOrEqual(
-        medidas.cliente,
-      )
+      expect(
+        medidas.scroll,
+        `${nombre} se desborda a lo ancho con el texto al doble`,
+      ).toBeLessThanOrEqual(medidas.cliente + 1)
 
-      // …ni texto recortado dentro de su caja. `truncate` con puntos suspensivos
-      // es una decisión de diseño y no cuenta; lo que no vale es que la letra se
-      // salga por debajo del borde de su contenedor.
+      /**
+       * Y texto recortado dentro de su caja.
+       *
+       * El filtro anterior descartaba todo lo que tuviera `overflow: visible`,
+       * que es **el valor por defecto de casi todo el DOM**: de 93 elementos, se
+       * examinaban 0. Ahora se mira la altura de todos y se excluye por lista lo
+       * que está recortado a propósito — los `sr-only` y lo que trunca con
+       * puntos suspensivos, que es una decisión de diseño.
+       */
       const recortados = await page.evaluate(() => {
         const malos: string[] = []
-        for (const el of document.querySelectorAll<HTMLElement>('button, h1, h2, p, span')) {
-          // Lo que solo oye el lector de pantalla está recortado **a propósito**:
-          // es la técnica para esconderlo de la vista sin esconderlo del lector.
+        let examinados = 0
+        for (const el of document.querySelectorAll<HTMLElement>('button, h1, h2, p, span, li')) {
           if (el.classList.contains('sr-only')) continue
           const estilo = getComputedStyle(el)
-          if (estilo.overflow === 'visible' || estilo.textOverflow === 'ellipsis') continue
-          if (el.scrollHeight > el.clientHeight + 2) {
+          if (estilo.textOverflow === 'ellipsis') continue
+          if (el.getAttribute('aria-hidden') === 'true') continue
+          examinados++
+          // Solo cuenta si de verdad **esconde** algo: con `overflow: visible` el
+          // texto se sale pero se lee, y eso ya lo caza la medida de arriba.
+          const escondeVertical = estilo.overflowY === 'hidden' || estilo.overflowY === 'auto'
+          if (escondeVertical && el.scrollHeight > el.clientHeight + 2) {
             malos.push(`${el.tagName.toLowerCase()}.${el.className.split(' ')[0]}`)
           }
         }
+        // Si no se examinó nada, el chequeo no ha comprobado nada: se dice.
+        if (examinados === 0) malos.push('EL CHEQUEO NO EXAMINÓ NI UN ELEMENTO')
         return malos
       })
       expect(recortados, `${nombre}: texto recortado con la letra al doble`).toEqual([])

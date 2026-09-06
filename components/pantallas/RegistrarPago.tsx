@@ -9,6 +9,7 @@ import { COPYS } from '@/lib/copys'
 import { useAnuncio } from '@/components/Anuncio'
 import type { FilaPago } from '@/lib/datos/admin'
 import type { MesId } from '@/lib/calculo/tipos'
+import { Fallo } from '@/components/ui/Fallo'
 
 /**
  * Una fila de pago por verificar, con su botón de confirmar.
@@ -53,9 +54,7 @@ export function RegistrarPago({ pago, mes }: { pago: FilaPago; mes: MesId }) {
         <span className="tipo-monto-lista">{pago.cuota === null ? '—' : fmt(pago.cuota)}</span>
       </div>
       {pago.texto && <p className="tipo-contexto text-gris admin-pago-texto">«{pago.texto}»</p>}
-      {confirmar.isError && (
-        <p className="tipo-contexto text-ambar admin-pago-error">{(confirmar.error as Error).message}</p>
-      )}
+      {confirmar.isError && <Fallo>{(confirmar.error as Error).message}</Fallo>}
       <button
         type="button"
         onClick={() => confirmar.mutate()}

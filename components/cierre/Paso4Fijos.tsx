@@ -7,6 +7,7 @@ import { useNumpad } from '@/components/Numpad'
 import type { PropsPaso } from './Wizard'
 import { BotonAvanzar } from './BotonAvanzar'
 import { AvisoBob } from './AvisoBob'
+import { Fallo } from '@/components/ui/Fallo'
 
 /**
  * Paso 4 · Los gastos fijos. `04-cierre-del-mes.md`.
@@ -64,7 +65,7 @@ export function Paso4Fijos({ borrador, guardar, guardando, errorGuardar, avanzar
           {`${sinCifra[0]!.concepto} sigue sin cifra. Puedes dejarlo así y ponerlo cuando lo tengas.`}
         </AvisoBob>
       )}
-      {errorGuardar && <p className="tipo-cuerpo-menor text-ambar cierre-error">{errorGuardar}</p>}
+      {errorGuardar && <Fallo>{errorGuardar}</Fallo>}
 
       <BotonAvanzar onClick={avanzar} cargando={guardando}>
         {COPYS.cierre.confirmarSeguir}

@@ -61,6 +61,9 @@ let tomadoPorNosotros = false
  *                 palabra del cerrojo ni de su ruta.
  */
 export async function tomarCerrojo(esperaMs = 20_000): Promise<void> {
+  // Re-entrante dentro del mismo proceso: quien ya lo tiene, lo tiene. Sin esto,
+  // un `resembrar()` en cada `beforeEach` se bloquearía a sí mismo en el segundo.
+  if (tomadoPorNosotros) return
   mkdirSync(CARPETA, { recursive: true })
   const limite = Date.now() + esperaMs
   for (;;) {

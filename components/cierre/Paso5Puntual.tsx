@@ -8,6 +8,7 @@ import type { DptoId, Extra } from '@/lib/calculo/tipos'
 import { useNumpad } from '@/components/Numpad'
 import type { PropsPaso } from './Wizard'
 import { BotonAvanzar } from './BotonAvanzar'
+import { Fallo } from '@/components/ui/Fallo'
 
 /**
  * Paso 5 · Lo puntual. `04-cierre-del-mes.md`.
@@ -142,7 +143,7 @@ export function Paso5Puntual({ borrador, guardar, guardando, errorGuardar, avanz
         </>
       )}
 
-      {errorGuardar && <p className="tipo-cuerpo-menor text-ambar cierre-error">{errorGuardar}</p>}
+      {errorGuardar && <Fallo>{errorGuardar}</Fallo>}
 
       <BotonAvanzar onClick={avanzar} cargando={guardando}>
         {extras.length > 0 ? 'Continuar' : COPYS.cierre.nadaMas}

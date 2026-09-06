@@ -12,6 +12,7 @@ import { useNumpad } from '@/components/Numpad'
 import { useAnuncio } from '@/components/Anuncio'
 import { Hoja } from './Hoja'
 import { useHoja } from './Hojas'
+import { Fallo } from '@/components/ui/Fallo'
 
 /**
  * Corregir un mes ya publicado. `04-cierre-del-mes.md`.
@@ -113,9 +114,7 @@ export function HojaCorregir({
           <h2 className="tipo-titulo-hoja cierre-titulo">
             {COPYS.correccion.titulo(etiquetaMes(mes))}
           </h2>
-          <p className="tipo-cuerpo-menor text-ambar">
-            {(error as Error | null)?.message ?? COPYS.error.lecturasDelMes(nombreMes(mes))}
-          </p>
+          <Fallo>{(error as Error | null)?.message ?? COPYS.error.lecturasDelMes(nombreMes(mes))}</Fallo>
           <button type="button" onClick={() => void refetch()} className="cierre-boton">
             {COPYS.error.reintentar}
           </button>
@@ -215,7 +214,7 @@ export function HojaCorregir({
         </div>
 
         {corregir.isError && (
-          <p className="tipo-cuerpo-menor text-ambar cierre-error">{(corregir.error as Error).message}</p>
+          <Fallo>{(corregir.error as Error).message}</Fallo>
         )}
 
         <button

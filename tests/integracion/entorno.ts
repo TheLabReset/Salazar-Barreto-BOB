@@ -6,7 +6,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { soltarCerrojo, tomarCerrojo } from '../cerrojo'
+import { tomarCerrojo } from '../cerrojo'
 import { prisma } from '@/lib/datos/prisma'
 
 export function exigirBaseDeDatos(): void {
@@ -28,15 +28,20 @@ export async function resembrar(): Promise<void> {
    * allá se solapaban: se vio reventar el borrado de departamentos porque otro
    * proceso insertó un pago en medio, y el rojo salía en el fichero inocente.
    *
-   * Se toma aquí y se suelta al final: es la ventana peligrosa —borrar todo y
-   * volver a escribirlo—, y `beforeEach` la abre en cada test.
+   * **Se toma y NO se suelta hasta que el proceso termina.**
+   *
+   * Soltarlo justo después de resembrar dejaba una ventana del tamaño del test:
+   * otro proceso resembraba por debajo mientras este comprobaba sus cifras, y
+   * salían cuatro rojos que no eran del producto —medido, y en la corrida
+   * siguiente los mismos tests pasaron sin tocar nada—. Un rojo que aparece y
+   * desaparece es peor que uno fijo: enseña a no fiarse de la suite.
+   *
+   * El cerrojo es re-entrante, así que los `beforeEach` que llaman aquí una y
+   * otra vez no se bloquean, y el manejador de `exit` de `tests/cerrojo.ts` lo
+   * suelta pase lo que pase.
    */
-  await tomarCerrojo(30_000)
-  try {
-    await borrarYSembrar()
-  } finally {
-    soltarCerrojo()
-  }
+  await tomarCerrojo(120_000)
+  await borrarYSembrar()
 }
 
 async function borrarYSembrar(): Promise<void> {

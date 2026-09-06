@@ -7,6 +7,7 @@ import type { PropsPaso } from './Wizard'
 import { BotonAvanzar } from './BotonAvanzar'
 import { AvisoBob } from './AvisoBob'
 import { CampoNumerico } from './CampoNumerico'
+import { Fallo } from '@/components/ui/Fallo'
 
 /** Paso 3 · El recibo de luz común. Un solo campo. `04-cierre-del-mes.md`. */
 export function Paso3Luz({ borrador, guardar, guardando, errorGuardar, avanzar }: PropsPaso) {
@@ -40,7 +41,7 @@ export function Paso3Luz({ borrador, guardar, guardando, errorGuardar, avanzar }
           {`S/ ${fmt(luz)} es lo que llegó en el recibo de luz común. Si no coincide con el papel, cámbialo antes de seguir.`}
         </AvisoBob>
       )}
-      {errorGuardar && <p className="tipo-cuerpo-menor text-ambar cierre-error">{errorGuardar}</p>}
+      {errorGuardar && <Fallo>{errorGuardar}</Fallo>}
 
       <BotonAvanzar onClick={avanzar} bloqueadoPor={tiene ? null : COPYS.cierre.faltaMonto} cargando={guardando}>
         Continuar

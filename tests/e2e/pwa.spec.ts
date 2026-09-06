@@ -32,25 +32,41 @@ test.describe('el manifiesto y los iconos', () => {
     expect(tamanos).toContain('512x512/maskable')
   })
 
-  test('los iconos existen y son PNG de verdad', async ({ page }) => {
-    for (const ruta of [
-      '/iconos/icono-192.png',
-      '/iconos/icono-512.png',
-      '/iconos/icono-recortable-192.png',
-      '/iconos/icono-recortable-512.png',
-      '/iconos/apple-touch-icon.png',
-    ]) {
-      const r = await page.request.get(ruta)
-      expect(r.ok(), `${ruta} tiene que existir`).toBeTruthy()
+  /**
+   * Los iconos se leen **del manifiesto**, no de una lista escrita en el test.
+   *
+   * Con la lista a mano, cambiar los `src` del manifiesto a rutas inexistentes
+   * dejaba los ocho tests en verde: comprobaban que existieran unos ficheros que
+   * nadie usaba. Chrome no ofrecería «Instalar» sin un icono descargable, y el
+   * chequeo no se enteraba. Y se comprueba **el tamaño real** del PNG contra el
+   * que el manifiesto declara: un icono de 32 px anunciado como 512 no sirve.
+   */
+  test('cada icono del manifiesto existe, es PNG, y mide lo que dice', async ({ page }) => {
+    const m = await (await page.request.get('/manifest.webmanifest')).json()
+    expect(m.icons.length, 'el manifiesto tiene que declarar iconos').toBeGreaterThan(0)
+
+    for (const icono of m.icons as { src: string; sizes: string }[]) {
+      const r = await page.request.get(icono.src)
+      expect(r.ok(), `${icono.src} tiene que existir`).toBeTruthy()
       const cuerpo = await r.body()
       // La firma de un PNG. Que la ruta responda 200 no basta: un 200 con el
       // HTML de la página de inicio también responde 200.
       expect(
         cuerpo.subarray(0, 8).toString('hex'),
-        `${ruta} tiene que ser un PNG, no otra cosa que responde 200`,
+        `${icono.src} tiene que ser un PNG, no otra cosa que responde 200`,
       ).toBe('89504e470d0a1a0a')
-      expect(cuerpo.length, `${ruta} no puede estar vacío`).toBeGreaterThan(200)
+      // El IHDR de un PNG lleva ancho y alto en los bytes 16–24.
+      const ancho = cuerpo.readUInt32BE(16)
+      const alto = cuerpo.readUInt32BE(20)
+      const [declarado] = icono.sizes.split('x').map(Number)
+      expect(ancho, `${icono.src} dice medir ${icono.sizes}`).toBe(declarado)
+      expect(alto).toBe(declarado)
     }
+
+    // Y el de iOS, que no va en el manifiesto sino en un `<link>`.
+    const apple = await page.request.get('/iconos/apple-touch-icon.png')
+    expect(apple.ok()).toBeTruthy()
+    expect((await apple.body()).readUInt32BE(16)).toBe(180)
   })
 
   /**
@@ -75,24 +91,74 @@ test.describe('el manifiesto y los iconos', () => {
     const grandes = m.icons.filter((i: { sizes: string }) => Number(i.sizes.split('x')[0]) >= 192)
     expect(grandes.length, 'un icono de 192px o más').toBeGreaterThan(0)
 
-    // Y un service worker **registrado y con manejador de `fetch`**: sin él,
-    // Chrome no ofrece instalar, y la app no abriría sin conexión.
+    // Y un service worker **que de verdad intercepte peticiones**.
+    //
+    // Antes esto era `expect(fuente).toContain("addEventListener('fetch'")` —un
+    // `grep` sobre el texto— y `expect(alcance).toMatch(/\/$/)`, que es
+    // tautológico porque todo alcance termina en barra. Con un manejador de
+    // `fetch` completamente vacío, seis de los ocho tests seguían pasando.
     const sw = await page.evaluate(async () => {
       const r = await navigator.serviceWorker.ready
       return { activo: r.active?.state ?? null, alcance: r.scope }
     })
     expect(sw.activo, 'el service worker tiene que estar activo').toBe('activated')
-    expect(sw.alcance, 'el alcance tiene que ser la raíz').toMatch(/\/$/)
-
-    const fuente = await (await page.request.get('/sw.js')).text()
-    expect(fuente, 'el service worker necesita manejador de fetch').toContain(
-      "addEventListener('fetch'",
-    )
+    expect(sw.alcance, 'el alcance tiene que ser el origen').toBe(new URL('/', page.url()).href)
   })
 
+  /**
+   * Y que interceptar **sirva de algo**: una URL ya visitada tiene que salir de
+   * la caché con la red cortada. Es la única comprobación que distingue un
+   * service worker que funciona de uno cuyo manejador de `fetch` está vacío.
+   */
+  test('el service worker sirve de la caché lo ya visitado', async ({ page, context }) => {
+    await page.goto('/mes')
+    await page.waitForLoadState('networkidle')
+    await page.evaluate(() => navigator.serviceWorker.ready)
+    // La **primera** visita de todas no queda guardada: cuando llegó, el service
+    // worker todavía no existía. Es cierto en la app y conviene que el test lo
+    // diga en vez de disimularlo: quien instala la app y se queda sin señal en
+    // ese mismo instante, no tiene copia. La segunda visita sí.
+    await page.reload()
+    await page.waitForLoadState('networkidle')
+
+    /**
+     * Se recarga **la navegación**, no un `fetch` suelto.
+     *
+     * Un `fetch('/mes/2026-06')` desde la página no tiene `mode: 'navigate'`, así
+     * que el manejador de navegaciones del service worker ni lo mira: se va a la
+     * red y falla. La comprobación de verdad es que la pantalla vuelva a salir
+     * con la red cortada, y que la respuesta venga **marcada** como guardada,
+     * que es lo que distingue un service worker que sirve de uno que no.
+     */
+    const marcas: string[] = []
+    page.on('response', (r) => {
+      const m = r.headers()['x-sb-desde-cache']
+      if (m) marcas.push(`${new URL(r.url()).pathname}:${m}`)
+    })
+
+    await context.setOffline(true)
+    await page.reload()
+    await expect(page.getByText('Costó mantener el edificio')).toBeVisible()
+    await context.setOffline(false)
+
+    expect(marcas.length, 'la respuesta tiene que venir marcada como guardada').toBeGreaterThan(0)
+  })
+
+  /**
+   * El test se llamaba así y **no comprobaba el icono de iOS**: solo el
+   * manifiesto y el color de tema. El título era la única parte que mencionaba
+   * iOS, y el `<link rel="apple-touch-icon">` no existía en ninguna página.
+   */
   test('la página enlaza el manifiesto y el icono de iOS', async ({ page }) => {
     await page.goto('/')
     await expect(page.locator('link[rel="manifest"]')).toHaveCount(1)
+
+    const apple = page.locator('link[rel="apple-touch-icon"]')
+    await expect(apple, 'iOS busca este enlace; sin él instala una captura').toHaveCount(1)
+    const href = await apple.getAttribute('href')
+    const r = await page.request.get(String(href))
+    expect(r.ok(), `${href} tiene que existir`).toBeTruthy()
+
     const tema = await page.locator('meta[name="theme-color"]').getAttribute('content')
     expect(String(tema).toUpperCase()).toBe(COLOR_TEMA.toUpperCase())
   })
@@ -108,10 +174,13 @@ test.describe('sin conexión', () => {
    * que es la de este mes es exactamente lo que el producto existe para evitar.
    */
   test('la app abre sin conexión y lo dice', async ({ page, context }) => {
-    // Primero online, para que el service worker cachee el armazón.
+    // Primero online, y **dos veces**: en la primera visita el service worker
+    // todavía no controlaba la página, así que esa navegación no se guardó.
     await page.goto('/')
     await page.waitForLoadState('networkidle')
     await page.evaluate(() => navigator.serviceWorker.ready)
+    await page.reload()
+    await page.waitForLoadState('networkidle')
 
     await context.setOffline(true)
     await page.reload()
@@ -134,6 +203,8 @@ test.describe('sin conexión', () => {
     await page.goto('/admin')
     await page.waitForLoadState('networkidle')
     await page.evaluate(() => navigator.serviceWorker.ready)
+    await page.reload()
+    await page.waitForLoadState('networkidle')
 
     await context.setOffline(true)
     await page.reload()

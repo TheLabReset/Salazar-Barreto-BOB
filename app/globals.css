@@ -2455,3 +2455,32 @@
   margin-bottom: var(--spacing-seccion-corta);
   text-align: center;
 }
+
+/* ── Pantalla de error ────────────────────────────────────────────────────
+   Centrada, sin nav y sin marca. Lo que se ve cuando algo se cayó por debajo. */
+.pantalla-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-onboarding);
+  text-align: center;
+}
+
+.pantalla-error-caja {
+  max-width: var(--spacing-app);
+}
+
+.pantalla-error-texto {
+  margin-top: var(--spacing-fila-alta);
+}
+
+.pantalla-error-digest {
+  margin-top: var(--spacing-fila-alta);
+  font-family: var(--font-mono);
+}
+
+/* Un fallo, en ámbar y nunca en rojo (`02` §1, regla 3). Se anuncia además a
+   lector de pantalla: ver `components/ui/Fallo.tsx`. */
+.fallo {
+  margin-top: var(--spacing-fila-alta);
+}

@@ -189,6 +189,21 @@ export const COPYS = {
    * sin una palabra.
    */
   error: {
+    /**
+     * La pantalla de error, cuando algo se cae por debajo —la base, sobre todo—.
+     *
+     * Dice **qué pasó, qué no pasó, y qué hacer**. Lo segundo es lo que calma:
+     * quien administra acaba de teclear siete lecturas y lo primero que piensa
+     * es si las ha perdido. Y no se pide disculpas ni se echa la culpa a nadie.
+     */
+    pantallaTitulo: 'Algo no está respondiendo',
+    pantallaTexto:
+      'La app no pudo traer los datos del edificio. No se ha perdido nada: todo lo que estaba guardado sigue guardado.',
+    pantallaQueHacer: 'Vuelve a intentarlo en un momento. Si sigue igual, avisa a quien administra.',
+    reintentarPantalla: 'Volver a intentarlo',
+    volverAInicio: 'Ir a Inicio',
+    noEncontradoTitulo: 'Esta página no existe',
+    noEncontradoTexto: 'Puede que el enlace esté viejo o que hayas escrito la dirección a mano.',
     noSePudo: 'No se pudo abrir esto ahora.',
     reintentar: 'Volver a intentarlo',
     sesionCaducada: 'La sesión de administración caducó. Vuelve a entrar con el PIN.',
@@ -228,6 +243,19 @@ export const COPYS = {
     // Los pasos del cierre escriben en el servidor. Sin señal no se guarda nada,
     // y hay que decirlo antes de que el administrador teclee siete lecturas.
     avisoAdmin: 'Sin conexión · no se puede guardar nada hasta que vuelva la señal',
+    /**
+     * Cuando el teléfono **cree** que está conectado y el servidor no contesta.
+     *
+     * Es el caso más común de la calle: wifi enganchado sin salida, portal
+     * cautivo, datos agotados. `navigator.onLine` dice `true` —mide si hay
+     * interfaz de red, no si hay servidor— así que el aviso de arriba no salía y
+     * el vecino leía una cuota de hace semanas sin una marca. Se dice otra cosa
+     * porque el problema es otro: no es que no haya conexión, es que **estos
+     * datos no son de ahora**.
+     */
+    noLlega: 'No se pudo conectar · estos datos son los últimos que se guardaron',
+    /** Con la fecha, cuando el service worker la sabe. */
+    noLlegaCon: (cuando: string) => `No se pudo conectar · datos guardados ${cuando}`,
   },
 
   // ── Hojas ──────────────────────────────────────────────────────────────
@@ -421,6 +449,15 @@ export const COPYS = {
     entrar: 'Administrar el edificio',
     pinTitulo: 'Administrar el edificio',
     pinTexto: 'La clave la tiene quien administra.',
+    /**
+     * Lo que oye quien teclea el PIN **sin ver la pantalla**.
+     *
+     * El PIN incorrecto no lleva mensaje a propósito —solo sacude el campo y lo
+     * limpia (`README` §7)—, así que sin esto no había ninguna señal: ni cuántos
+     * dígitos llevaba, ni que se había vaciado. Se tecleaba a ciegas.
+     */
+    pinDigitos: (cuantos: number) =>
+      cuantos === 0 ? 'Sin dígitos.' : `${cuantos} de 4 dígitos.`,
     titulo: 'Administración',
   },
 } as const

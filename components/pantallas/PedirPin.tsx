@@ -65,13 +65,28 @@ export function PedirPin() {
         <p className="tipo-cuerpo-chico text-gris pin-texto">{COPYS.admin.pinTexto}</p>
       </div>
 
-      <div className={`pin-puntos ${sacude ? 'pin-sacude' : ''}`} aria-live="polite" aria-label={`${pin.length} de 4 dígitos`}>
+      {/* Los cuatro puntos son visuales. Lo que se anuncia va en el `role="status"`
+          de al lado, con texto que cambia: un `aria-label` sobre un `div` genérico
+          no se expone, y `aria-live` anuncia cambios de **contenido**, no de
+          atributo — y el contenido eran cuatro `<span>` vacíos que nunca cambian.
+          Quien administra sin ver tecleaba a ciegas, sin saber cuántos dígitos
+          llevaba ni que el PIN había fallado. */}
+      <div className={`pin-puntos ${sacude ? 'pin-sacude' : ''}`} aria-hidden="true">
         {[0, 1, 2, 3].map((i) => (
           <span key={i} className={`pin-punto ${i < pin.length ? 'pin-punto-lleno' : ''}`} />
         ))}
       </div>
+      <span role="status" aria-live="polite" className="sr-only">
+        {COPYS.admin.pinDigitos(pin.length)}
+      </span>
 
-      {bloqueado && <p className="tipo-cuerpo-menor text-ambar pin-bloqueado">{bloqueado}</p>}
+      {/* `alert` y no `status`: quedarse fuera por intentos es lo único urgente
+          de esta pantalla, y hay que interrumpir para decirlo. */}
+      {bloqueado && (
+        <p role="alert" className="tipo-cuerpo-menor text-ambar pin-bloqueado">
+          {bloqueado}
+        </p>
+      )}
 
       <div className="pin-rejilla">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '←'].map((k, i) =>

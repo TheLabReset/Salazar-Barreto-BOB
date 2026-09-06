@@ -40,6 +40,20 @@ export const metadata: Metadata = {
   description: COPYS.app.descripcion,
   applicationName: COPYS.app.nombreCorto,
   manifest: '/manifest.webmanifest',
+  /**
+   * **iOS ignora el manifiesto para el icono.** Busca `<link rel="apple-touch-icon">`
+   * y, si no lo encuentra, prueba `/apple-touch-icon.png` en la raíz. Las tres
+   * cosas fallaban: el fichero existía en `/iconos/` y no estaba enlazado en
+   * ninguna parte, así que "Añadir a pantalla de inicio" ponía una **captura de
+   * la página** en vez del icono.
+   */
+  icons: {
+    icon: [
+      { url: '/iconos/icono-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/iconos/icono-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: '/iconos/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
   appleWebApp: {
     capable: true,
     title: COPYS.app.nombreCorto,

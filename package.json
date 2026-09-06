@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "node scripts/construir.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "verificar-tokens": "node scripts/verificar-tokens.mjs",
@@ -21,7 +21,9 @@
     "golden": "node scripts/generar-golden.mjs",
     "test:integracion": "vitest run --config vitest.integracion.config.ts",
     "iconos": "node scripts/generar-iconos.mjs",
-    "lighthouse": "node scripts/lighthouse.mjs"
+    "lighthouse": "node scripts/lighthouse.mjs",
+    "verificar-secretos": "node scripts/verificar-secretos.mjs",
+    "prueba-base-caida": "node scripts/prueba-base-caida.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

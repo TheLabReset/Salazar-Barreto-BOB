@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Hoja } from './Hoja'
+import { Fallo } from '@/components/ui/Fallo'
 
 /**
  * `export` · Exportar el año. **Con la descarga de verdad.**
@@ -84,7 +85,7 @@ export function HojaExport({
           </ul>
         </div>
 
-        {error && <p className="tipo-cuerpo-menor text-ambar pagar-error">{error}</p>}
+        {error && <Fallo>{error}</Fallo>}
 
         {anios.length === 0 && (
           <p className="tipo-cuerpo-menor text-gris pagar-error">

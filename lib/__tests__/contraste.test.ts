@@ -95,11 +95,25 @@ const COMBINACIONES: {
   { texto: token('gris-claro'), fondo: token('crema'), uso: 'texto terciario sobre crema', minimo: 4.5, esperado: 2.3, cumpleAA: false },
   { texto: token('terra-oscuro'), fondo: token('crema'), uso: 'texto terracota sobre crema', minimo: 4.5, esperado: 4.41, cumpleAA: false },
   { texto: token('verde'), fondo: token('crema'), uso: 'texto verde sobre crema', minimo: 4.5, esperado: 4.77, cumpleAA: true },
-  // `ambar`, `agua` y `terra` sobre crema se usan en cifras grandes y en trazos
-  // de gráfico, no en texto corrido: el mínimo que les toca es 3:1.
-  { texto: token('ambar'), fondo: token('crema'), uso: 'ámbar sobre crema (cifra grande, icono)', minimo: 3, esperado: 3.17, cumpleAA: true },
+  /**
+   * **Estos tres son texto corrido, y la justificación anterior era falsa.**
+   *
+   * Decía «se usan en cifras grandes y en trazos de gráfico, no en texto
+   * corrido», y por eso les ponía el mínimo de 3:1. Contado en el repositorio:
+   * `ambar` sobre crema es el color de **los quince mensajes de error** de la
+   * app, a 13 px; `terra` sobre crema es el de los enlaces —«Marcar todo leído»,
+   * «Cambiar»— y el de la regla global de `a {}`. Son texto normal y les toca
+   * 4.5:1.
+   *
+   * Corregir la clasificación no arregla el contraste: lo que hace es dejar de
+   * blanquearlo. La decisión sobre la paleta es del usuario y está en
+   * `docs/AUDITORIA-FINAL.md`; la paleta ya tiene los tonos que valdrían
+   * —`terra-oscuro` 4.41, `terra-texto` 5.99— y existen justamente para esto.
+   */
+  { texto: token('ambar'), fondo: token('crema'), uso: 'ámbar sobre crema · los mensajes de error', minimo: 4.5, esperado: 3.17, cumpleAA: false },
+  { texto: token('terra'), fondo: token('crema'), uso: 'terracota sobre crema · los enlaces', minimo: 4.5, esperado: 3.09, cumpleAA: false },
+  // `agua` sí es sobre todo cifra grande y barra de gráfico: 3:1 es su mínimo.
   { texto: token('agua'), fondo: token('crema'), uso: 'agua sobre crema (cifra grande, barra)', minimo: 3, esperado: 3.15, cumpleAA: true },
-  { texto: token('terra'), fondo: token('crema'), uso: 'terracota sobre crema (barra destacada)', minimo: 3, esperado: 3.09, cumpleAA: true },
   { texto: token('apagado'), fondo: token('crema'), uso: 'deshabilitado sobre crema', minimo: 3, esperado: 1.66, cumpleAA: false },
   // ── Sobre papel, las tarjetas elevadas
   { texto: token('tinta'), fondo: token('papel'), uso: 'texto principal sobre tarjeta', minimo: 4.5, esperado: 19.3, cumpleAA: true },
@@ -137,6 +151,19 @@ describe('contraste · cada combinación de 02 §1, medida', () => {
    */
   it('el gris sobre crema NO cumple AA, aunque 02 §8 diga que sí', () => {
     expect(ratio(token('gris'), token('crema'))).toBeLessThan(4.5)
+  })
+
+  /**
+   * Los tonos que la paleta ya tiene para esto **sí llegan** o se acercan.
+   *
+   * Se fijan aquí para que la conversación con el usuario tenga las cifras
+   * delante: cambiar el ámbar de los errores por `terra-texto` pasa de 3.17 a
+   * 6.77, y no hace falta inventar ningún color nuevo.
+   */
+  it('la paleta ya tiene tonos mejores para texto: terra-texto da 6.77', () => {
+    expect(ratio(token('terra-texto'), token('crema'))).toBeCloseTo(6.77, 2)
+    // Y para los enlaces, `terra-oscuro`, que se queda a un pelo.
+    expect(ratio(token('terra-oscuro'), token('crema'))).toBeCloseTo(4.41, 2)
   })
 
   it('pero sobre papel sí, que es donde vive la mitad del texto de contexto', () => {

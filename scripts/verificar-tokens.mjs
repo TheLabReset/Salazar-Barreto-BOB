@@ -53,20 +53,30 @@ const ARCHIVO_TOKENS = 'app/globals.css'
 const EXCEPCION_TEMA = 'lib/tema.ts'
 
 /**
- * Los dos ficheros que quedan fuera de las reglas de código, y por qué.
+ * Los ficheros exentos, **de qué reglas**, y por qué.
  *
- * Salieron a la luz al empezar a revisar `.mjs`, que antes se recorrían sin
- * aplicarles nada. Se listan aquí, con motivo, y **se comprueba que existan**:
- * una exención a un fichero que ya no está es una mentira sobre el alcance.
+ * Como la lista blanca, la exención nombra las reglas que perdona: exentar un
+ * fichero de las siete a la vez es abrir un agujero del tamaño del fichero.
+ *
+ * Se comprueba que cada uno exista: una exención a un fichero que ya no está es
+ * una mentira sobre el alcance.
  */
 const EXENTOS = [
   [
     'scripts/verificar-tokens.mjs',
-    'es este chequeo: contiene los patrones que busca, así que se encuentra a sí mismo',
+    null, // todas: contiene los patrones que busca, así que se encuentra a sí mismo
+    'es este chequeo',
   ],
   [
     'scripts/comparar-con-mockup.mjs',
-    'lee los estilos del mockup dentro del navegador; esos valores son de la referencia, no de la app',
+    null, // todas: lee valores del mockup, que es la referencia y no la app
+    'lee los estilos del mockup dentro del navegador',
+  ],
+  [
+    'app/global-error.tsx',
+    ['px-en-style'],
+    'reemplaza el <html> entero, así que no puede usar globals.css: si el CSS es lo que falló, ' +
+      'importarlo allí falla otra vez. Los colores SÍ se le exigen, y salen de lib/tema.ts',
   ],
 ]
 
@@ -196,7 +206,8 @@ for (const carpeta of CARPETAS) {
       continue
     }
     if (rel === EXCEPCION_TEMA) continue
-    if (EXENTOS.some(([f]) => f === rel)) continue
+    // Exento de todas las reglas (segundo campo `null`): se salta el fichero.
+    if (EXENTOS.some(([f, reglas]) => f === rel && reglas === null)) continue
     const ext = path.extname(rel)
     const contenido = fs.readFileSync(path.join(RAIZ, rel), 'utf8')
     archivosRevisados.push(rel)
@@ -205,6 +216,7 @@ for (const carpeta of CARPETAS) {
       for (const regla of REGLAS) {
         if (!regla.aplicaA.includes(ext)) continue
         if (regla.exceptoEn?.includes(rel)) continue
+        if (EXENTOS.some(([f, reglas]) => f === rel && reglas?.includes(regla.nombre))) continue
         if (!regla.patron.test(linea)) continue
         if (enListaBlanca(linea, regla.nombre)) continue
         fallos.push({
@@ -277,7 +289,7 @@ if (ES_FIXTURE) {
 // Si la excepción ya no existe, sobra: un chequeo con una excepción muerta
 // miente sobre su alcance.
 if (!ES_FIXTURE) {
-  for (const [fichero, motivo] of EXENTOS) {
+  for (const [fichero, , motivo] of EXENTOS) {
     if (!fs.existsSync(path.join(RAIZ, fichero))) {
       console.error(`verificar-tokens: ${fichero} ya no existe (exento: ${motivo}). Quita la exención.`)
       process.exit(2)

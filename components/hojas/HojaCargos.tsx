@@ -6,6 +6,7 @@ import { fmt } from '@/lib/calculo/redondeo'
 import { esMesId, nombreMes } from '@/lib/calculo/mes'
 import { useNumpad } from '@/components/Numpad'
 import { Hoja } from './Hoja'
+import { Fallo } from '@/components/ui/Fallo'
 
 /**
  * `cargos` · Cargos y créditos activos. `04-cierre-del-mes.md`.
@@ -80,9 +81,7 @@ export function HojaCargos({
               Un cambio aplica desde el mes que se está cerrando. Los meses ya publicados no se
               tocan.
             </p>
-            {cambiar.isError && (
-              <p className="tipo-cuerpo-menor text-ambar pagar-error">{(cambiar.error as Error).message}</p>
-            )}
+            {cambiar.isError && <Fallo>{(cambiar.error as Error).message}</Fallo>}
             <button
               type="button"
               onClick={() =>

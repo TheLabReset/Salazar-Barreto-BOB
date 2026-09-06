@@ -13,6 +13,7 @@ import type { PropsPaso } from './Wizard'
 import { BotonAvanzar } from './BotonAvanzar'
 import { AvisoBob } from './AvisoBob'
 import { PropuestaCorreccion } from './PropuestaCorreccion'
+import { Fallo } from '@/components/ui/Fallo'
 
 /**
  * Paso 1 · Las lecturas. **El paso más delicado.** `04-cierre-del-mes.md`.
@@ -160,7 +161,7 @@ export function Paso1Lecturas({ borrador, guardar, guardando, errorGuardar, avan
         <AvisoBob key={d.id}>{COPYS.cierre.consumoAlto(d.id)}</AvisoBob>
       ))}
 
-      {errorGuardar && <p className="tipo-cuerpo-menor text-ambar cierre-error">{errorGuardar}</p>}
+      {errorGuardar && <Fallo>{errorGuardar}</Fallo>}
 
       <BotonAvanzar onClick={avanzar} bloqueadoPor={bloqueo} cargando={guardando}>
         Continuar

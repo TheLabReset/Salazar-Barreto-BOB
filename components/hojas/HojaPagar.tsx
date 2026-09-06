@@ -10,6 +10,7 @@ import { COPYS } from '@/lib/copys'
 import { useAnuncio } from '@/components/Anuncio'
 import { Hoja } from './Hoja'
 import { useHoja } from './Hojas'
+import { Fallo } from '@/components/ui/Fallo'
 
 /**
  * `pagar` · Cómo pagar. `03-pantallas.md`.
@@ -103,9 +104,7 @@ export function HojaPagar({
           </p>
         </div>
 
-        {avisar.isError && (
-          <p className="tipo-cuerpo-menor text-ambar pagar-error">{(avisar.error as Error).message}</p>
-        )}
+        {avisar.isError && <Fallo>{(avisar.error as Error).message}</Fallo>}
 
         <button
           type="button"

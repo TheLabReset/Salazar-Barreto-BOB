@@ -10,6 +10,9 @@
  *     combinaciones: sin límite se prueban todas en un rato.
  *  3. **La comparación es de tiempo constante**, para no filtrar el PIN por lo
  *     que tarda en responder.
+ *  4. **La cookie de sesión se firma con otra clave, no con el PIN.** Ver
+ *     `claveDeFirma` más abajo: firmarla con el PIN convertía cualquier cookie
+ *     robada en el PIN entero en cuestión de milisegundos.
  *
  * El modelo mental del usuario no cambia: el PIN incorrecto sacude el campo y lo
  * limpia. No hay mensaje de "no tienes permiso" (`README` §7).
@@ -32,6 +35,34 @@ function secreto(): string {
   const pin = process.env.ADMIN_PIN
   if (!pin) throw new Error('Falta ADMIN_PIN en el entorno del servidor.')
   return pin
+}
+
+/**
+ * La clave con la que se firma la cookie de sesión. **No es el PIN.**
+ *
+ * Firmarla con el PIN era un agujero de verdad: el PIN tiene cuatro dígitos, o
+ * sea diez mil posibilidades. Con una sola cookie válida en la mano —del
+ * historial del navegador, de un registro, de un aparato prestado— se calculan
+ * las diez mil firmas y se ve cuál coincide. En un portátil eso son
+ * milisegundos, y el límite de ocho intentos por IP no protege de nada porque el
+ * ataque no toca el servidor.
+ *
+ * Con una clave larga aparte, una cookie robada sirve hasta que caduca —una
+ * hora— y no revela el PIN.
+ *
+ * Si `ADMIN_SECRETO` falta, **no se inventa una**: una clave generada al vuelo
+ * cambiaría en cada arranque y en cada función de Vercel, tirando las sesiones
+ * sin explicación. Falta una variable, y se dice.
+ */
+function claveDeFirma(): string {
+  const clave = process.env.ADMIN_SECRETO
+  if (!clave || clave.length < 32) {
+    throw new Error(
+      'Falta ADMIN_SECRETO en el entorno del servidor, o es demasiado corta ' +
+        '(mínimo 32 caracteres). Genera una con: openssl rand -base64 32',
+    )
+  }
+  return clave
 }
 
 /** Compara sin filtrar información por el tiempo que tarda. */
@@ -71,10 +102,10 @@ export async function validarPin(pin: string, ip: string): Promise<{ cookie: str
   return { cookie: firmarSesion(expira), expira }
 }
 
-/** La cookie es `expira.firma`, firmada con el PIN. No lleva el PIN dentro. */
+/** La cookie es `expira.firma`. No lleva el PIN dentro ni se firma con él. */
 function firmarSesion(expira: Date): string {
   const carga = String(expira.getTime())
-  const firma = createHmac('sha256', secreto()).update(carga).digest('base64url')
+  const firma = createHmac('sha256', claveDeFirma()).update(carga).digest('base64url')
   return `${carga}.${firma}`
 }
 
@@ -85,7 +116,7 @@ export function sesionValida(cookie: string | undefined): boolean {
   if (corte <= 0) return false
   const carga = cookie.slice(0, corte)
   const firma = cookie.slice(corte + 1)
-  const esperada = createHmac('sha256', secreto()).update(carga).digest('base64url')
+  const esperada = createHmac('sha256', claveDeFirma()).update(carga).digest('base64url')
   if (!igualSeguro(firma, esperada)) return false
   const expira = Number(carga)
   return Number.isFinite(expira) && expira > Date.now()

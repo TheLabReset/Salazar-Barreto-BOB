@@ -47,6 +47,16 @@ export function Hoja({
     panel.current?.focus()
     const alTabular = (ev: KeyboardEvent) => {
       if (ev.key !== 'Tab' || !panel.current) return
+      /**
+       * Si el foco ya está fuera del panel, esta trampa no es la que manda.
+       *
+       * El teclado numérico se pinta **fuera** de la hoja —lo renderiza su
+       * proveedor, encima de todo— y esta trampa lo trataba como "fuera", así
+       * que devolvía el foco a la hoja de detrás cada vez que se intentaba
+       * entrar en él. Resultado: con el teclado abierto no se podía teclear ni
+       * un dígito, y la app entera dejaba de poder administrarse sin ratón.
+       */
+      if (!panel.current.contains(document.activeElement)) return
       // El propio panel entra en la lista: es el primer alto del recorrido y,
       // en una hoja de solo lectura, el único.
       const focos = [

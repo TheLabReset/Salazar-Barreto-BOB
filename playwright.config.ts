@@ -93,10 +93,20 @@ export default defineConfig({
       name: 'movil',
       use: {
         ...devices['Pixel 7'],
-        // El Chromium del entorno, que no coincide con el que Playwright espera.
-        launchOptions: {
-          executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-        },
+        /**
+         * El Chromium del entorno, que no coincide con el que Playwright espera.
+         *
+         * En integración continua no se pone nada: allí `playwright install`
+         * deja el suyo donde toca y hay que dejarle usarlo. Un `CHROMIUM=''`
+         * **no** es lo mismo que no ponerlo —`??` solo cubre `undefined`, y una
+         * cadena vacía como `executablePath` revienta el arranque—, así que se
+         * comprueba que tenga contenido.
+         */
+        launchOptions: process.env.CHROMIUM
+          ? { executablePath: process.env.CHROMIUM }
+          : process.env.CI
+            ? {}
+            : { executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' },
       },
     },
   ],

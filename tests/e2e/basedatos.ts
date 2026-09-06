@@ -10,6 +10,9 @@ export const test = base.extend<{ baseLimpia: void }>({
   baseLimpia: [
     async ({ page }, usar) => {
       // Menos que el tiempo límite del test, o el error de aquí no se ve nunca.
+      // La suite de integración lo retiene un rato largo —toda su corrida—, así
+      // que si las dos van a la vez esto falla con un mensaje que lo explica, en
+      // vez de con cuatro rojos repartidos por sitios que no tienen la culpa.
       await tomarCerrojo(20_000)
       try {
         const pin = await page.request.post('/api/admin/pin', {

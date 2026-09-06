@@ -73,14 +73,24 @@ export function HojaHistorial({ dpto, modo }: { dpto: DptoId; modo: 'pagos' | 'a
               <span className="tipo-monto-lista-chico historial-hoja-cuota">
                 {f.cuota === null ? '—' : fmt(f.cuota)}
               </span>
+              {/* El punto es color, y el color nunca es el único portador de
+                  información (`02` §8). Un `aria-label` sobre un `<span>` sin rol
+                  **no lo lee ningún lector de pantalla**: quien abría este
+                  historial oía seis meses, seis fechas y seis montos, y ni una
+                  sola vez «al día» o «sin registrar». */}
               <span
+                aria-hidden="true"
                 className={`punto ${
                   f.estado === 'confirmado' ? 'bg-verde' : f.estado === 'aviso' ? 'bg-agua' : 'bg-ambar'
                 }`}
-                aria-label={
-                  f.estado === 'confirmado' ? 'Al día' : f.estado === 'aviso' ? 'En verificación' : 'Sin registrar'
-                }
               />
+              <span className="sr-only">
+                {f.estado === 'confirmado'
+                  ? 'Al día.'
+                  : f.estado === 'aviso'
+                    ? 'En verificación.'
+                    : 'Sin registrar.'}
+              </span>
             </div>
           ),
         )}

@@ -10,6 +10,7 @@
  * que seguir en pie.
  */
 
+import { createHmac } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   zAvisoPago, zConfirmarPago, zCorregir, zGuardarGastos, zGuardarLecturas,
@@ -18,7 +19,7 @@ import {
 import { guardarGastos, guardarLecturas, guardarRecibo, publicarMes } from '@/lib/servicios/cierre'
 import { guardarGastosFijos } from '@/lib/servicios/gastosFijos'
 import { avisarPago, confirmarPago } from '@/lib/servicios/pagos'
-import { validarPin } from '@/lib/servicios/admin'
+import { validarPin, sesionValida } from '@/lib/servicios/admin'
 import { ErrorDeApi } from '@/lib/servicios/errores'
 import { resultadoDeMes } from '@/lib/datos/mes'
 import { cargarMesEnCurso, prisma, resembrar } from './entorno'
@@ -282,6 +283,45 @@ describe('el PIN', () => {
   it('otra IP no queda bloqueada por culpa de la primera', async () => {
     const { cookie } = await validarPin('2026', '10.0.0.2')
     expect(cookie).toBeTruthy()
+  })
+
+  /**
+   * **La cookie de sesión no se firma con el PIN.**
+   *
+   * Lo estuvo, y era un agujero: el PIN tiene cuatro dígitos, diez mil
+   * posibilidades. Con una cookie válida en la mano —del historial del
+   * navegador, de un registro, de un aparato prestado— se calculan las diez mil
+   * firmas y se ve cuál coincide. Milisegundos en un portátil, y el límite de
+   * ocho intentos por IP no protege porque el ataque no toca el servidor.
+   *
+   * Este test hace exactamente ese ataque: prueba los diez mil PINs contra la
+   * cookie. Si alguno la reproduce, la firma vuelve a salir del PIN.
+   */
+  it('una cookie robada no revela el PIN: los diez mil no la reproducen', async () => {
+    const { cookie } = await validarPin('2026', '10.0.0.3')
+    const [carga, firma] = [cookie.slice(0, cookie.lastIndexOf('.')), cookie.slice(cookie.lastIndexOf('.') + 1)]
+
+    let acertados = 0
+    for (let n = 0; n < 10_000; n++) {
+      const candidato = String(n).padStart(4, '0')
+      const prueba = createHmac('sha256', candidato).update(carga).digest('base64url')
+      if (prueba === firma) acertados++
+    }
+    expect(acertados, 'ningún PIN de cuatro dígitos puede reproducir la firma').toBe(0)
+  })
+
+  it('y la cookie sigue siendo válida, claro', async () => {
+    const { cookie } = await validarPin('2026', '10.0.0.4')
+    expect(sesionValida(cookie)).toBe(true)
+    expect(sesionValida(`${cookie}x`), 'una firma alterada no vale').toBe(false)
+    expect(sesionValida(undefined)).toBe(false)
+  })
+
+  it('una cookie caducada no vale, aunque la firma sea buena', () => {
+    // Se firma un instante del pasado con la clave de verdad.
+    const pasado = String(Date.now() - 1000)
+    const firma = createHmac('sha256', process.env.ADMIN_SECRETO!).update(pasado).digest('base64url')
+    expect(sesionValida(`${pasado}.${firma}`)).toBe(false)
   })
 })
 

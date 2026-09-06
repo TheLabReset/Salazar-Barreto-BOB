@@ -15,8 +15,21 @@ export const COLOR_TEMA = '#F7F4EE'
 /** `--color-noche` · el color de los iconos del manifiesto. */
 export const COLOR_NOCHE = '#17172B'
 
+/**
+ * Los dos colores de texto, para `app/global-error.tsx`.
+ *
+ * Ese fichero reemplaza el `<html>` entero cuando la aplicación se cae del todo,
+ * así que no puede importar `globals.css`: si el CSS es lo que falló, importarlo
+ * allí vuelve a fallar. Los colores pasan por aquí para que no se queden atrás
+ * cuando cambie la paleta — el test de este fichero los compara con los tokens.
+ */
+export const COLOR_TINTA = '#0E0E0E'
+export const COLOR_GRIS = '#7A7570'
+
 /** El token de `globals.css` del que sale cada uno. Lo usa el test. */
 export const ORIGEN_TOKENS = {
   COLOR_TEMA: '--color-crema',
   COLOR_NOCHE: '--color-noche',
+  COLOR_TINTA: '--color-tinta',
+  COLOR_GRIS: '--color-gris',
 } as const

@@ -369,3 +369,152 @@ que ahora no tiene.
 herramientas. Ninguna de las dos usa la app. La señal de que se hizo mal sería
 alguien que no puede completar el aviso de pago con lector de pantalla — y eso no
 lo va a decir ningún test.
+
+---
+
+## 10. Lo que encontraron los verificadores adversarios de esta fase
+
+Con los siete puntos dados por buenos se soltaron dos verificadores de solo
+lectura: uno sobre la capa PWA y otro sobre la accesibilidad **real** —lo que
+`axe` no ve—. Volvieron con veinte hallazgos, casi todos confirmados ejecutando.
+Los que se sostuvieron al comprobarlos aquí:
+
+### 10.1 · La promesa central estaba rota
+
+**El aviso de «sin conexión» solo salía si el sistema operativo declaraba el wifi
+caído.** Con wifi conectado y sin salida a internet —el router del edificio sin
+ruta, un portal cautivo, los datos agotados: el caso más común de la calle— el
+service worker servía la cifra vieja y **no avisaba nada**. Reproducido: se veía
+«JUNIO 2026 · AL DÍA · S/ 384.33» sin una sola marca de que venía de la caché.
+
+`navigator.onLine` mide si hay **interfaz de red**, no si hay servidor. Y el
+service worker sí sabía que había respondido de la caché —ponía una cabecera— y
+**ningún fichero del repositorio la leía**: se escribía y se tiraba.
+
+Arreglado con un `postMessage` del service worker a las pantallas abiertas, y un
+tercer estado en el aviso: *«No se pudo conectar · datos guardados hace 3 horas»*.
+
+### 10.2 · Con señal mala la app no abría, teniéndolo todo guardado
+
+La estrategia era «red primero» **sin plazo**. Con señal de una raya —el servidor
+acepta la conexión y tarda— la app se quedaba esperando: medido, 25 segundos de
+pantalla en blanco con la copia entera al lado. Y sin aviso, porque el teléfono
+seguía «conectado».
+
+Ahora hay un plazo de 3 s en las navegaciones y en los datos, y de 8 s en el
+precacheado. La red sigue en marcha y refresca la caché cuando llegue.
+
+### 10.3 · El `install` no terminaba nunca
+
+Encontrado al arreglar lo anterior, y peor de lo que parecía: el service worker
+**se quedaba en `installing` para siempre** y no cacheaba nada. Se precargaban
+las seis pantallas, que son páginas dinámicas con consulta a la base, y pedirlas
+todas a la vez desde el worker las dejaba compitiendo entre ellas.
+
+Ahora al instalar solo se guardan los ficheros estáticos. Las pantallas se
+guardan **cuando se visitan**, que además es lo correcto: precargar `/` para
+alguien que todavía no eligió departamento guardaba el onboarding como su
+pantalla de inicio.
+
+### 10.4 · Lo que se cacheaba y no debía
+
+- El **borrador del mes en curso** —lecturas y gastos sin publicar— quedaba en el
+  teléfono, sobrevivía al cierre de sesión (que borra la cookie, no la caché) y
+  le servía estado viejo al asistente.
+- El **Excel del año**, que el servidor manda con `Cache-Control: no-store`
+  explícito. El service worker no miraba esa cabecera en ningún sitio.
+- Un **200 que no es la página** —un portal cautivo, una página de
+  mantenimiento— se guardaba **encima** de la pantalla buena. Reproducido: la
+  pantalla de inicio sin conexión pasaba a ser «Acepta los términos del wifi del
+  edificio».
+
+### 10.5 · La caché crecía sin techo y el worker no se actualizaba nunca
+
+`VERSION = 'v1'`, tecleada a mano. `public/sw.js` era **idéntico byte a byte**
+entre despliegues, así que el navegador nunca veía un service worker nuevo y
+`activate` no volvía a correr. Y la limpieza de `activate`, que borra las cachés
+cuyo nombre no esté en la lista, **no podía borrar nada**: el nombre era siempre
+el mismo. Medido: 14 ficheros tras un despliegue, 18 tras el siguiente, sin que
+se fuera ninguno.
+
+Ahora el sello del build va en la URL del registro (`/sw.js?v=…`) y lo pone
+`scripts/construir.mjs`.
+
+### 10.6 · iOS instalaba una captura de la página
+
+`apple-touch-icon.png` existía, era un PNG válido de 180×180, y **no estaba
+enlazado en ninguna parte**. iOS ignora el manifiesto para el icono: busca
+`<link rel="apple-touch-icon">` y, si no, prueba la raíz. Las tres cosas
+fallaban. Y el test que debía atraparlo se llamaba *«la página enlaza el
+manifiesto y el icono de iOS»* y **no contenía ninguna aserción sobre el icono de
+iOS**.
+
+### 10.7 · La app no se podía administrar sin ratón
+
+El hallazgo más grave de la fase, y no lo vio ninguno de los quince tests de
+accesibilidad porque todos miraban el marcado y ninguno tecleaba.
+
+**El teclado numérico propio era inalcanzable con el teclado.** Es la única
+entrada de cifras que existe —las siete lecturas, el recibo de agua, la luz, los
+gastos fijos, los puntuales, las correcciones, los cargos—, así que un
+administrador que no use ratón **no podía cerrar el mes. Ni empezarlo.**
+
+El foco se quedaba en la hoja de detrás, cuya trampa lo paseaba en bucle; y
+`Escape` cerraba **la hoja**, dejando el teclado huérfano en pantalla, sin nada
+detrás y sin forma de cerrarlo salvo recargar. Comprobado tabulando treinta veces
+con el teclado abierto: el foco no entró ni una vez.
+
+Arreglado en tres sitios: el teclado se lleva el foco al abrirse, monta su propia
+trampa, y captura `Escape` antes de que suba; y la trampa de la hoja se aparta
+cuando el foco ya está fuera de su panel.
+
+Y ahora hay un test que **cierra el mes tabulando**, sin tocar el ratón.
+
+### 10.8 · Tres sitios donde el color era el único portador de información
+
+- **El historial de pagos**: el estado de cada mes solo lo llevaba un punto de
+  color con `aria-label` sobre un `<span>` sin rol. Un vecino ciego oía seis
+  meses, seis fechas y seis montos, y ni una vez «al día» o «sin registrar». Es
+  el mismo defecto que ya se había arreglado en Avisos, en otra pantalla.
+- **La pantalla del PIN**: `aria-label` sobre un `div` genérico no se expone, y
+  `aria-live` anuncia cambios de **contenido**, no de atributo. Quien administra
+  sin ver tecleaba a ciegas: ni cuántos dígitos llevaba, ni que el PIN había
+  fallado —que por diseño no lleva mensaje—, ni que había quedado bloqueado.
+- **Los quince mensajes de error de la app**: aparecían en ámbar y **no se
+  anunciaban**. Un vecino ciego pulsaba «Ya transferí, avisar», el servidor
+  fallaba, y se iba convencido de haber avisado.
+
+### 10.9 · Y cuatro chequeos que no comprobaban nada
+
+- **Los tres tests de escalado al 200 %** no podían dar rojo, por dos motivos a la
+  vez: medían `.marco-app`, que lleva `overflow: hidden` y cuyo `scrollWidth` no
+  crece nunca, y el filtro de recorte descartaba `overflow: visible`, que es el
+  valor por defecto de casi todo el DOM. **De 93 elementos se examinaban 0**, y
+  2668 px de desborde pasaban invisibles.
+- **`axe` escaneaba 4 de las 10 hojas**, y en una de las seis que no miraba
+  estaba el defecto de 10.8.
+- **La pantalla del PIN no se renderizaba en ninguna corrida**: el fixture entra
+  con sesión antes de cada test.
+- **Con un service worker inerte, 6 de los 8 tests de PWA seguían pasando.** Uno
+  comprobaba el manejador de `fetch` con un `grep` sobre el texto fuente; otro
+  afirmaba que el alcance «termina en barra», que es cierto siempre.
+
+### 10.10 · Y la tabla de contraste blanqueaba tres colores
+
+Clasificaba `ámbar`, `agua` y `terracota` sobre crema con un mínimo de 3:1
+justificándolo así: *«se usan en cifras grandes y en trazos de gráfico, no en
+texto corrido»*. **No es cierto**: `ámbar` sobre crema es el color de los quince
+mensajes de error, a 13 px, y `terracota` el de los enlaces. Son texto normal y
+les toca 4.5:1. Corregida la clasificación —no el color, que es del usuario—, la
+cuenta de combinaciones que no llegan a AA pasa de **cuatro a seis**.
+
+### 10.11 · Lo que los verificadores señalaron y no se sostuvo
+
+- Que la zona segura de los iconos recortables estuviera mal: se midieron los
+  píxeles de tinta reales y el dibujo llega a 142,7 px del centro contra los
+  204,8 px del círculo que Android puede recortar. Holgado.
+- Que se cachearan respuestas de error: los `if (r.ok)` cubrían el 500 y el 404.
+- Que se encolaran escrituras: el filtro por método es correcto y no hay `sync`
+  en ninguna parte.
+- Que la fórmula de contraste estuviera mal: un verificador la reimplementó desde
+  la especificación y **las 18 combinaciones coincidieron al segundo decimal**.

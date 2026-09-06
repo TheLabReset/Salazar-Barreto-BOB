@@ -7,6 +7,7 @@ import { fmt } from '@/lib/calculo/redondeo'
 import type { PropsPaso } from './Wizard'
 import { useAnuncio } from '@/components/Anuncio'
 import { BotonAvanzar } from './BotonAvanzar'
+import { Fallo } from '@/components/ui/Fallo'
 
 /**
  * Paso 7 · Publicar. `04-cierre-del-mes.md`.
@@ -95,7 +96,7 @@ export function Paso7Publicar({
       </div>
 
       {publicar.isError && (
-        <p className="tipo-cuerpo-menor text-ambar cierre-error">{(publicar.error as Error).message}</p>
+        <Fallo>{(publicar.error as Error).message}</Fallo>
       )}
 
       <BotonAvanzar

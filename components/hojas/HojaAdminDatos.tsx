@@ -7,6 +7,7 @@ import { Hoja } from './Hoja'
 import { HojaCargos } from './HojaCargos'
 import { HojaExport } from './HojaExport'
 import { HojaCorregir } from './HojaCorregir'
+import { Fallo } from '@/components/ui/Fallo'
 
 /**
  * Carga lo que necesitan las dos hojas del panel que dependen de la base.
@@ -51,9 +52,7 @@ export function HojaAdminDatos({ modo }: { modo: 'export' | 'cargos' | 'corregir
     return (
       <Hoja titulo={titulo}>
         <div className="hoja-cuerpo">
-          <p className="tipo-cuerpo-menor text-ambar">
-            {(error as Error | null)?.message ?? COPYS.error.noSePudo}
-          </p>
+          <Fallo>{(error as Error | null)?.message ?? COPYS.error.noSePudo}</Fallo>
           <button type="button" onClick={() => void refetch()} className="cierre-boton">
             {COPYS.error.reintentar}
           </button>

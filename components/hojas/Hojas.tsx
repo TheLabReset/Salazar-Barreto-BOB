@@ -77,7 +77,14 @@ export function ProveedorHojas({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('popstate', alVolver)
   }, [])
 
-  // Escape cierra, como en cualquier modal.
+  /**
+   * Escape cierra, como en cualquier modal.
+   *
+   * Con el teclado numérico abierto **no llega hasta aquí**: el teclado escucha
+   * en fase de captura y para el evento. Antes subía, se cerraba la hoja de
+   * debajo, y el teclado se quedaba solo en pantalla sin nada detrás y sin forma
+   * de cerrarlo salvo recargar la página.
+   */
   useEffect(() => {
     if (!hoja) return
     const alTeclear = (ev: KeyboardEvent) => {

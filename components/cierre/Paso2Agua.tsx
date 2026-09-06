@@ -11,6 +11,7 @@ import { BotonAvanzar } from './BotonAvanzar'
 import { AvisoBob } from './AvisoBob'
 import { CampoNumerico } from './CampoNumerico'
 import { PropuestaCorreccion } from './PropuestaCorreccion'
+import { Fallo } from '@/components/ui/Fallo'
 
 /** Los siete ids, en el orden del edificio. */
 const IDS = DPTOS.map((d) => d.id)
@@ -115,7 +116,7 @@ export function Paso2Agua({ borrador, guardar, guardando, errorGuardar, avanzar,
       {tieneM3 && (
         <AvisoBob tono="agua">{compararM3(rec.aguaM3, nombreMes, borrador.m3Anteriores)}</AvisoBob>
       )}
-      {errorGuardar && <p className="tipo-cuerpo-menor text-ambar cierre-error">{errorGuardar}</p>}
+      {errorGuardar && <Fallo>{errorGuardar}</Fallo>}
 
       <BotonAvanzar onClick={avanzar} bloqueadoPor={bloqueo} cargando={guardando}>
         Continuar
