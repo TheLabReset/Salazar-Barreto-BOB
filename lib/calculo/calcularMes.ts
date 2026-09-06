@@ -14,6 +14,7 @@ import {
   CONCEPTO_AGUA,
   CONCEPTO_LUZ,
   DPTOS,
+  dpto,
   LAVADO,
   ORDEN_GASTOS,
   TOLERANCIA_M3,
@@ -21,6 +22,7 @@ import {
   toleranciaMes,
 } from './constantes'
 import { esMesId } from './mes'
+import { repartirIgual, repartirPorPeso } from './reparto'
 import { round2 } from './redondeo'
 import { revisarEntradas, revisarResultado, sumarMontos } from './sanidad'
 import type {
@@ -342,14 +344,47 @@ export function calcularMes(entradasCrudas: EntradasMes, ovCruda: Overrides = {}
   if (!insertadaAgua) gastos.push({ concepto: CONCEPTO_AGUA, monto: facturaAgua, esAgua: true })
   if (!insertadaLuz) gastos.push({ concepto: CONCEPTO_LUZ, monto: rec.luz })
 
-  // Gastos extraordinarios del paso 5: se suman al total y los pagan los siete.
-  for (const e of ov.extras ?? entradas.extras) {
+  // Gastos extraordinarios del paso 5. Todos se suman al total del mes. Cómo se
+  // reparten entre los vecinos depende del `reparto` de cada uno.
+  const extras = ov.extras ?? entradas.extras
+  const IDS = DPTOS.map((d) => d.id)
+  /** Los participantes de un extra: los que se declaran, o los siete. */
+  const participantesDe = (e: Extract<(typeof extras)[number], { tipo: 'gasto' }>): DptoId[] => {
+    const dados = (e.participantes ?? []).filter((p) => IDS.includes(p))
+    return dados.length ? dados : IDS
+  }
+  /** `true` si NO es el reparto por flat entre los siete (el camino de siempre). */
+  const esEspecial = (e: Extract<(typeof extras)[number], { tipo: 'gasto' }>): boolean =>
+    e.reparto === 'igual' || participantesDe(e).length < IDS.length
+
+  for (const e of extras) {
     if (e.tipo === 'gasto') gastos.push({ concepto: e.concepto, monto: e.monto, extra: true })
   }
 
+  /**
+   * Los extras especiales (partes iguales, o entre un subconjunto) se reparten
+   * aparte y **al céntimo exacto**, y por eso salen de la base del reparto por
+   * flat: si no, se cobrarían dos veces. Los extras normales —flat entre los
+   * siete— se quedan en `baseMant` y siguen el camino de siempre.
+   */
+  // `as`: se recorre `DPTOS`, que son exactamente las siete claves de `PorDpto`.
+  const porEspecial = Object.fromEntries(DPTOS.map((d) => [d.id, 0])) as PorDpto<number>
+  let sumaEspeciales = 0
+  for (const e of extras) {
+    if (e.tipo !== 'gasto' || !esEspecial(e)) continue
+    const entre = participantesDe(e)
+    const parte =
+      e.reparto === 'igual'
+        ? repartirIgual(e.monto, entre)
+        : repartirPorPeso(e.monto, entre, (d) => dpto(d).flat)
+    for (const d of entre) porEspecial[d] = round2(porEspecial[d] + (parte[d] ?? 0))
+    sumaEspeciales = round2(sumaEspeciales + e.monto)
+  }
+
   const totalMes = sumarMontos(gastos)
-  // El agua se saca de la base porque no se reparte por flat sino por consumo.
-  const baseMant = round2(totalMes - facturaAgua)
+  // De la base del reparto por flat se saca el agua (va por consumo) y los
+  // extras especiales (van por su propia regla, ya repartidos arriba).
+  const baseMant = round2(totalMes - facturaAgua - sumaEspeciales)
 
   // ── Créditos · §4.2 · salen del saldo de la cuenta, no de los demás vecinos
   const creditos: Partial<Record<DptoId, number>> = {}
@@ -368,7 +403,10 @@ export function calcularMes(entradasCrudas: EntradasMes, ovCruda: Overrides = {}
     // 591.43. Por eso se conserva la forma escrita del original y no se
     // "simplifica" a `round2`: `01` §9 dice que no se mueve ningún redondeo de
     // sitio, y aquí eso mueve dinero de verdad.
-    const mant = Math.round(baseMant * d.flat) / 100
+    const mantFlat = Math.round(baseMant * d.flat) / 100
+    // Su parte por flat, más lo que le toque de los extras especiales (partes
+    // iguales o entre un subconjunto), ya repartido al céntimo más arriba.
+    const mant = round2(mantFlat + porEspecial[d.id])
     /**
      * El crédito, a céntimos como todo lo que es plata.
      *

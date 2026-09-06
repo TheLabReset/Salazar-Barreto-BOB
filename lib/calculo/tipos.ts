@@ -58,12 +58,31 @@ export interface LineaGasto {
 }
 
 /**
+ * Cómo se reparte un gasto extraordinario.
+ * - `flat`: por metraje, como el mantenimiento (lo de siempre, y el defecto).
+ * - `igual`: en partes iguales entre los participantes.
+ */
+export type Reparto = 'flat' | 'igual'
+
+/**
  * Lo puntual del mes.
- * - `gasto` se suma a `totalMes` y lo pagan los siete por flat.
+ * - `gasto` se suma a `totalMes`. Por defecto lo pagan los siete por flat, pero
+ *   puede repartirse en partes iguales (`reparto: 'igual'`) y entre un
+ *   subconjunto (`participantes`): la cuota de la bomba de agua fue igual entre
+ *   los siete; el portón, igual entre seis sin el 101.
  * - `credito` se resta de la cuota de un departamento y sale del saldo de la cuenta.
  */
 export type Extra =
-  | { tipo: 'gasto'; concepto: string; monto: number; dpto?: null }
+  | {
+      tipo: 'gasto'
+      concepto: string
+      monto: number
+      dpto?: null
+      /** `'flat'` si se omite. */
+      reparto?: Reparto
+      /** Los deptos que lo pagan. Vacío u omitido = los siete. */
+      participantes?: readonly DptoId[]
+    }
   | { tipo: 'credito'; concepto?: string; monto: number; dpto: DptoId }
 
 /**

@@ -105,9 +105,22 @@ enum TipoExtra {
   @@map("tipo_extra")
 }
 
+/// Cómo se reparte un gasto extraordinario entre los vecinos.
+enum RepartoExtra {
+  /// Por metraje, como el mantenimiento. El defecto.
+  flat
+  /// En partes iguales entre los participantes.
+  igual
+
+  @@map("reparto_extra")
+}
+
 /// Lo puntual de un mes, del paso 5 del cierre.
 ///
-/// - `gasto` se suma al total y lo pagan los siete por flat.
+/// - `gasto` se suma al total. Por defecto lo pagan los siete por flat, pero
+///   `reparto` e `participantes` permiten repartirlo en partes iguales y entre
+///   un subconjunto: la cuota de la bomba de agua fue igual entre los siete; el
+///   portón, igual entre seis sin el 101.
 /// - `credito` se resta de la cuota de un departamento y **sale del saldo de la
 ///   cuenta**, no del bolsillo de los demás.
 model GastoExtra {
@@ -118,6 +131,10 @@ model GastoExtra {
   monto    Decimal   @db.Decimal(10, 2)
   /// Obligatorio si `tipo = credito`. Lo impone un CHECK en la migración.
   dptoId   String?   @db.VarChar(8)
+  /// Cómo se reparte un `gasto`. Se ignora para `credito`.
+  reparto      RepartoExtra @default(flat)
+  /// Los deptos que pagan un `gasto`. Vacío = los siete. Se ignora para `credito`.
+  participantes String[]
   creadoEn DateTime  @default(now())
 
   dpto Departamento? @relation(fields: [dptoId], references: [id], onDelete: Restrict)
